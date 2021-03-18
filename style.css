@@ -15,10 +15,20 @@ body {
   flex-direction: column;
   align-items: center;
 }
+/*------ HEADER  ------*/
+header{
+
+}
+header nav a{
+  color: #ffffff;
+  padding: 10px;
+  font-weight: 600px;
+  text-decoration: none;
+}
+/*------ MAIN ------*/
 main{  
   max-width: 104.8rem;
   width: 100%;
-  display: flex;
   flex: 1;
 }
 main .text{
@@ -35,6 +45,16 @@ main .text h3{
   font-weight: 300;
   color: white;
 }
+/*------ MAIN - REDES SOCIAIS ------*/
+main .links {
+  display: flex;
+  justify-content: center;
+  margin: 10px;
+}
+main .links a{
+  padding: 5px;
+}
+/*------ FOOTER ------*/
 footer {
   margin-bottom: 40px;
   color: white;
