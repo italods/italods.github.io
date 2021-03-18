@@ -39,16 +39,21 @@ main{
   max-width: 104.8rem;
   width: 100%;
   flex: 1;
-
-  display: flex;
+  
   align-items: center;
   justify-content: center;
 
 }
+main .container{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 70px 0;
+
+}
 main .text{
   margin-left: 20px;
-  text-transform: uppercase;
-  
+  text-transform: uppercase; 
 }
 main .text h1{
   letter-spacing: 6px;
@@ -59,6 +64,11 @@ main .text h3{
   letter-spacing: 3px;
   font-weight: 300;
   color: white;
+}
+main .conteudo{
+  padding: 70px 0;
+  text-align: center;
+  color: #ffffff;
 }
 
 
