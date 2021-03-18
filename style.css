@@ -7,6 +7,7 @@ body {
   background-color: #15161a;
   font-family: 'Poppins', sans-serif;
 }
+
 /*------WRAPPER------*/
 #wrapper {
   min-height: 100vh;
@@ -15,20 +16,24 @@ body {
   flex-direction: column;
   align-items: center;
 }
+
 /*------ HEADER  ------*/
 header{
-  padding: 15px;
+  padding: 30px;
 }
 header nav a{
-  color: #ffffff;
-  padding: 10px;
+  color: #a0a0a0;
+  padding: 0 30px;
+  font-size: 20px;
   font-weight: 600px;
   text-decoration: none;
-  padding: 0 30px;
+  letter-spacing: 0.5px;
 }
 header nav a:hover{
-  color: #8f8f8f;
+  color: #ffffff;
+  transition: 400ms;
 }
+
 /*------ MAIN ------*/
 main{  
   max-width: 104.8rem;
@@ -49,6 +54,10 @@ main .text h3{
   font-weight: 300;
   color: white;
 }
+
+
+
+
 /*------ MAIN - REDES SOCIAIS ------*/
 .links {
   display: flex;
@@ -62,14 +71,17 @@ main .text h3{
 footer {
   color: white;
   text-transform: uppercase;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: 2px;
-  font-family: 'Inter', sans-serif;
 }
 footer a {
-  color: #b3b3b3;
+  color: #a0a0a0;
   letter-spacing: 1px;
   text-decoration: none;
-  font-size: 14px;
+  font-size: 17px;
+}
+footer a:hover{
+  color: #c9c9c9;
+  transition: 400ms;
 }
