@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- FONTS GOOGLE-->
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;600&display=swap" rel="stylesheet">
+  <title>Italo Pereira</title>
+  <link rel="stylesheet" href="styles/style.css" />
+ 
+</head>
+<body>
+  <div id="wrapper">
+    <header>
+      <nav>
+        <a href="/index.html">Home</a>
+        <a href="/conversor-extenso.html">Conversor Num-Ext</a>
+        <a href="/linkwhatsapp.html">Conversor Num-Whats</a>
+      </nav>
+    </header>
+    <main>
+      <div class="container">
+        <div class="text">
+          <h1>ITALO PEREIRA</h1>
+          <h3>Developer</h3>
+        </div>   
+      </div>
+      <div class="conteudo">
+
+        <h2>WhatsApp Link Generator</h2>
+        <input type="text" id="phoneNumber" placeholder="Digite o número de telefone">
+        <button onclick="generateWhatsAppLink()">Gerar Link do WhatsApp</button>
+      
+        <script>
+          function generateWhatsAppLink() {
+            var phoneNumber = document.getElementById("phoneNumber").value;
+            // Verifica se o número de telefone contém apenas números
+            if (/^\d+$/.test(phoneNumber)) {
+              var whatsappLink = "https://wa.me/" + encodeURIComponent(phoneNumber);
+              window.open(whatsappLink, "_blank");
+              console.log(whatsappLink)
+            } else {
+              alert("Por favor, insira apenas números.");
+            }
+          }
+        </script>
+
+
+      </div>
+
+  </main>
+
+  <footer>Developed by <a href="https://github.com/italods/" title="Link to Github" target="_blank" >Italo Pereira</a></footer>
+
+  <div class="links">
+    <a href="https://www.linkedin.com/in/italods/" target="_blank"><img src="https://img.shields.io/badge/-italods-blue?style=social&logo=Linkedin&logoColor=blue&link=https://www.linkedin.com/in/italods/" alt="Linkedin"></a>
+    <a href="https://www.instagram.com/italods_/" target="_blank"><img src="https://img.shields.io/badge/-italods__-blue?style=social&logo=Instagram&link=https://www.instagram.com/italods_/" alt="Instagram"></a>
+    <a href="mailto:italopereira007@hotmail.com" target="_blank"><img src="https://img.shields.io/badge/-italopereira007@hotmail.com-white?style=social&logo=gmail&labelColor=black" alt="Email"></a>
+  </div>
+
+</body>
+</html>
+
+
+
