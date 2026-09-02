@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#111827">
+<title>Preenchedor de Cheques</title>
+
+<style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background: #f3f4f6;
+    color: #111827;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 12px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .header h1 {
+    font-size: 21px;
+    margin: 0;
+    font-weight: 800;
+  }
+
+  .header p {
+    margin: 3px 0 0;
+    color: #6b7280;
+    font-size: 12px;
+  }
+
+  .card {
+    background: white;
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 5px;
+  }
+
+  .money-input {
+    position: relative;
+  }
+
+  .money-input span {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-weight: 700;
+    color: #6b7280;
+    font-size: 14px;
+  }
+
+  input {
+    width: 100%;
+    height: 44px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    background: #fff;
+    padding: 0 12px;
+    font-size: 17px;
+    outline: none;
+    color: #111827;
+  }
+
+  .money-input input {
+    padding-left: 39px;
+    font-weight: 700;
+  }
+
+  input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+  }
+
+  .section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 7px;
+  }
+
+  .section-title label {
+    margin: 0;
+  }
+
+  .prazo-row {
+    display: flex;
+    gap: 7px;
+    margin-bottom: 7px;
+  }
+
+  .prazo-row input {
+    height: 40px;
+    font-size: 15px;
+    text-align: center;
+    flex: 1;
+  }
+
+  .remove-btn {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 9px;
+    background: #fee2e2;
+    color: #dc2626;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .add-btn {
+    width: 100%;
+    height: 38px;
+    border: 1px dashed #9ca3af;
+    border-radius: 9px;
+    background: #f9fafb;
+    color: #374151;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .calculate-btn {
+    width: 100%;
+    height: 47px;
+    border: 0;
+    border-radius: 11px;
+    background: #111827;
+    color: white;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    margin-top: 3px;
+  }
+
+  .calculate-btn:active {
+    transform: scale(.99);
+  }
+
+  .resultado-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .resultado-header h2 {
+    margin: 0;
+    font-size: 16px;
+  }
+
+  .copy-btn {
+    border: 0;
+    background: #e5e7eb;
+    color: #111827;
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .cheque {
+    border: 1px solid #e5e7eb;
+    border-radius: 11px;
+    padding: 11px;
+    margin-bottom: 8px;
+    background: #fafafa;
+  }
+
+  .cheque:last-child {
+    margin-bottom: 0;
+  }
+
+  .cheque-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+
+  .cheque-numero {
+    font-size: 11px;
+    font-weight: 800;
+    color: #6b7280;
+    text-transform: uppercase;
+  }
+
+  .cheque-valor {
+    font-size: 19px;
+    font-weight: 900;
+  }
+
+  .extenso {
+    font-size: 12px;
+    line-height: 1.35;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin: 5px 0 8px;
+  }
+
+  .data {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #e5e7eb;
+    padding: 5px 8px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .resumo {
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 9px;
+    padding-top: 9px;
+    font-size: 12px;
+    color: #6b7280;
+  }
+
+  .resumo strong {
+    color: #111827;
+  }
+
+  .vazio {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 13px;
+    padding: 12px 0;
+  }
+
+  .erro {
+    color: #dc2626;
+    background: #fef2f2;
+    border-radius: 9px;
+    padding: 9px;
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    display: none;
+  }
+
+  @media (max-width: 380px) {
+    .app {
+      padding: 9px;
+    }
+
+    .card {
+      padding: 11px;
+    }
+
+    .header h1 {
+      font-size: 19px;
+    }
+
+    input {
+      height: 42px;
+    }
+
+    .cheque {
+      padding: 9px;
+    }
+
+    .cheque-valor {
+      font-size: 18px;
+    }
+
+    .extenso {
+      font-size: 11px;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <div class="header">
+    <h1>🧾 Preenchedor de Cheques</h1>
+    <p>Informe o valor e os prazos dos pagamentos</p>
+  </div>
+
+  <div class="card">
+
+    <label for="valor">Valor total do pedido</label>
+
+    <div class="money-input">
+      <span>R$</span>
+      <input
+        id="valor"
+        type="text"
+        inputmode="decimal"
+        placeholder="0,00"
+        autocomplete="off"
+      >
+    </div>
+
+    <div style="height:12px"></div>
+
+    <div class="section-title">
+      <label>Prazos dos cheques</label>
+      <span id="contador" style="font-size:11px;color:#6b7280;">1 cheque</span>
+    </div>
+
+    <div id="prazos"></div>
+
+    <button class="add-btn" onclick="adicionarPrazo()">
+      ＋ Adicionar prazo
+    </button>
+
+    <div id="erro" class="erro"></div>
+
+    <button class="calculate-btn" onclick="calcular()">
+      CALCULAR CHEQUES
+    </button>
+
+  </div>
+
+  <div class="card" id="resultadoCard">
+
+    <div class="resultado-header">
+      <h2>Resultado</h2>
+      <button class="copy-btn" onclick="copiarTudo()">
+        📋 Copiar
+      </button>
+    </div>
+
+    <div id="resultado">
+      <div class="vazio">
+        Informe o valor e os prazos para calcular.
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+
+let contadorPrazos = 0;
+
+/* =========================
+   PRAZOS
+========================= */
+
+function adicionarPrazo(valor = "") {
+
+  contadorPrazos++;
+
+  const container = document.getElementById("prazos");
+
+  const row = document.createElement("div");
+  row.className = "prazo-row";
+  row.id = "prazo-" + contadorPrazos;
+
+  row.innerHTML = `
+    <input
+      type="number"
+      min="0"
+      step="1"
+      placeholder="Dias"
+      value="${valor}"
+      class="prazo-input"
+      onkeydown="enterCalcula(event)"
+    >
+
+    <button
+      class="remove-btn"
+      onclick="removerPrazo(${contadorPrazos})"
+      title="Remover"
+    >×</button>
+  `;
+
+  container.appendChild(row);
+
+  atualizarContador();
+
+  row.querySelector("input").focus();
+}
+
+
+function removerPrazo(id) {
+
+  const row = document.getElementById("prazo-" + id);
+
+  if (row) {
+    row.remove();
+  }
+
+  atualizarContador();
+}
+
+
+function atualizarContador() {
+
+  const quantidade =
+    document.querySelectorAll(".prazo-input").length;
+
+  document.getElementById("contador").textContent =
+    quantidade === 1
+      ? "1 cheque"
+      : quantidade + " cheques";
+}
+
+
+/* =========================
+   MOEDA
+========================= */
+
+function converterValor(valor) {
+
+  if (!valor) return 0;
+
+  valor = valor
+    .replace(/\s/g, "")
+    .replace("R$", "");
+
+  /*
+    Aceita:
+    2950
+    2950,00
+    2.950,00
+    2.950
+  */
+
+  if (valor.includes(",")) {
+
+    valor = valor.replace(/\./g, "");
+    valor = valor.replace(",", ".");
+
+  } else {
+
+    /*
+      Se não houver vírgula,
+      entende como número inteiro.
+    */
+
+    valor = valor.replace(/\./g, "");
+  }
+
+  const numero = parseFloat(valor);
+
+  return isNaN(numero) ? 0 : numero;
+}
+
+
+function formatarMoeda(valor) {
+
+  return valor.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  });
+}
+
+
+document.getElementById("valor").addEventListener("input", function(e) {
+
+  let valor = e.target.value;
+
+  valor = valor.replace(/[^\d,]/g, "");
+
+  const partes = valor.split(",");
+
+  if (partes.length > 2) {
+    valor = partes[0] + "," + partes.slice(1).join("");
+  }
+
+  if (partes[1]) {
+    valor =
+      partes[0] +
+      "," +
+      partes[1].substring(0, 2);
+  }
+
+  e.target.value = valor;
+});
+
+
+/* =========================
+   EXTENSO
+========================= */
+
+const unidades = [
+  "",
+  "um",
+  "dois",
+  "três",
+  "quatro",
+  "cinco",
+  "seis",
+  "sete",
+  "oito",
+  "nove"
+];
+
+const dezADezenove = [
+  "dez",
+  "onze",
+  "doze",
+  "treze",
+  "quatorze",
+  "quinze",
+  "dezesseis",
+  "dezessete",
+  "dezoito",
+  "dezenove"
+];
+
+const dezenas = [
+  "",
+  "",
+  "vinte",
+  "trinta",
+  "quarenta",
+  "cinquenta",
+  "sessenta",
+  "setenta",
+  "oitenta",
+  "noventa"
+];
+
+const centenas = [
+  "",
+  "cento",
+  "duzentos",
+  "trezentos",
+  "quatrocentos",
+  "quinhentos",
+  "seiscentos",
+  "setecentos",
+  "oitocentos",
+  "novecentos"
+];
+
+
+function numeroAte999(n) {
+
+  n = Math.floor(n);
+
+  if (n === 0) return "";
+
+  if (n === 100) return "cem";
+
+  let texto = "";
+
+  const c = Math.floor(n / 100);
+  const resto = n % 100;
+
+  if (c > 0) {
+    texto += centenas[c];
+  }
+
+  if (resto > 0) {
+
+    if (texto) texto += " e ";
+
+    if (resto < 10) {
+
+      texto += unidades[resto];
+
+    } else if (resto < 20) {
+
+      texto += dezADezenove[resto - 10];
+
+    } else {
+
+      const d = Math.floor(resto / 10);
+      const u = resto % 10;
+
+      texto += dezenas[d];
+
+      if (u > 0) {
+        texto += " e " + unidades[u];
+      }
+    }
+  }
+
+  return texto;
+}
+
+
+function numeroPorExtenso(numero) {
+
+  numero = Math.round(numero * 100) / 100;
+
+  const reais = Math.floor(numero);
+  const centavos = Math.round((numero - reais) * 100);
+
+  if (reais === 0 && centavos === 0) {
+    return "zero reais";
+  }
+
+  let texto = "";
+
+  if (reais > 0) {
+
+    if (reais >= 1000000000) {
+
+      const bilhoes = Math.floor(reais / 1000000000);
+      const resto = reais % 1000000000;
+
+      texto += numeroPorExtensoInteiro(bilhoes);
+
+      texto += bilhoes === 1
+        ? " bilhão"
+        : " bilhões";
+
+      if (resto > 0) {
+        texto += resto < 100 ? " e " : " ";
+        texto += numeroPorExtensoInteiro(resto);
+      }
+
+    } else {
+
+      texto += numeroPorExtensoInteiro(reais);
+    }
+
+    texto += reais === 1 ? " real" : " reais";
+  }
+
+  if (centavos > 0) {
+
+    if (reais > 0) {
+      texto += " e ";
+    }
+
+    texto += numeroPorExtensoInteiro(centavos);
+
+    texto += centavos === 1
+      ? " centavo"
+      : " centavos";
+  }
+
+  return texto;
+}
+
+
+function numeroPorExtensoInteiro(n) {
+
+  if (n === 0) return "zero";
+
+  let partes = [];
+
+  const milhoes = Math.floor(n / 1000000);
+  const restoMilhoes = n % 1000000;
+
+  if (milhoes > 0) {
+
+    partes.push(numeroPorExtensoInteiro(milhoes));
+
+    partes.push(
+      milhoes === 1
+        ? "milhão"
+        : "milhões"
+    );
+  }
+
+  const milhares = Math.floor(restoMilhoes / 1000);
+  const restoMilhares = restoMilhoes % 1000;
+
+  if (milhares > 0) {
+
+    if (milhares === 1) {
+      partes.push("mil");
+    } else {
+      partes.push(numeroAte999(milhares) + " mil");
+    }
+  }
+
+  if (restoMilhares > 0) {
+    partes.push(numeroAte999(restoMilhares));
+  }
+
+  /*
+    Corrige algumas junções.
+  */
+
+  return juntarExtenso(partes);
+}
+
+
+function juntarExtenso(partes) {
+
+  if (partes.length === 1) {
+    return partes[0];
+  }
+
+  if (partes.length === 2) {
+
+    return partes.join(" e ");
+  }
+
+  return partes.join(" ");
+}
+
+
+/* =========================
+   DATA
+========================= */
+
+function adicionarDias(data, dias) {
+
+  const novaData = new Date(data);
+
+  novaData.setDate(
+    novaData.getDate() + dias
+  );
+
+  return novaData;
+}
+
+
+function formatarData(data) {
+
+  return data.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  });
+}
+
+
+/* =========================
+   CALCULAR
+========================= */
+
+function calcular() {
+
+  esconderErro();
+
+  const valor = converterValor(
+    document.getElementById("valor").value
+  );
+
+  const inputs =
+    document.querySelectorAll(".prazo-input");
+
+  const prazos = [];
+
+  inputs.forEach(input => {
+
+    const prazo = parseInt(input.value);
+
+    if (!isNaN(prazo) && prazo >= 0) {
+      prazos.push(prazo);
+    }
+  });
+
+
+  if (valor <= 0) {
+    mostrarErro("Informe um valor válido.");
+    return;
+  }
+
+
+  if (prazos.length === 0) {
+    mostrarErro("Informe pelo menos um prazo.");
+    return;
+  }
+
+
+  /*
+    Trabalhamos em centavos para evitar
+    problemas de arredondamento.
+  */
+
+  const totalCentavos =
+    Math.round(valor * 100);
+
+  const quantidade = prazos.length;
+
+  const valorBase =
+    Math.floor(totalCentavos / quantidade);
+
+  const resto =
+    totalCentavos % quantidade;
+
+
+  /*
+    A data base é SEMPRE hoje.
+  */
+
+  const hoje = new Date();
+
+  hoje.setHours(0, 0, 0, 0);
+
+
+  let html = "";
+
+  let textoCopiar = "";
+
+  let soma = 0;
+
+
+  prazos.forEach((prazo, index) => {
+
+    /*
+      Distribui os centavos restantes
+      nos primeiros cheques.
+    */
+
+    const centavos =
+      valorBase + (index < resto ? 1 : 0);
+
+    soma += centavos;
+
+    const valorParcela =
+      centavos / 100;
+
+    const vencimento =
+      adicionarDias(hoje, prazo);
+
+    const extenso =
+      numeroPorExtenso(valorParcela);
+
+
+    html += `
+      <div class="cheque">
+
+        <div class="cheque-top">
+
+          <div class="cheque-numero">
+            Cheque ${String(index + 1).padStart(2, "0")}
+          </div>
+
+          <div class="cheque-valor">
+            ${formatarMoeda(valorParcela)}
+          </div>
+
+        </div>
+
+        <div class="extenso">
+          ${extenso}
+        </div>
+
+        <div class="data">
+          📅 ${formatarData(vencimento)}
+          <span>•</span>
+          ${prazo} ${prazo === 1 ? "dia" : "dias"}
+        </div>
+
+      </div>
+    `;
+
+
+    textoCopiar +=
+      `CHEQUE ${String(index + 1).padStart(2, "0")}\n` +
+      `Valor: ${formatarMoeda(valorParcela)}\n` +
+      `Por extenso: ${extenso.toUpperCase()}\n` +
+      `Vencimento: ${formatarData(vencimento)} (${prazo} dias)\n\n`;
+  });
+
+
+  html += `
+    <div class="resumo">
+      <span>Total</span>
+      <strong>${formatarMoeda(soma / 100)}</strong>
+    </div>
+  `;
+
+
+  document.getElementById("resultado").innerHTML = html;
+
+  window.textoCopiar = textoCopiar.trim();
+
+  document.getElementById("resultadoCard")
+    .scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+}
+
+
+/* =========================
+   COPIAR
+========================= */
+
+function copiarTudo() {
+
+  if (!window.textoCopiar) {
+    return;
+  }
+
+  navigator.clipboard.writeText(
+    window.textoCopiar
+  ).then(() => {
+
+    const btn =
+      document.querySelector(".copy-btn");
+
+    const original = btn.textContent;
+
+    btn.textContent = "✓ Copiado";
+
+    setTimeout(() => {
+      btn.textContent = original;
+    }, 1500);
+
+  }).catch(() => {
+
+    alert("Não foi possível copiar.");
+
+  });
+}
+
+
+/* =========================
+   ERROS
+========================= */
+
+function mostrarErro(mensagem) {
+
+  const erro =
+    document.getElementById("erro");
+
+  erro.textContent = mensagem;
+  erro.style.display = "block";
+}
+
+
+function esconderErro() {
+
+  document.getElementById("erro")
+    .style.display = "none";
+}
+
+
+/* =========================
+   ENTER
+========================= */
+
+function enterCalcula(event) {
+
+  if (event.key === "Enter") {
+    calcular();
+  }
+}
+
+
+/* =========================
+   INICIALIZAÇÃO
+========================= */
+
+adicionarPrazo();
+
+
+/*
+  Exemplo:
+  Valor: 2950
+  Prazo: 30 / 45
+
+  Resultado:
+  1475,00 - data +30 dias
+  1475,00 - data +45 dias
+*/
+
+</script>
+
+</body>
+</html>

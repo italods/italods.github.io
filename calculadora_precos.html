@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#111827">
+<title>Calculadora de Preços</title>
+<script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=AxfKKeimuDEkeKStS8nz4CQMvECz4IhDR4_VyH8CHFZfIheO4MHF7TMl5Dyt0MTqTWY0kV3zZAuBkWF826RdTTrvgWT9GQhB9ogg7Wqg81H6ramSsRN9DOtDLpvdx_mWcWmUA3zzZ9jc6lnzTvFRYRHIglaU98YgtLpUvrOgrY_h2Yvo156zonUwAcGaisGZ0A5a54vcTpcG2j-_1BAvam_XA1dvLRewUV2BYn6_ym-sA-suA_vTMuy3gjFRBcL4UWG1simAAviijQVUflsXNJwUxpse9oB7uB6M-mjWe3mXsZLc5B8cbT1VB9VtNRYqUTAe2YROn2K8lCHoY691fg" charset="UTF-8"></script><style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #f3f4f6;
+    color: #111827;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .app {
+    width: min(100%, 520px);
+    margin: 0 auto;
+    padding: 8px;
+  }
+  .header {
+    background: #111827;
+    color: white;
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.10);
+  }
+  .header h1 { margin: 0; font-size: 18px; }
+  .header p { margin: 2px 0 0; color: #d1d5db; font-size: 10px; }
+  .card {
+    background: white;
+    border-radius: 13px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    box-shadow: 0 3px 14px rgba(0,0,0,.06);
+  }
+  .section-title {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #6b7280;
+    margin-bottom: 7px;
+  }
+  .toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+  .toggle input { display: none; }
+  .toggle label {
+    border: 1.5px solid #d1d5db;
+    border-radius: 9px;
+    padding: 7px 5px;
+    text-align: center;
+    font-weight: 700;
+    cursor: pointer;
+    background: #fff;
+    color: #374151;
+  }
+  .toggle input:checked + label {
+    border-color: #111827;
+    background: #111827;
+    color: white;
+  }
+  .field-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #4b5563;
+    margin: 7px 0 4px;
+  }
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    border: 1.5px solid #d1d5db;
+    border-radius: 9px;
+    padding: 8px 10px;
+    font-size: 19px;
+    font-weight: 750;
+    outline: none;
+    background: #fff;
+    color: #111827;
+  }
+  input:focus { border-color: #111827; box-shadow: 0 0 0 2px rgba(17,24,39,.08); }
+  .unit-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 5px;
+  }
+  .hidden { display: none !important; }
+  .calc-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .calc-line:last-child { border-bottom: 0; }
+  .calc-line span:first-child { color: #6b7280; font-size: 11px; }
+  .calc-line strong { font-size: 13px; }
+  .highlight {
+    background: #f9fafb;
+    border-radius: 14px;
+    padding: 7px 10px;
+    margin-top: 5px;
+  }
+  .highlight .big {
+    font-size: 21px;
+    font-weight: 850;
+    margin-top: 2px;
+  }
+  .price-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    margin-top: 6px;
+  }
+  .price-box {
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 7px 5px;
+    text-align: center;
+    background: #fff;
+  }
+  .price-box .markup { font-size: 10px; color: #6b7280; font-weight: 800; }
+  .price-box .price { font-size: 16px; font-weight: 850; margin-top: 5px; }
+  .comparison {
+    margin-top: 6px;
+    display: grid;
+    gap: 5px;
+  }
+  .compare-row {
+    border-radius: 10px;
+    padding: 7px 9px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+  }
+  .compare-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .compare-price { font-size: 15px; font-weight: 850; }
+  .badge {
+    padding: 3px 6px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .badge.good { background: #dcfce7; color: #166534; }
+  .badge.bad { background: #fee2e2; color: #991b1b; }
+  .badge.equal { background: #e5e7eb; color: #374151; }
+  .difference {
+    font-size: 10px;
+    margin-top: 3px;
+    color: #4b5563;
+  }
+  .difference strong { color: #111827; }
+  .empty-note {
+    font-size: 13px;
+    color: #9ca3af;
+    text-align: center;
+    padding: 4px 0 1px;
+  }
+  .settings {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+  }
+  .settings input {
+    font-size: 15px;
+    padding: 6px 5px;
+    text-align: center;
+  }
+  .small-note { font-size: 11px; color: #9ca3af; margin-top: 8px; line-height: 1.4; }
+  .reset {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: #6b7280;
+    padding: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  @media (max-width: 360px) {
+    .price-box .price { font-size: 16px; }
+    .app { padding: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <h1>Calculadora de Preços</h1>
+    <p>Preço de compra → custo unitário → markup → comparação</p>
+  </header>
+
+  <section class="card">
+    <div class="section-title">1. Compra</div>
+
+    <div class="field-label">Nota fiscal</div>
+    <div class="toggle">
+      <input type="radio" name="nota" id="semNota" value="0" checked>
+      <label for="semNota">Sem nota</label>
+      <input type="radio" name="nota" id="comNota" value="8">
+      <label for="comNota">Com nota +8%</label>
+    </div>
+
+    <label class="field-label" for="preco">Preço informado pelo vendedor</label>
+    <input id="preco" type="text" inputmode="decimal" placeholder="R$ 0,00" autocomplete="off">
+
+    <div class="field-label">Preço é...</div>
+    <div class="toggle">
+      <input type="radio" name="tipo" id="unidade" value="unidade" checked>
+      <label for="unidade">Unidade</label>
+      <input type="radio" name="tipo" id="caixa" value="caixa">
+      <label for="caixa">Caixa</label>
+    </div>
+
+    <div id="quantidadeArea" class="hidden">
+      <label class="field-label" for="quantidade">Quantidade por caixa</label>
+      <input id="quantidade" type="number" inputmode="numeric" min="1" step="1" placeholder="Ex.: 20">
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">2. Custo</div>
+
+    <div id="notaDetalhes" class="hidden">
+      <div class="calc-line"><span>Preço informado</span><strong id="outPreco">R$ 0,00</strong></div>
+      <div class="calc-line"><span>Imposto (8%)</span><strong id="outImposto">R$ 0,00</strong></div>
+    </div>
+
+    <div class="highlight">
+      <div class="field-label" style="margin:0;">Custo por unidade</div>
+      <div class="big" id="outUnitario">R$ 0,00</div>
+    </div>
+
+    <div id="impostoInfo" class="small-note hidden">O imposto é mostrado separadamente e <strong>não é somado ao custo da mercadoria</strong>. Ele é descontado do markup na formação do preço.</div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">3. Preços por markup</div>
+    <div class="price-grid">
+      <div class="price-box">
+        <div class="markup" id="label1">30%</div>
+        <div class="price" id="markup1">R$ 0,00</div>
+      </div>
+      <div class="price-box">
+        <div class="markup" id="label2">35%</div>
+        <div class="price" id="markup2">R$ 0,00</div>
+      </div>
+      <div class="price-box">
+        <div class="markup" id="label3">40%</div>
+        <div class="price" id="markup3">R$ 0,00</div>
+      </div>
+    </div>
+    <div class="small-note">
+      Markup é calculado sobre o custo. Ex.: custo de R$ 2,00 com markup de 30% = R$ 2,60.
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">4. Preço da gôndola</div>
+    <input id="gondola" type="text" inputmode="decimal" placeholder="Opcional: R$ 0,00" autocomplete="off">
+
+    <div id="comparacao" class="comparison hidden"></div>
+    <div id="semComparacao" class="empty-note">Digite o preço da gôndola para comparar.</div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">Markups padrão</div>
+    <div class="settings">
+      <input id="config1" type="number" inputmode="decimal" min="0" step="0.01" value="30">
+      <input id="config2" type="number" inputmode="decimal" min="0" step="0.01" value="35">
+      <input id="config3" type="number" inputmode="decimal" min="0" step="0.01" value="40">
+    </div>
+    <div class="small-note">Você pode alterar os três percentuais. Eles ficam salvos neste navegador.</div>
+  </section>
+
+  <button class="reset" id="limpar">Limpar cálculo</button>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+
+  const precoEl = $("preco");
+  const qtdEl = $("quantidade");
+  const gondolaEl = $("gondola");
+  const configEls = [$("config1"), $("config2"), $("config3")];
+
+  function parseMoney(value) {
+    if (value === null || value === undefined || value === "") return 0;
+    let s = String(value).replace(/[^0-9]/g, "");
+    if (!s) return 0;
+    return Number(s) / 100;
+  }
+
+  // Digite apenas os números: 200 -> R$ 2,00 | 1999 -> R$ 19,99
+  function formatMoneyTyping(el) {
+    const digits = String(el.value).replace(/\D/g, "");
+    if (!digits) {
+      el.value = "";
+      return;
+    }
+    const value = Number(digits) / 100;
+    el.value = value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function money(value) {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL"
+    }).format(Number.isFinite(value) ? value : 0);
+  }
+
+  function percent(value) {
+    return new Intl.NumberFormat("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value) + "%";
+  }
+
+  function getNota() {
+    return document.querySelector('input[name="nota"]:checked').value === "8" ? 8 : 0;
+  }
+
+  function getTipo() {
+    return document.querySelector('input[name="tipo"]:checked').value;
+  }
+
+  function getMarkups() {
+    return configEls.map(el => {
+      const n = parseFloat(el.value);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    });
+  }
+
+  function update() {
+    const preco = parseMoney(precoEl.value);
+    const impostoPercent = getNota();
+    const impostoCompra = preco * impostoPercent / 100;
+
+    const tipo = getTipo();
+    const qtd = Math.max(1, parseFloat(qtdEl.value) || 1);
+
+    // O imposto nunca entra no custo unitário.
+    const unitario = tipo === "caixa" ? preco / qtd : preco;
+    const impostoUnitario = tipo === "caixa" ? impostoCompra / qtd : impostoCompra;
+
+    $("outPreco").textContent = money(preco);
+    $("outImposto").textContent = money(impostoCompra);
+    $("outUnitario").textContent = money(unitario);
+    $("notaDetalhes").classList.toggle("hidden", impostoPercent === 0);
+    $("impostoInfo").classList.toggle("hidden", impostoPercent === 0);
+
+    const markups = getMarkups();
+    // Com nota, os 8% são descontados do markup.
+    const prices = markups.map(m => unitario * (1 + (m - impostoPercent) / 100));
+
+    prices.forEach((price, i) => {
+      $("label" + (i + 1)).textContent = markups[i].toLocaleString("pt-BR") + "%";
+      $("markup" + (i + 1)).textContent = money(price);
+    });
+
+    const gondola = parseMoney(gondolaEl.value);
+    const comparacao = $("comparacao");
+    const semComparacao = $("semComparacao");
+
+    if (gondola > 0 && unitario > 0) {
+      comparacao.innerHTML = "";
+      prices.forEach((price, i) => {
+        const diff = price - gondola;
+        const diffPercent = gondola ? (diff / gondola) * 100 : 0;
+        const epsilon = 0.005;
+
+        let badgeClass = "equal";
+        let badgeText = "Mesmo preço";
+        if (diff < -epsilon) {
+          badgeClass = "good";
+          badgeText = "Mais barato";
+        } else if (diff > epsilon) {
+          badgeClass = "bad";
+          badgeText = "Mais caro";
+        }
+
+        const row = document.createElement("div");
+        row.className = "compare-row";
+        row.innerHTML = `
+          <div class="compare-top">
+            <strong>${markups[i].toLocaleString("pt-BR")}% de markup</strong>
+            <span class="badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <div class="compare-price">${money(price)}</div>
+          <div class="difference">
+            Gôndola: ${money(gondola)} ·
+            <strong>${diff >= 0 ? "+" : ""}${money(diff)}</strong>
+            (${diffPercent >= 0 ? "+" : ""}${percent(diffPercent)})
+          </div>
+        `;
+        comparacao.appendChild(row);
+      });
+      comparacao.classList.remove("hidden");
+      semComparacao.classList.add("hidden");
+    } else {
+      comparacao.classList.add("hidden");
+      semComparacao.classList.remove("hidden");
+    }
+
+    localStorage.setItem("markupConfig", JSON.stringify(markups));
+  }
+
+
+  document.querySelectorAll('input[name="nota"], input[name="tipo"]').forEach(el => {
+    el.addEventListener("change", () => {
+      $("quantidadeArea").classList.toggle("hidden", getTipo() !== "caixa");
+      update();
+    });
+  });
+
+  [precoEl, gondolaEl].forEach(el => {
+    el.addEventListener("input", () => {
+      formatMoneyTyping(el);
+      update();
+    });
+  });
+
+  [qtdEl, ...configEls].forEach(el => {
+    el.addEventListener("input", update);
+  });
+
+  try {
+    const saved = JSON.parse(localStorage.getItem("markupConfig") || "null");
+    if (Array.isArray(saved) && saved.length === 3) {
+      saved.forEach((v, i) => {
+        if (Number.isFinite(Number(v))) configEls[i].value = v;
+      });
+    }
+  } catch (_) {}
+
+  $("limpar").addEventListener("click", () => {
+    precoEl.value = "";
+    qtdEl.value = "";
+    gondolaEl.value = "";
+    $("unidade").checked = true;
+    $("semNota").checked = true;
+    $("quantidadeArea").classList.add("hidden");
+    update();
+    precoEl.focus();
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>
