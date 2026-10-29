@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="color-scheme" content="light" />
+  <title>Plaquinhas · Veneza Escuta</title>
+  <style>
+    :root {
+      --verde: #123E30;
+      --verde-2: #267357;
+      --dourado: #b8913e;   /* trocar pelo tom exato da logo */
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0;
+      background: #e9ecea;
+      color: #17201c;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* ---------- Barra de controle (não sai na impressão) ---------- */
+    .controle {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 16px;
+      background: #fff;
+      border-bottom: 1px solid #d5dbd8;
+    }
+    .controle h1 { font-size: 1rem; margin: 0 auto 0 0; }
+    .controle select, .controle button, .controle a {
+      min-height: 44px;
+      padding: 8px 14px;
+      font: inherit;
+      font-weight: 600;
+      border: 1px solid #d5dbd8;
+      border-radius: 8px;
+      background: #fff;
+      color: inherit;
+      text-decoration: none;
+      display: inline-grid;
+      place-items: center;
+    }
+    .controle .imprimir { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .aviso { margin: 12px 16px 0; padding: 10px 14px; border-radius: 8px; background: #fff4d6; color: #6b4a00; font-weight: 600; }
+    .estado { text-align: center; padding: 40px 16px; color: #5b6863; }
+
+    /* ---------- Folhas ---------- */
+    .folhas { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 16px; }
+    .folha {
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, .12);
+      display: grid;
+    }
+    .folha.a4 { width: 210mm; height: 297mm; grid-template-columns: 105mm 105mm; grid-template-rows: 148.5mm 148.5mm; }
+    .folha.a6 { width: 105mm; height: 148mm; }
+    .folha.a4 .plaquinha { outline: .2mm dashed #c9d1cd; outline-offset: -.1mm; }
+
+    /* ---------- Plaquinha (A6: 105 x 148 mm) ---------- */
+    .plaquinha {
+      width: 105mm;
+      height: 148mm;
+      padding: 7mm 8mm 6mm;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      text-align: center;
+      overflow: hidden;
+      background: #fff;
+    }
+    .p-logo { height: 15mm; display: flex; align-items: center; justify-content: center; }
+    .p-logo img { max-height: 15mm; max-width: 60mm; }
+    .p-marca { color: var(--verde); font-weight: 800; font-size: 17pt; letter-spacing: .08em; line-height: 1; }
+    .p-marca small { display: block; color: var(--dourado); font-size: 6.5pt; letter-spacing: .35em; margin-bottom: 1.2mm; }
+    .p-titulo {
+      margin: 0;
+      color: var(--verde);
+      font-size: 21pt;
+      line-height: 1.02;
+      font-weight: 900;
+      letter-spacing: -.01em;
+    }
+    .p-titulo span { color: var(--verde-2); }
+    .p-texto { margin: 0; font-size: 9pt; line-height: 1.3; color: #33413b; max-width: 78mm; }
+    .p-icones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; width: 100%; }
+    .p-icone { display: flex; flex-direction: column; align-items: center; gap: 1.2mm; font-size: 7pt; font-weight: 700; color: var(--verde); }
+    .p-icone i {
+      width: 10mm;
+      height: 10mm;
+      border-radius: 50%;
+      background: var(--verde-2);
+      display: grid;
+      place-items: center;
+    }
+    .p-icone svg { width: 5.5mm; height: 5.5mm; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .p-qr {
+      width: 40mm;
+      height: 40mm;
+      padding: 1.5mm;
+      border: .6mm solid var(--verde);
+      border-radius: 3mm;
+      background: #fff;
+    }
+    .p-qr svg { width: 100%; height: 100%; display: block; }
+    .p-chamada {
+      width: 100%;
+      margin: 0;
+      padding: 2.4mm 3mm;
+      border-radius: 2.5mm;
+      background: var(--verde);
+      color: #fff;
+      font-size: 9pt;
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+    .p-chamada b { color: #e9d39b; }
+    .p-frase { margin: 0; font-size: 9pt; font-weight: 700; font-style: italic; color: var(--verde-2); }
+    .p-origem { margin: 0; font-size: 6pt; color: #7a8781; }
+    .p-teste { color: #b42318; font-weight: 800; }
+
+    @media print {
+      body { background: #fff; }
+      .controle, .aviso, .estado { display: none !important; }
+      .folhas { padding: 0; gap: 0; display: block; }
+      .folha { box-shadow: none; break-after: page; page-break-after: always; }
+      .folha:last-child { break-after: auto; page-break-after: auto; }
+    }
+    @media screen and (max-width: 840px) {
+      .folhas { zoom: .45; }
+    }
+  </style>
+  <style id="estilo-pagina">@page { size: A4; margin: 0; }</style>
+</head>
+<body>
+  <div class="controle">
+    <h1>Plaquinhas do Veneza Escuta</h1>
+    <label>Papel
+      <select id="papel">
+        <option value="a4">A4 (4 por folha)</option>
+        <option value="a6">A6 (1 por folha)</option>
+      </select>
+    </label>
+    <button type="button" class="imprimir" id="imprimir" disabled>Imprimir / salvar PDF</button>
+    <a href="./#escuta-plaquinhas" id="voltar">Voltar</a>
+  </div>
+  <p class="aviso" id="aviso" hidden></p>
+  <p class="estado" id="estado">Carregando…</p>
+  <div class="folhas" id="folhas"></div>
+
+  <template id="modelo">
+    <article class="plaquinha">
+      <div class="p-logo"></div>
+      <h2 class="p-titulo">SENTIU FALTA<br><span>DE ALGO?</span></h2>
+      <p class="p-texto">Não encontrou um produto ou quer deixar uma crítica ou sugestão?</p>
+      <div class="p-icones">
+        <span class="p-icone"><i><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M8.5 11h5"/></svg></i>Faltou produto</span>
+        <span class="p-icone"><i><svg viewBox="0 0 24 24"><path d="M21 12a8.5 8.5 0 0 1-12.6 7.4L3 21l1.6-5.4A8.5 8.5 0 1 1 21 12z"/></svg></i>Crítica</span>
+        <span class="p-icone"><i><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg></i>Sugestão</span>
+      </div>
+      <div class="p-qr"></div>
+      <p class="p-chamada">APONTE A CÂMERA E <b>CONTE PRA GENTE</b></p>
+      <p class="p-frase">Sua opinião nos ajuda a melhorar!</p>
+      <p class="p-origem"></p>
+    </article>
+  </template>
+
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+  <script src="js/calculos.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/escuta-db.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var CFG = window.VENEZA_CONFIG.ESCUTA || {};
+    var params = new URLSearchParams(location.search);
+    var DEMO = params.get("demo") === "1";
+    var ids = (params.get("ids") || "").split(",").filter(Boolean);
+    var lista = [];
+    var logoOk = false;
+
+    function $(id) { return document.getElementById(id); }
+    function estado(t) { $("estado").textContent = t; $("estado").hidden = !t; }
+    function url(p) { return String(CFG.URL_PUBLICA || location.origin).replace(/\/+$/, "") + "/q/" + p.token; }
+
+    function marca() {
+      if (logoOk) return '<img src="' + CFG.LOGO + '" alt="Supermercado Veneza" />';
+      return '<span class="p-marca"><small>SUPERMERCADO</small>VENEZA</span>';
+    }
+
+    function desenhar() {
+      var papel = $("papel").value;
+      $("estilo-pagina").textContent = "@page { size: " + (papel === "a4" ? "A4" : "105mm 148mm") + "; margin: 0; }";
+      var porFolha = papel === "a4" ? 4 : 1;
+      var folhas = $("folhas");
+      folhas.innerHTML = "";
+      var folha = null;
+      lista.forEach(function (p, i) {
+        if (i % porFolha === 0) {
+          folha = document.createElement("section");
+          folha.className = "folha " + papel;
+          folhas.appendChild(folha);
+        }
+        var el = $("modelo").content.firstElementChild.cloneNode(true);
+        el.querySelector(".p-logo").innerHTML = marca();
+        var qr = window.qrcode(0, "Q");
+        qr.addData(url(p));
+        qr.make();
+        el.querySelector(".p-qr").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+        el.querySelector(".p-origem").innerHTML =
+          (p.setor + (p.local ? " · " + p.local : "") + " · " + p.nome).replace(/[&<>]/g, function (c) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c];
+          }) + (CFG.DOMINIO_DEFINITIVO ? "" : ' · <span class="p-teste">TESTE: NÃO PENDURAR</span>');
+        folha.appendChild(el);
+      });
+      $("imprimir").disabled = !lista.length;
+    }
+
+    function iniciar() {
+      if (DEMO) $("voltar").href = "./?demo=1#escuta-plaquinhas";
+      if (!CFG.DOMINIO_DEFINITIVO) {
+        $("aviso").hidden = false;
+        $("aviso").textContent = "Endereço de teste (" + (CFG.URL_PUBLICA || location.origin) +
+          "). Estas plaquinhas saem marcadas como TESTE. Imprima as definitivas só depois de configurar o domínio oficial.";
+      }
+      if (!window.qrcode) { estado("Não foi possível carregar o gerador de QR code. Confira a internet e recarregue."); return; }
+      var db;
+      try { db = window.BancoVeneza.criar(DEMO); } catch (e) { estado(e.message); return; }
+      if (!db) { estado("Sistema não configurado."); return; }
+      db.sessao().then(function (s) {
+        if (!s) { estado("Entre no sistema primeiro (abra /sistema/ e faça login) e depois volte aqui."); return; }
+        var banco = window.EscutaBanco.criarPainel(db.cliente, DEMO);
+        return banco.plaquinhas().then(function (todas) {
+          lista = todas.filter(function (p) { return ids.length ? ids.indexOf(p.id) >= 0 : p.ativa; });
+          if (!lista.length) { estado("Nenhuma plaquinha para imprimir."); return; }
+          estado("");
+          desenhar();
+        });
+      }).catch(function (e) { estado(e.message || "Não foi possível carregar as plaquinhas."); });
+    }
+
+    $("papel").addEventListener("change", desenhar);
+    $("imprimir").addEventListener("click", function () { window.print(); });
+
+    // Usa a logo oficial se o arquivo existir; senão, o nome em texto
+    if (CFG.LOGO) {
+      var img = new Image();
+      img.onload = function () { logoOk = true; if (lista.length) desenhar(); };
+      img.src = CFG.LOGO;
+    }
+    iniciar();
+  })();
+  </script>
+</body>
+</html>
