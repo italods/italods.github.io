@@ -79,6 +79,7 @@
 
     return {
       modo: "supabase",
+      cliente: cliente,
       sessao: function () {
         return cliente.auth.getSession().then(function (r) { return r.data && r.data.session; });
       },

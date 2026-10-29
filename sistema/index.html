@@ -59,11 +59,21 @@
         </div>
         <button type="button" class="botao fantasma" id="botao-sair">Sair</button>
       </div>
-      <nav class="abas" aria-label="Módulos">
+      <nav class="modulos" aria-label="Áreas do sistema">
+        <a href="#caixa" data-modulo="caixa">Conferência de caixa</a>
+        <a href="#escuta" data-modulo="escuta">Veneza Escuta</a>
+      </nav>
+      <nav class="abas" data-modulo="caixa" aria-label="Conferência de caixa">
         <a href="#caixa" data-aba="caixa">Caixa</a>
         <a href="#historico" data-aba="historico">Histórico</a>
         <a href="#movimentos" data-aba="movimentos">Sangrias</a>
         <a href="#relatorio" data-aba="relatorio">Relatório</a>
+      </nav>
+      <nav class="abas" data-modulo="escuta" aria-label="Veneza Escuta" hidden>
+        <a href="#escuta" data-aba="escuta">Visão geral</a>
+        <a href="#escuta-mensagens" data-aba="escuta-mensagens">Mensagens</a>
+        <a href="#escuta-plaquinhas" data-aba="escuta-plaquinhas">Plaquinhas</a>
+        <a href="#escuta-catalogo" data-aba="escuta-catalogo">Catálogo</a>
       </nav>
     </header>
 
@@ -269,8 +279,137 @@
         </div>
         <div id="rel-conteudo"></div>
       </section>
+      <!-- ===================== VENEZA ESCUTA: VISÃO GERAL ===================== -->
+      <section id="aba-escuta" class="aba" hidden>
+        <div id="esc-geral"></div>
+      </section>
+
+      <!-- ===================== VENEZA ESCUTA: MENSAGENS ===================== -->
+      <section id="aba-escuta-mensagens" class="aba" hidden>
+        <div class="bloco">
+          <div class="dupla">
+            <label class="campo"><span>De</span><input type="date" id="esc-de" /></label>
+            <label class="campo"><span>Até</span><input type="date" id="esc-ate" /></label>
+          </div>
+          <div class="dupla">
+            <label class="campo"><span>Assunto</span>
+              <select id="esc-tipo">
+                <option value="">Todos</option>
+                <option value="falta">Faltou produto</option>
+                <option value="sugestao">Sugestão</option>
+                <option value="reclamacao">Reclamação</option>
+                <option value="elogio">Elogio</option>
+              </select></label>
+            <label class="campo"><span>Situação</span>
+              <select id="esc-situacao">
+                <option value="">Todas</option>
+                <option value="novo">Novo</option>
+                <option value="em_analise">Em análise</option>
+                <option value="resolvido">Resolvido</option>
+              </select></label>
+          </div>
+          <div class="dupla">
+            <label class="campo"><span>Setor</span><select id="esc-setor"><option value="">Todos</option></select></label>
+            <label class="campo"><span>Plaquinha</span><select id="esc-plaquinha"><option value="">Todas</option></select></label>
+          </div>
+          <label class="campo"><span>Produto ou palavra</span>
+            <input type="search" id="esc-produto" placeholder="Ex.: café" autocomplete="off" /></label>
+          <div class="acoes">
+            <button type="button" class="botao" id="esc-csv">Exportar CSV</button>
+            <button type="button" class="botao primario" id="esc-buscar">Buscar</button>
+          </div>
+        </div>
+        <p class="suave mini" id="esc-contagem"></p>
+        <div id="esc-lista"></div>
+      </section>
+
+      <!-- ===================== VENEZA ESCUTA: PLAQUINHAS ===================== -->
+      <section id="aba-escuta-plaquinhas" class="aba" hidden>
+        <div id="esc-aviso-dominio" class="faixa-edicao" hidden></div>
+        <div class="bloco" id="esc-form-plaquinha">
+          <h2 id="esc-pl-titulo">Nova plaquinha</h2>
+          <label class="campo"><span>Nome da plaquinha</span>
+            <input id="esc-pl-nome" maxlength="80" placeholder="Ex.: Perfumaria 01" autocomplete="off" /></label>
+          <div class="dupla">
+            <label class="campo"><span>Setor</span>
+              <input id="esc-pl-setor" maxlength="60" list="esc-setores" autocomplete="off" /></label>
+            <label class="campo"><span>Situação</span>
+              <select id="esc-pl-ativa"><option value="1">Ativa</option><option value="0">Inativa</option></select></label>
+          </div>
+          <label class="campo"><span>Local na loja</span>
+            <input id="esc-pl-local" maxlength="120" placeholder="Ex.: Gôndola 1, início" autocomplete="off" /></label>
+          <div class="acoes">
+            <button type="button" class="botao" id="esc-pl-cancelar" hidden>Cancelar edição</button>
+            <button type="button" class="botao primario" id="esc-pl-salvar">Cadastrar plaquinha</button>
+          </div>
+        </div>
+        <div class="cabecalho-lista">
+          <h2>Plaquinhas</h2>
+          <button type="button" class="botao pequeno" id="esc-imprimir-todas">Imprimir todas as ativas</button>
+        </div>
+        <div id="esc-plaquinhas"></div>
+      </section>
+
+      <!-- ===================== VENEZA ESCUTA: CATÁLOGO ===================== -->
+      <section id="aba-escuta-catalogo" class="aba" hidden>
+        <div class="bloco">
+          <h2>Importar do Open Food Facts</h2>
+          <p class="suave mini">Base aberta de produtos. A cobertura de produtos brasileiros é parcial e nem todos têm foto: confira antes de adicionar.</p>
+          <div class="dupla">
+            <label class="campo"><span>Código de barras</span>
+              <input id="esc-off-codigo" inputmode="numeric" maxlength="14" autocomplete="off" /></label>
+            <label class="campo"><span>ou nome</span>
+              <input id="esc-off-termo" maxlength="60" placeholder="Ex.: café" autocomplete="off" /></label>
+          </div>
+          <div class="acoes">
+            <button type="button" class="botao primario" id="esc-off-buscar">Buscar no Open Food Facts</button>
+          </div>
+          <div id="esc-off-resultado"></div>
+        </div>
+        <div class="bloco">
+          <h2 id="esc-cat-form-titulo">Cadastrar produto à mão</h2>
+          <label class="campo"><span>Nome</span><input id="esc-cat-nome" maxlength="150" autocomplete="off" /></label>
+          <div class="dupla">
+            <label class="campo"><span>Marca</span><input id="esc-cat-marca" maxlength="80" autocomplete="off" /></label>
+            <label class="campo"><span>Tamanho</span><input id="esc-cat-apresentacao" maxlength="60" autocomplete="off" /></label>
+          </div>
+          <div class="dupla">
+            <label class="campo"><span>Código de barras</span><input id="esc-cat-codigo" inputmode="numeric" maxlength="14" autocomplete="off" /></label>
+            <label class="campo"><span>Endereço da foto (https)</span><input id="esc-cat-imagem" type="url" autocomplete="off" /></label>
+          </div>
+          <div class="acoes">
+            <button type="button" class="botao" id="esc-cat-cancelar" hidden>Cancelar edição</button>
+            <button type="button" class="botao primario" id="esc-cat-salvar">Salvar no catálogo</button>
+          </div>
+        </div>
+        <div class="cabecalho-lista">
+          <h2>Catálogo <small class="suave" id="esc-cat-total"></small></h2>
+          <input type="search" id="esc-cat-busca" placeholder="Buscar" aria-label="Buscar no catálogo" />
+        </div>
+        <div id="esc-catalogo"></div>
+      </section>
     </main>
   </div>
+
+  <!-- Veneza Escuta: detalhe de uma mensagem -->
+  <dialog id="esc-detalhe" class="janela">
+    <div class="janela-topo">
+      <h2 id="esc-detalhe-titulo">Mensagem</h2>
+      <button type="button" class="botao fantasma" id="esc-detalhe-fechar" aria-label="Fechar">×</button>
+    </div>
+    <div id="esc-detalhe-corpo"></div>
+  </dialog>
+
+  <!-- Veneza Escuta: QR code de uma plaquinha -->
+  <dialog id="esc-qr" class="janela">
+    <div class="janela-topo">
+      <h2 id="esc-qr-titulo">QR code</h2>
+      <button type="button" class="botao fantasma" id="esc-qr-fechar" aria-label="Fechar">×</button>
+    </div>
+    <div id="esc-qr-corpo"></div>
+  </dialog>
+
+  <datalist id="esc-setores"></datalist>
 
   <!-- Janela de detalhe de um registro -->
   <dialog id="detalhe" class="janela">
@@ -298,6 +437,8 @@
   <script src="js/calculos.js"></script>
   <script src="js/formatos.js"></script>
   <script src="js/db.js"></script>
+  <script src="js/escuta-db.js"></script>
+  <script src="js/escuta-admin.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

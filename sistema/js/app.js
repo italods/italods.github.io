@@ -206,21 +206,33 @@
     $("app").hidden = qual !== "app";
   }
 
-  var ABAS = ["caixa", "historico", "movimentos", "relatorio"];
+  var ABAS_CAIXA = ["caixa", "historico", "movimentos", "relatorio"];
+  var ABAS_ESCUTA = ["escuta", "escuta-mensagens", "escuta-plaquinhas", "escuta-catalogo"];
+  var ABAS = ABAS_CAIXA.concat(ABAS_ESCUTA);
   var abaAtual = null;
   function mostrarAba() {
     var aba = location.hash.replace("#", "");
     if (ABAS.indexOf(aba) < 0) aba = "caixa";
+    var modulo = ABAS_ESCUTA.indexOf(aba) >= 0 ? "escuta" : "caixa";
     ABAS.forEach(function (a) { $("aba-" + a).hidden = a !== aba; });
     Array.prototype.forEach.call(document.querySelectorAll(".abas a"), function (a) {
       a.classList.toggle("ativa", a.dataset.aba === aba);
       if (a.dataset.aba === aba) a.setAttribute("aria-current", "page");
       else a.removeAttribute("aria-current");
     });
+    // Área do sistema: Conferência de caixa ou Veneza Escuta (cada uma lembra a última aba aberta)
+    Array.prototype.forEach.call(document.querySelectorAll(".modulos a"), function (a) {
+      a.classList.toggle("ativa", a.dataset.modulo === modulo);
+      if (a.dataset.modulo === modulo) a.setAttribute("href", "#" + aba);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("nav.abas"), function (n) {
+      n.hidden = n.dataset.modulo !== modulo;
+    });
     $("barra-total").hidden = aba !== "caixa";
     var mudou = abaAtual !== aba;
     abaAtual = aba;
     if (!mudou) return;
+    if (modulo === "escuta") { window.EscutaAdmin.mostrar(aba); return; }
     if (aba === "caixa") atualizarContexto();
     if (aba === "historico") buscarHistorico();
     if (aba === "movimentos") listarMovimentosDoDia();
@@ -1112,6 +1124,12 @@
     iniciarHistorico();
     iniciarMovimentos();
     iniciarRelatorio();
+    window.EscutaAdmin.iniciar({
+      banco: window.EscutaBanco.criarPainel(db.cliente, DEMO),
+      demo: DEMO,
+      toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, copiar: copiar, baixar: baixar,
+      carregarScript: carregarScript, ocupado: ocupado, escapar: escapar
+    });
     $("aviso-fechar").addEventListener("click", limparErro);
     window.addEventListener("hashchange", mostrarAba);
     window.addEventListener("offline", function () {
