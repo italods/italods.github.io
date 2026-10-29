@@ -2,316 +2,132 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#111827">
-<title>Preenchedor de Cheques</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f6f6f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16171a" media="(prefers-color-scheme: dark)">
+<title>Preenchedor de Cheques · Supermercado Veneza</title>
+<link rel="stylesheet" href="/styles/veneza.css">
 <style>
-  * {
-    box-sizing: border-box;
-  }
-
-  body {
-    margin: 0;
-    background: #f3f4f6;
-    color: #111827;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-  }
-
-  .app {
-    width: 100%;
-    max-width: 520px;
-    margin: 0 auto;
-    padding: 12px;
-  }
-
-  .header {
-    text-align: center;
-    margin-bottom: 12px;
-  }
-
-  .header h1 {
-    font-size: 21px;
-    margin: 0;
-    font-weight: 800;
-  }
-
-  .header p {
-    margin: 3px 0 0;
-    color: #6b7280;
-    font-size: 12px;
-  }
-
-  .card {
-    background: white;
-    border-radius: 14px;
-    padding: 14px;
-    margin-bottom: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.06);
-  }
-
-  label {
-    display: block;
-    font-size: 12px;
-    font-weight: 700;
-    color: #374151;
-    margin-bottom: 5px;
-  }
-
-  .money-input {
-    position: relative;
-  }
-
+  .money-input { position: relative; }
   .money-input span {
     position: absolute;
     left: 12px;
     top: 50%;
     transform: translateY(-50%);
-    font-weight: 700;
-    color: #6b7280;
-    font-size: 14px;
+    font-weight: 600;
+    color: var(--suave);
   }
-
-  input {
-    width: 100%;
-    height: 44px;
-    border: 1px solid #d1d5db;
-    border-radius: 10px;
-    background: #fff;
-    padding: 0 12px;
-    font-size: 17px;
-    outline: none;
-    color: #111827;
-  }
-
-  .money-input input {
-    padding-left: 39px;
-    font-weight: 700;
-  }
-
-  input:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37,99,235,.1);
-  }
+  .money-input .campo { padding-left: 42px; }
 
   .section-title {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 7px;
+    align-items: baseline;
+    margin: 16px 0 6px;
   }
+  .section-title .rotulo { margin: 0; }
+  #contador { font-size: .85rem; color: var(--suave); }
 
-  .section-title label {
-    margin: 0;
-  }
-
-  .prazo-row {
-    display: flex;
-    gap: 7px;
-    margin-bottom: 7px;
-  }
-
+  .prazo-row { display: flex; gap: 8px; margin-bottom: 8px; }
   .prazo-row input {
-    height: 40px;
-    font-size: 15px;
-    text-align: center;
     flex: 1;
+    min-width: 0;
+    min-height: var(--toque);
+    padding: 8px 12px;
+    font: inherit;
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-align: center;
+    color: var(--texto);
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: 8px;
   }
-
+  .prazo-row input:focus { border-color: var(--primaria); outline: none; box-shadow: 0 0 0 3px var(--primaria-clara); }
   .remove-btn {
-    width: 40px;
-    height: 40px;
-    border: 0;
-    border-radius: 9px;
-    background: #fee2e2;
-    color: #dc2626;
-    font-size: 18px;
-    font-weight: 700;
+    width: var(--toque);
+    height: var(--toque);
+    flex: 0 0 auto;
+    border: 1px solid var(--borda);
+    border-radius: 8px;
+    background: var(--superficie-2);
+    color: var(--ruim);
+    font-size: 1.4rem;
     cursor: pointer;
   }
-
   .add-btn {
     width: 100%;
-    height: 38px;
-    border: 1px dashed #9ca3af;
-    border-radius: 9px;
-    background: #f9fafb;
-    color: #374151;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .calculate-btn {
-    width: 100%;
-    height: 47px;
-    border: 0;
-    border-radius: 11px;
-    background: #111827;
-    color: white;
-    font-size: 15px;
-    font-weight: 800;
-    cursor: pointer;
-    margin-top: 3px;
-  }
-
-  .calculate-btn:active {
-    transform: scale(.99);
-  }
-
-  .resultado-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-
-  .resultado-header h2 {
-    margin: 0;
-    font-size: 16px;
-  }
-
-  .copy-btn {
-    border: 0;
-    background: #e5e7eb;
-    color: #111827;
+    min-height: 44px;
+    border: 1px dashed var(--borda);
     border-radius: 8px;
-    padding: 7px 10px;
-    font-size: 12px;
-    font-weight: 700;
+    background: transparent;
+    color: var(--texto);
+    font: inherit;
+    font-weight: 600;
     cursor: pointer;
   }
+  #erro { display: none; }
+  .calculate-btn { margin-top: 12px; }
+
+  .resultado-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .resultado-header h2 { margin: 0; }
 
   .cheque {
-    border: 1px solid #e5e7eb;
-    border-radius: 11px;
-    padding: 11px;
+    border: 1px solid var(--borda);
+    border-radius: 10px;
+    padding: 12px;
     margin-bottom: 8px;
-    background: #fafafa;
+    background: var(--superficie);
   }
-
-  .cheque:last-child {
-    margin-bottom: 0;
-  }
-
-  .cheque-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 5px;
-  }
-
-  .cheque-numero {
-    font-size: 11px;
-    font-weight: 800;
-    color: #6b7280;
-    text-transform: uppercase;
-  }
-
-  .cheque-valor {
-    font-size: 19px;
-    font-weight: 900;
-  }
-
-  .extenso {
-    font-size: 12px;
-    line-height: 1.35;
-    font-weight: 700;
-    text-transform: uppercase;
-    margin: 5px 0 8px;
-  }
-
+  .cheque-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .cheque-numero { font-size: .8rem; font-weight: 700; color: var(--suave); text-transform: uppercase; letter-spacing: .04em; }
+  .cheque-valor { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .extenso { font-size: .9rem; line-height: 1.4; font-weight: 600; text-transform: uppercase; margin: 6px 0 10px; }
   .data {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    background: #e5e7eb;
-    padding: 5px 8px;
-    border-radius: 7px;
-    font-size: 12px;
-    font-weight: 700;
+    gap: 6px;
+    background: var(--primaria-clara);
+    color: var(--texto);
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: .88rem;
+    font-weight: 600;
   }
-
   .resumo {
     display: flex;
     justify-content: space-between;
-    border-top: 1px solid #e5e7eb;
-    margin-top: 9px;
-    padding-top: 9px;
-    font-size: 12px;
-    color: #6b7280;
+    border-top: 1px solid var(--borda);
+    margin-top: 10px;
+    padding-top: 10px;
+    color: var(--suave);
+    font-variant-numeric: tabular-nums;
   }
-
-  .resumo strong {
-    color: #111827;
-  }
-
-  .vazio {
-    text-align: center;
-    color: #9ca3af;
-    font-size: 13px;
-    padding: 12px 0;
-  }
-
-  .erro {
-    color: #dc2626;
-    background: #fef2f2;
-    border-radius: 9px;
-    padding: 9px;
-    margin-top: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    display: none;
-  }
-
-  @media (max-width: 380px) {
-    .app {
-      padding: 9px;
-    }
-
-    .card {
-      padding: 11px;
-    }
-
-    .header h1 {
-      font-size: 19px;
-    }
-
-    input {
-      height: 42px;
-    }
-
-    .cheque {
-      padding: 9px;
-    }
-
-    .cheque-valor {
-      font-size: 18px;
-    }
-
-    .extenso {
-      font-size: 11px;
-    }
-  }
+  .resumo strong { color: var(--texto); font-size: 1.1rem; }
 </style>
 </head>
 
 <body>
 
-<div class="app">
+<div class="pagina estreita">
 
-  <div class="header">
-    <h1>🧾 Preenchedor de Cheques</h1>
+  <header class="topo-ferramenta">
+    <a class="voltar" href="/">‹ Supermercado Veneza</a>
+    <h1>Preenchedor de Cheques</h1>
     <p>Informe o valor e os prazos dos pagamentos</p>
-  </div>
+  </header>
 
-  <div class="card">
+  <main>
+  <div class="cartao">
 
-    <label for="valor">Valor total do pedido</label>
+    <label class="rotulo" for="valor">Valor total do pedido</label>
 
     <div class="money-input">
       <span>R$</span>
       <input
         id="valor"
+        class="campo"
         type="text"
         inputmode="decimal"
         placeholder="0,00"
@@ -319,34 +135,30 @@
       >
     </div>
 
-    <div style="height:12px"></div>
-
     <div class="section-title">
-      <label>Prazos dos cheques</label>
-      <span id="contador" style="font-size:11px;color:#6b7280;">1 cheque</span>
+      <span class="rotulo">Prazos dos cheques (dias)</span>
+      <span id="contador">1 cheque</span>
     </div>
 
     <div id="prazos"></div>
 
-    <button class="add-btn" onclick="adicionarPrazo()">
-      ＋ Adicionar prazo
+    <button type="button" class="add-btn" onclick="adicionarPrazo()">
+      + Adicionar prazo
     </button>
 
-    <div id="erro" class="erro"></div>
+    <div id="erro" class="erro" role="alert"></div>
 
-    <button class="calculate-btn" onclick="calcular()">
-      CALCULAR CHEQUES
+    <button type="button" class="botao primario largo calculate-btn" onclick="calcular()">
+      Calcular cheques
     </button>
 
   </div>
 
-  <div class="card" id="resultadoCard">
+  <div class="cartao" id="resultadoCard">
 
     <div class="resultado-header">
       <h2>Resultado</h2>
-      <button class="copy-btn" onclick="copiarTudo()">
-        📋 Copiar
-      </button>
+      <button type="button" class="botao pequeno copy-btn" onclick="copiarTudo()">Copiar</button>
     </div>
 
     <div id="resultado">
@@ -356,6 +168,11 @@
     </div>
 
   </div>
+  </main>
+
+  <footer class="rodape">
+    <a href="/">‹ Voltar para o início</a>
+  </footer>
 
 </div>
 
