@@ -11,10 +11,15 @@ Tudo é HTML/CSS/JS puro, sem framework e sem etapa de build. O que estiver no `
 
 ```
 index.html        ← página inicial do Supermercado Veneza: cartões para cada ferramenta,
-                    link discreto para o Sistema no rodapé (CSS próprio, não usa styles/style.css)
-calculadora_precos.html, Cheques.html, conversor-extenso.html, styles/style.css
-                  ← páginas antigas (não quebrar; compras.html e linkwhatsapp.html foram
-                    removidas a pedido do Italo)
+                    link discreto para o Sistema no rodapé
+styles/veneza.css ← visual comum do site (cores, topo "‹ Supermercado Veneza", cartões, campos,
+                    botões, rodapé). Mesmas cores do sistema/css/sistema.css: mudou uma, mude a outra
+calculadora_precos.html, Cheques.html, conversor-extenso.html
+                  ← ferramentas (não quebrar). Usam styles/veneza.css + um <style> próprio; o
+                    <script> de cada uma é o original. Ferramenta nova: copiar o topo/rodapé de uma
+                    delas e incluir um cartão em index.html
+styles/style.css, avatar.svg, 2.png, .melhorias.html ← restos do site antigo, não usados
+(compras.html e linkwhatsapp.html foram removidas a pedido do Italo)
 sistema/
   index.html        ← app de página única (login + abas: Caixa, Histórico, Sangrias, Relatório)
   config.js         ← URL do Supabase, chave anon, lista de CAIXAS, OPERADORES e MOTIVOS
