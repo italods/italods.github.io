@@ -1,0 +1,249 @@
+/*
+ * Visual comum do site do Supermercado Veneza (página inicial e ferramentas).
+ * Mesmas cores do Sistema Veneza (sistema/css/sistema.css). Celular primeiro, claro/escuro automático.
+ */
+
+:root {
+  --fundo: #f6f6f3;
+  --superficie: #ffffff;
+  --superficie-2: #efefea;
+  --borda: #d9d9d2;
+  --texto: #1c1d1f;
+  --suave: #63656b;
+  --primaria: #1f5f4f;
+  --primaria-texto: #ffffff;
+  --primaria-clara: #e4efeb;
+  --bom: #17703a;
+  --bom-fundo: #e3f3e8;
+  --ruim: #b42318;
+  --ruim-fundo: #fbe7e5;
+  --raio: 12px;
+  --toque: 48px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #16171a;
+    --superficie: #202226;
+    --superficie-2: #2a2d32;
+    --borda: #3a3d43;
+    --texto: #ececec;
+    --suave: #a3a6ad;
+    --primaria: #4fb394;
+    --primaria-texto: #0d1512;
+    --primaria-clara: #1d2f29;
+    --bom: #5fd08a;
+    --bom-fundo: #17301f;
+    --ruim: #ff8a7f;
+    --ruim-fundo: #3a1c1a;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a { color: var(--primaria); }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--primaria);
+  outline-offset: 2px;
+}
+
+.pagina {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 16px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.pagina.estreita { max-width: 560px; }
+
+/* ---------- Rodapé ---------- */
+.rodape {
+  margin-top: auto;
+  padding: 40px 0 28px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px 20px;
+  color: var(--suave);
+  font-size: .88rem;
+}
+.rodape a { color: var(--suave); }
+.rodape .discreto { opacity: .7; }
+
+/* ---------- Página inicial ---------- */
+.capa { padding: 40px 0 28px; }
+.selo {
+  display: inline-block;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--primaria);
+  background: var(--primaria-clara);
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin: 0 0 14px;
+}
+.capa h1 { font-size: 2rem; line-height: 1.15; margin: 0; }
+.capa .local { color: var(--suave); margin: 6px 0 0; font-size: 1.05rem; }
+.subtitulo { font-size: 1rem; color: var(--suave); font-weight: 600; margin: 0 0 12px; }
+
+.ferramentas {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ferramenta {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 76px;
+  height: 100%;
+  padding: 14px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  color: inherit;
+  text-decoration: none;
+}
+.ferramenta:hover { border-color: var(--primaria); }
+.icone {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--primaria-clara);
+  color: var(--primaria);
+}
+.icone svg { width: 22px; height: 22px; }
+.ferramenta .nome { display: block; font-weight: 700; font-size: 1.05rem; }
+.ferramenta .descricao { display: block; color: var(--suave); font-size: .92rem; margin-top: 2px; }
+.ferramenta .seta { color: var(--suave); font-size: 1.3rem; }
+
+/* ---------- Topo das ferramentas ---------- */
+.topo-ferramenta { padding: 16px 0 18px; }
+.voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  color: var(--suave);
+  text-decoration: none;
+  font-size: .92rem;
+  font-weight: 600;
+}
+.voltar:hover { color: var(--texto); }
+.topo-ferramenta h1 { font-size: 1.6rem; line-height: 1.2; margin: 6px 0 0; }
+.topo-ferramenta p { color: var(--suave); margin: 4px 0 0; }
+
+/* ---------- Peças comuns das ferramentas ---------- */
+.cartao {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.cartao h2 { font-size: 1.05rem; margin: 0 0 10px; }
+
+.rotulo {
+  display: block;
+  font-size: .9rem;
+  font-weight: 600;
+  margin: 12px 0 6px;
+}
+.rotulo:first-child { margin-top: 0; }
+
+.campo {
+  width: 100%;
+  min-height: var(--toque);
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.campo:focus { border-color: var(--primaria); outline: none; box-shadow: 0 0 0 3px var(--primaria-clara); }
+
+.botao {
+  min-height: var(--toque);
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--texto);
+  background: var(--superficie-2);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.botao:active { transform: translateY(1px); }
+.botao.primario { background: var(--primaria); border-color: var(--primaria); color: var(--primaria-texto); }
+.botao.largo { width: 100%; }
+.botao.pequeno { min-height: 38px; padding: 6px 12px; font-size: .9rem; }
+
+/* Alternador feito com <input type="radio"> + <label> */
+.alternador {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  padding: 4px;
+  background: var(--superficie-2);
+  border-radius: 10px;
+}
+.alternador input { position: absolute; opacity: 0; pointer-events: none; }
+.alternador label {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 6px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--suave);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.alternador input:checked + label {
+  background: var(--superficie);
+  color: var(--texto);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
+}
+.alternador input:focus-visible + label { outline: 2px solid var(--primaria); }
+
+.nota { font-size: .85rem; color: var(--suave); margin: 10px 0 0; line-height: 1.45; }
+.vazio { text-align: center; color: var(--suave); padding: 12px 0; margin: 0; }
+.erro {
+  color: var(--ruim);
+  background: var(--ruim-fundo);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 10px;
+  font-weight: 600;
+}
+
+@media (min-width: 640px) {
+  .capa { padding: 64px 0 36px; }
+  .capa h1 { font-size: 2.6rem; }
+  .ferramentas { grid-template-columns: 1fr 1fr; }
+  .topo-ferramenta { padding-top: 28px; }
+}
