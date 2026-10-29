@@ -128,11 +128,10 @@ psql -d teste -f supabase/testes/escuta.test.sql   # termina com TODOS_OS_TESTES
 2. Commits pequenos, mensagens em português.
    **Autor dos commits: `Italo Pereira <italopereira007@hotmail.com>`** (configurar com
    `git config user.name "Italo Pereira"` e `git config user.email "italopereira007@hotmail.com"`).
-   A Vercel (plano Hobby) bloqueia a publicação quando o autor do commit não é o dono da conta;
-   commits com outro autor não vão ao ar. **Não colocar a linha `Co-Authored-By:`** (nem de
-   assistentes) na mensagem: com coautor a publicação falha. Pedido do Italo.
    Para conferir se publicou: o status do commit no GitHub (contexto "Vercel") deve ficar
-   `success`; `failure` = não foi ao ar.
+   `success`; `failure` = não foi ao ar (o motivo aparece na página do deploy na Vercel).
+   Em out/2026 todos os deploys falharam porque o projeto na Vercel estava com Node.js 20.x
+   (descontinuado): a correção é em Settings > Node.js Version, não no código.
 3. Enviar para `main` (a Vercel publica sozinha em 1–2 minutos). Um push em outra branch só gera
    uma prévia na Vercel, que usa o mesmo Supabase: cuidado ao testar lá, os dados são os reais.
 4. Mudança no banco: atualizar o `.sql` da área (`schema.sql` ou `escuta.sql`) de forma que possa
