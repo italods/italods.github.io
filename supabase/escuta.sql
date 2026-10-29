@@ -242,6 +242,12 @@ begin
     for select to authenticated
     using (bucket_id = 'escuta-fotos' and public.autorizado());
 
+  -- A função escuta_enviar (dona: postgres) confere se a foto chegou antes de registrar a mensagem
+  drop policy if exists "escuta: banco confere fotos" on storage.objects;
+  create policy "escuta: banco confere fotos" on storage.objects
+    for select to postgres
+    using (bucket_id = 'escuta-fotos');
+
   drop policy if exists "escuta: admin apaga fotos" on storage.objects;
   create policy "escuta: admin apaga fotos" on storage.objects
     for delete to authenticated
