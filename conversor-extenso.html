@@ -1,14 +1,26 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- FONTS GOOGLE-->
-  <link rel="preconnect" href="https://fonts.gstatic.com">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;600&display=swap" rel="stylesheet">
-  <title>Italo Pereira</title>
-  <link rel="stylesheet" href="styles/style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#f6f6f3" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#16171a" media="(prefers-color-scheme: dark)" />
+  <title>Valor por Extenso · Supermercado Veneza</title>
+  <link rel="stylesheet" href="/styles/veneza.css" />
+  <style>
+    .extenso-resultado {
+      margin: 14px 0 0;
+      padding: 12px;
+      background: var(--primaria-clara);
+      border-radius: 10px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      line-height: 1.4;
+      min-height: 3em;
+    }
+    .extenso-resultado .rotulo { margin: 0 0 4px; color: var(--suave); font-size: .85rem; }
+  </style>
   <script>
     function numeroParaExtenso(valor) {
         const unidades = ["", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];
@@ -44,42 +56,27 @@
 </script>
 </head>
 <body>
-  <div id="wrapper">
-    <header>
-      <nav>
-        <a href="/index.html">Home</a>
-        <a href="/conversor-extenso.html">Conversor Num-Ext</a>
-      </nav>
+  <div class="pagina estreita">
+    <header class="topo-ferramenta">
+      <a class="voltar" href="/">‹ Supermercado Veneza</a>
+      <h1>Valor por Extenso</h1>
+      <p>Digite só os números: 1999 vira R$ 19,99.</p>
     </header>
+
     <main>
-      <div class="container">
-        <div class="text">
-          <h1>ITALO PEREIRA</h1>
-          <h3>Developer</h3>
-        </div>   
+      <div class="cartao">
+        <label class="rotulo" for="valor">Valor (R$)</label>
+        <input type="text" id="valor" class="campo" inputmode="numeric" autocomplete="off" oninput="atualizarExtenso()" placeholder="0,00">
+        <div class="extenso-resultado" aria-live="polite">
+          <span class="rotulo">Por extenso</span>
+          <span id="extenso">Zero reais</span>
+        </div>
       </div>
-      <div class="conteudo">
+    </main>
 
-        <h2>Conversor de Valor para Extenso</h2>
-    <label for="valor">Digite o valor (R$):</label>
-    <input type="text" id="valor" oninput="atualizarExtenso()" placeholder="0,00">
-    <p><strong>Por extenso:</strong> <span id="extenso">Zero reais</span></p>
-
-
-      </div>
-
-  </main>
-
-  <footer>Developed by <a href="https://github.com/italods/" title="Link to Github" target="_blank" >Italo Pereira</a></footer>
-
-  <div class="links">
-    <a href="https://www.linkedin.com/in/italods/" target="_blank"><img src="https://img.shields.io/badge/-italods-blue?style=social&logo=Linkedin&logoColor=blue&link=https://www.linkedin.com/in/italods/" alt="Linkedin"></a>
-    <a href="https://www.instagram.com/italods_/" target="_blank"><img src="https://img.shields.io/badge/-italods__-blue?style=social&logo=Instagram&link=https://www.instagram.com/italods_/" alt="Instagram"></a>
-    <a href="mailto:italopereira007@hotmail.com" target="_blank"><img src="https://img.shields.io/badge/-italopereira007@hotmail.com-white?style=social&logo=gmail&labelColor=black" alt="Email"></a>
+    <footer class="rodape">
+      <a href="/">‹ Voltar para o início</a>
+    </footer>
   </div>
-
 </body>
 </html>
-
-
-
