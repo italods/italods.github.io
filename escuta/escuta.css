@@ -1,0 +1,377 @@
+/* Veneza Escuta — página pública (identidade visual do Supermercado Veneza) */
+
+:root {
+  --verde: #123E30;
+  --verde-2: #267357;
+  --verde-claro: #e8f1ed;
+  --dourado: #b8913e;          /* trocar pelo tom exato da logo quando o arquivo chegar */
+  --fundo: #ffffff;
+  --cinza: #f4f6f5;
+  --borda: #dbe3df;
+  --texto: #17201c;
+  --suave: #5b6863;
+  --erro: #b42318;
+  --erro-fundo: #fdecea;
+  --raio: 14px;
+  --toque: 48px;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--cinza);
+  color: var(--texto);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+a { color: var(--verde-2); }
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--verde-2); outline-offset: 2px; }
+
+.faixa-demo {
+  background: #fff4d6;
+  color: #6b4a00;
+  text-align: center;
+  font-size: .85rem;
+  padding: 6px 12px;
+}
+
+/* ---------- Topo ---------- */
+.topo {
+  background: var(--verde);
+  padding: 18px 16px 52px;
+  text-align: center;
+}
+.marca { display: inline-flex; align-items: center; justify-content: center; min-height: 56px; }
+.marca img { max-height: 64px; max-width: 220px; height: auto; width: auto; display: block; }
+.marca-texto {
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.7rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+.marca-texto small {
+  display: block;
+  color: var(--dourado);
+  font-size: .62rem;
+  letter-spacing: .32em;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+/* ---------- Conteúdo ---------- */
+.pagina {
+  max-width: 560px;
+  margin: -36px auto 0;
+  padding: 0 12px;
+}
+.cartao {
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 22px 18px;
+  box-shadow: 0 6px 24px rgba(18, 62, 48, .08);
+}
+
+.intro { text-align: center; margin-bottom: 18px; }
+.sobretitulo {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--verde-claro);
+  color: var(--verde-2);
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+h1 {
+  margin: 0;
+  color: var(--verde);
+  font-size: 1.65rem;
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: .01em;
+}
+.suave { color: var(--suave); margin: 6px 0 0; }
+.origem {
+  display: inline-block;
+  margin: 12px 0 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--borda);
+  font-size: .88rem;
+  color: var(--suave);
+}
+.origem strong { color: var(--texto); }
+
+/* Indicador de etapas */
+.etapas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 18px;
+  counter-reset: etapa;
+}
+.etapas li {
+  counter-increment: etapa;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--suave);
+  text-align: center;
+  padding-top: 8px;
+  border-top: 4px solid var(--borda);
+}
+.etapas li::before { content: counter(etapa) ". "; }
+.etapas li.feita { border-top-color: var(--verde-2); color: var(--verde-2); }
+.etapas li.atual { border-top-color: var(--verde); color: var(--verde); }
+
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.titulo-etapa { font-weight: 700; font-size: 1.1rem; margin-bottom: 12px; padding: 0; }
+
+/* ---------- Assuntos ---------- */
+.assuntos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.assunto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 128px;
+  padding: 14px;
+  text-align: left;
+  background: var(--fundo);
+  border: 1.5px solid var(--borda);
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.assunto:hover { border-color: var(--verde-2); }
+.assunto[aria-checked="true"] {
+  border-color: var(--verde);
+  background: var(--verde-claro);
+  box-shadow: inset 0 0 0 1px var(--verde);
+}
+.assunto-icone {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--verde-claro);
+  color: var(--verde);
+  margin-bottom: 4px;
+}
+.assunto[aria-checked="true"] .assunto-icone { background: var(--verde); color: #fff; }
+.assunto-icone svg, .foto-escolher svg, .obrigado-icone svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.assunto-nome { font-weight: 700; }
+.assunto-texto { font-size: .85rem; color: var(--suave); }
+
+/* ---------- Campos ---------- */
+.rotulo { display: block; font-weight: 600; font-size: .92rem; margin: 14px 0 6px; }
+.rotulo small, .editor-item small { font-weight: 400; color: var(--suave); }
+.campo {
+  width: 100%;
+  min-height: var(--toque);
+  padding: 11px 12px;
+  font-size: 1rem;
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+}
+textarea.campo { resize: vertical; min-height: 84px; }
+.campo:focus { outline: none; border-color: var(--verde-2); box-shadow: 0 0 0 3px var(--verde-claro); }
+.dupla { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.nota { font-size: .82rem; color: var(--suave); margin: 6px 0 0; }
+
+/* ---------- Botões ---------- */
+.botao {
+  min-height: var(--toque);
+  padding: 10px 18px;
+  font-weight: 700;
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.botao:disabled { opacity: .45; cursor: default; }
+.botao.primario { background: var(--verde); border-color: var(--verde); color: #fff; }
+.botao.contorno { border-style: dashed; border-color: var(--verde-2); color: var(--verde-2); background: transparent; }
+.botao.pequeno { min-height: 38px; padding: 6px 12px; font-size: .9rem; }
+.botao.largo { width: 100%; }
+.acoes { display: flex; gap: 10px; margin-top: 20px; }
+.acoes .botao { flex: 1; }
+
+/* ---------- Produtos ---------- */
+.itens { list-style: none; margin: 0 0 4px; padding: 0; }
+.item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 4px 12px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+.miniatura {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: var(--cinza);
+  object-fit: contain;
+  display: grid;
+  place-items: center;
+  color: var(--suave);
+  overflow: hidden;
+}
+.miniatura svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.item-nome { font-weight: 700; overflow-wrap: anywhere; }
+.item-detalhe { font-size: .85rem; color: var(--suave); overflow-wrap: anywhere; }
+.item-botoes { grid-column: 1 / -1; display: flex; gap: 8px; margin-top: 4px; }
+.item-botoes .botao { flex: 1; }
+
+.busca-bloco { position: relative; }
+.sugestoes {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  background: var(--fundo);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .08);
+}
+.sugestao {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 60px;
+  padding: 6px;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.sugestao:hover, .sugestao:focus-visible, .sugestao[aria-selected="true"] { background: var(--verde-claro); }
+.sugestao .item-nome { font-weight: 600; }
+.sugestao.manual .miniatura { background: var(--verde-claro); color: var(--verde); font-size: 1.4rem; font-weight: 700; }
+.sugestoes .estado { padding: 10px; color: var(--suave); font-size: .9rem; }
+.atribuicao { font-size: .75rem; color: var(--suave); margin: 4px 2px 0; }
+
+.editor-item {
+  margin-top: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--cinza);
+}
+.editor-item .rotulo:first-of-type { margin-top: 0; }
+.editor-titulo { margin: 0 0 10px; font-weight: 700; color: var(--verde); }
+#outro-produto { margin-top: 6px; }
+
+/* ---------- Foto ---------- */
+.foto-bloco { margin-top: 4px; }
+.foto-escolher {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 56px;
+  border: 1.5px dashed var(--borda);
+  border-radius: 12px;
+  color: var(--verde-2);
+  font-weight: 700;
+  cursor: pointer;
+}
+.foto-escolher input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.foto-previa { display: flex; align-items: center; gap: 12px; }
+.foto-previa img { width: 96px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid var(--borda); }
+
+/* ---------- Identificação ---------- */
+.consentimento {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--verde-claro);
+  font-size: .9rem;
+}
+.marcar { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.marcar input { width: 22px; height: 22px; margin: 1px 0 0; flex: 0 0 auto; accent-color: var(--verde); }
+.armadilha { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+.resumo {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  font-size: .92rem;
+}
+.resumo h2 { font-size: .95rem; margin: 0 0 8px; color: var(--verde); }
+.resumo dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; }
+.resumo dt { color: var(--suave); }
+.resumo dd { margin: 0; overflow-wrap: anywhere; white-space: pre-line; }
+
+/* ---------- Mensagens ---------- */
+.erro {
+  margin: 0 0 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--erro-fundo);
+  color: var(--erro);
+  font-weight: 600;
+}
+.aviso-tela { text-align: center; }
+.aviso-tela p { color: var(--suave); }
+
+.obrigado { text-align: center; }
+.obrigado-icone {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 12px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--verde);
+  color: #fff;
+}
+.obrigado-icone svg { width: 34px; height: 34px; stroke-width: 2.5; }
+.obrigado h1 { text-transform: none; }
+.protocolo-rotulo { margin: 18px 0 2px; font-size: .85rem; color: var(--suave); }
+.protocolo {
+  margin: 0 0 12px;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  color: var(--verde);
+  font-variant-numeric: tabular-nums;
+}
+.obrigado .botao { margin-top: 16px; }
+
+/* ---------- Rodapé ---------- */
+.rodape { text-align: center; padding: 24px 16px 32px; color: var(--suave); font-size: .85rem; }
+.rodape p { margin: 4px 0; }
+.rodape p:first-child { color: var(--verde); font-weight: 700; }
+
+@media (max-width: 360px) {
+  .assuntos { gap: 8px; }
+  .assunto { padding: 12px; min-height: 120px; }
+  h1 { font-size: 1.45rem; }
+}

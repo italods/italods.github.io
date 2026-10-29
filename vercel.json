@@ -1,0 +1,15 @@
+{
+  "rewrites": [
+    { "source": "/q/:token", "destination": "/escuta/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/sistema/(.*)",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/(escuta|q)/(.*)",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex" }]
+    }
+  ]
+}

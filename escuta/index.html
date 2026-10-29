@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#123E30" />
+  <meta name="description" content="Veneza Escuta: conte para o Supermercado Veneza o que faltou, sua sugestão, reclamação ou elogio." />
+  <title>Veneza Escuta · Supermercado Veneza</title>
+  <link rel="stylesheet" href="/escuta/escuta.css" />
+</head>
+<body>
+  <div id="faixa-demo" class="faixa-demo" hidden>Modo demonstração: nada é enviado ao supermercado.</div>
+
+  <header class="topo">
+    <div class="marca" id="marca">
+      <img id="logo" alt="Supermercado Veneza" hidden />
+      <span class="marca-texto" id="marca-texto"><small>Supermercado</small>Veneza</span>
+    </div>
+  </header>
+
+  <main class="pagina">
+    <!-- Carregando / avisos de QR code -->
+    <section id="tela-aviso" class="cartao aviso-tela" hidden>
+      <h1 id="aviso-titulo">Carregando…</h1>
+      <p id="aviso-texto"></p>
+    </section>
+
+    <form id="formulario" class="cartao" novalidate hidden>
+      <div class="intro" id="intro">
+        <p class="sobretitulo">Veneza Escuta</p>
+        <h1>Sentiu falta de algo?</h1>
+        <p class="suave">Não encontrou um produto ou quer deixar uma crítica ou sugestão?</p>
+        <p class="origem" id="origem" hidden></p>
+      </div>
+
+      <ol class="etapas" aria-label="Etapas">
+        <li data-etapa="1">Assunto</li>
+        <li data-etapa="2">Detalhes</li>
+        <li data-etapa="3">Envio</li>
+      </ol>
+
+      <div id="erro" class="erro" role="alert" hidden></div>
+
+      <!-- ================= ETAPA 1: ASSUNTO ================= -->
+      <fieldset class="etapa" data-etapa="1">
+        <legend class="titulo-etapa">Sobre o que você quer falar?</legend>
+        <div class="assuntos" role="radiogroup" aria-label="Assunto">
+          <button type="button" class="assunto" role="radio" aria-checked="false" data-tipo="falta">
+            <span class="assunto-icone" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M8.5 11h5"/></svg>
+            </span>
+            <span class="assunto-nome">Faltou produto</span>
+            <span class="assunto-texto">Procurei e não encontrei</span>
+          </button>
+          <button type="button" class="assunto" role="radio" aria-checked="false" data-tipo="sugestao">
+            <span class="assunto-icone" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg>
+            </span>
+            <span class="assunto-nome">Sugestão</span>
+            <span class="assunto-texto">Uma ideia para melhorar</span>
+          </button>
+          <button type="button" class="assunto" role="radio" aria-checked="false" data-tipo="reclamacao">
+            <span class="assunto-icone" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M21 12a8.5 8.5 0 0 1-12.6 7.4L3 21l1.6-5.4A8.5 8.5 0 1 1 21 12z"/><path d="M12 8v4M12 15.5v.01"/></svg>
+            </span>
+            <span class="assunto-nome">Reclamação</span>
+            <span class="assunto-texto">Algo não saiu como deveria</span>
+          </button>
+          <button type="button" class="assunto" role="radio" aria-checked="false" data-tipo="elogio">
+            <span class="assunto-icone" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>
+            </span>
+            <span class="assunto-nome">Elogio</span>
+            <span class="assunto-texto">Algo que você gostou</span>
+          </button>
+        </div>
+        <div class="acoes">
+          <button type="button" class="botao primario" id="ir-2" disabled>Continuar</button>
+        </div>
+      </fieldset>
+
+      <!-- ================= ETAPA 2: DETALHES ================= -->
+      <fieldset class="etapa" data-etapa="2" hidden>
+        <legend class="titulo-etapa" id="titulo-detalhes">Detalhes</legend>
+
+        <!-- Faltou produto: vários produtos -->
+        <div id="detalhes-falta" hidden>
+          <ul id="itens" class="itens" aria-label="Produtos que você não encontrou"></ul>
+
+          <div id="busca-bloco" class="busca-bloco">
+            <label class="rotulo" for="busca" id="busca-rotulo">Qual produto você não encontrou?</label>
+            <div class="busca">
+              <input id="busca" type="search" class="campo" autocomplete="off" maxlength="60"
+                     placeholder="Ex.: café 250 g" enterkeyhint="search" aria-autocomplete="list"
+                     aria-controls="sugestoes" />
+            </div>
+            <ul id="sugestoes" class="sugestoes" role="listbox" hidden></ul>
+            <p class="atribuicao" id="atribuicao" hidden>Fotos e dados de produtos: <a href="https://world.openfoodfacts.org/" target="_blank" rel="noopener">Open Food Facts</a></p>
+          </div>
+
+          <!-- Editor de um produto (novo ou editando) -->
+          <div id="editor-item" class="editor-item" hidden>
+            <p class="editor-titulo" id="editor-titulo">Produto</p>
+            <label class="rotulo" for="item-nome">Nome do produto</label>
+            <input id="item-nome" class="campo" maxlength="150" autocomplete="off" />
+            <div class="dupla">
+              <div>
+                <label class="rotulo" for="item-marca">Marca <small>(se souber)</small></label>
+                <input id="item-marca" class="campo" maxlength="80" autocomplete="off" />
+              </div>
+              <div>
+                <label class="rotulo" for="item-apresentacao">Tamanho <small>(se souber)</small></label>
+                <input id="item-apresentacao" class="campo" maxlength="60" autocomplete="off" placeholder="Ex.: 1 kg" />
+              </div>
+            </div>
+            <label class="rotulo" for="item-codigo">Código de barras <small>(opcional)</small></label>
+            <input id="item-codigo" class="campo" inputmode="numeric" maxlength="14" autocomplete="off" />
+            <div class="acoes">
+              <button type="button" class="botao" id="item-cancelar">Cancelar</button>
+              <button type="button" class="botao primario" id="item-salvar">Adicionar à lista</button>
+            </div>
+          </div>
+
+          <button type="button" class="botao contorno largo" id="outro-produto" hidden>+ Adicionar outro produto</button>
+
+          <label class="rotulo" for="falta-info">Informações adicionais <small>(opcional)</small></label>
+          <textarea id="falta-info" class="campo" rows="2" maxlength="2000" placeholder="Ex.: procuro sempre no fim do mês"></textarea>
+        </div>
+
+        <!-- Sugestão -->
+        <div id="detalhes-sugestao" hidden>
+          <label class="rotulo" for="sugestao-titulo">Sua sugestão</label>
+          <input id="sugestao-titulo" class="campo" maxlength="120" placeholder="Ex.: vender pão integral" />
+          <label class="rotulo" for="sugestao-texto">Explique a ideia <small>(opcional)</small></label>
+          <textarea id="sugestao-texto" class="campo" rows="4" maxlength="2000"></textarea>
+        </div>
+
+        <!-- Reclamação / Elogio -->
+        <div id="detalhes-texto" hidden>
+          <label class="rotulo" for="texto" id="texto-rotulo">Conte o que aconteceu</label>
+          <textarea id="texto" class="campo" rows="5" maxlength="2000"></textarea>
+        </div>
+
+        <!-- Foto (todos os assuntos) -->
+        <div class="foto-bloco">
+          <span class="rotulo">Foto <small>(opcional)</small></span>
+          <label class="foto-escolher" id="foto-escolher">
+            <input type="file" id="foto" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/*" />
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            <span>Tirar ou escolher foto</span>
+          </label>
+          <div class="foto-previa" id="foto-previa" hidden>
+            <img id="foto-img" alt="Foto anexada" />
+            <button type="button" class="botao pequeno" id="foto-remover">Remover foto</button>
+          </div>
+          <p class="nota">JPG, PNG ou WEBP. A foto é reduzida antes de enviar.</p>
+        </div>
+
+        <div class="acoes">
+          <button type="button" class="botao" data-voltar="1">Voltar</button>
+          <button type="button" class="botao primario" id="ir-3">Continuar</button>
+        </div>
+      </fieldset>
+
+      <!-- ================= ETAPA 3: IDENTIFICAÇÃO E ENVIO ================= -->
+      <fieldset class="etapa" data-etapa="3" hidden>
+        <legend class="titulo-etapa">Quer se identificar?</legend>
+        <p class="suave">É opcional. Você pode enviar sem nome e sem telefone.</p>
+
+        <label class="rotulo" for="nome">Nome <small>(opcional)</small></label>
+        <input id="nome" class="campo" maxlength="80" autocomplete="name" />
+        <label class="rotulo" for="telefone">Telefone com DDD <small>(opcional)</small></label>
+        <input id="telefone" class="campo" type="tel" inputmode="tel" maxlength="16" autocomplete="tel" placeholder="(89) 99999-9999" />
+
+        <div class="consentimento" id="consentimento-bloco" hidden>
+          <label class="marcar">
+            <input type="checkbox" id="consentimento" />
+            <span>Autorizo o Supermercado Veneza a usar meu nome e telefone <strong>somente para tratar desta mensagem</strong>.
+              Não enviamos propaganda. Os dados de contato são apagados em até 12 meses.
+              <a href="/escuta/privacidade.html" target="_blank" rel="noopener">Saiba mais</a>.</span>
+          </label>
+        </div>
+
+        <!-- Campo escondido contra robôs: pessoas não veem nem preenchem -->
+        <div class="armadilha" aria-hidden="true">
+          <label for="site">Não preencha</label>
+          <input id="site" name="site" tabindex="-1" autocomplete="off" />
+        </div>
+
+        <div class="resumo" id="resumo"></div>
+
+        <div class="acoes">
+          <button type="button" class="botao" data-voltar="2">Voltar</button>
+          <button type="submit" class="botao primario" id="enviar">Enviar</button>
+        </div>
+      </fieldset>
+    </form>
+
+    <!-- ================= CONFIRMAÇÃO ================= -->
+    <section id="tela-obrigado" class="cartao obrigado" hidden>
+      <div class="obrigado-icone" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+      </div>
+      <h1>Obrigado por participar!</h1>
+      <p>Recebemos sua mensagem. Ela será lida pela administração do Supermercado Veneza.</p>
+      <p class="protocolo-rotulo">Seu protocolo</p>
+      <p class="protocolo" id="protocolo"></p>
+      <p class="suave">Guarde este número se quiser falar sobre esta mensagem na loja. Nem sempre conseguimos responder cada mensagem individualmente.</p>
+      <button type="button" class="botao primario largo" id="nova">Enviar outra mensagem</button>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <p>Sua opinião nos ajuda a melhorar!</p>
+    <p><a href="/escuta/privacidade.html">Privacidade</a> · Supermercado Veneza · Paes Landim - PI</p>
+  </footer>
+
+  <script src="/sistema/config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
+  <script src="/sistema/js/escuta-db.js"></script>
+  <script src="/escuta/escuta.js"></script>
+</body>
+</html>

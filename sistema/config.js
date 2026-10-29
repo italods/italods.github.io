@@ -18,6 +18,20 @@ window.VENEZA_CONFIG = {
   // Sugestões no campo Operador / Responsável (pode digitar outro nome)
   OPERADORES: ["Italo", "Irmã", "Cida"],
 
+  // Veneza Escuta (sugestões e reclamações dos clientes)
+  ESCUTA: {
+    // Endereço que vai dentro dos QR codes: URL_PUBLICA + "/q/" + token da plaquinha.
+    // Enquanto o domínio oficial não estiver configurado, deixe DOMINIO_DEFINITIVO: false.
+    // As plaquinhas saem marcadas como "TESTE" para não serem penduradas na loja.
+    URL_PUBLICA: "https://italods.com.br",
+    DOMINIO_DEFINITIVO: false,
+    // Logo oficial (PNG com fundo transparente). Enquanto o arquivo não existir, aparece o nome em texto.
+    LOGO: "/assets/logo-veneza.png",
+    // Sugestões no cadastro de plaquinhas (pode digitar outro setor)
+    SETORES: ["Açougue", "Bebidas", "Caixas", "Frios e laticínios", "Higiene e perfumaria", "Hortifruti",
+      "Limpeza", "Mercearia", "Padaria", "Perfumaria"]
+  },
+
   // Sugestões de motivo para sangria e suprimento
   MOTIVOS: ["Levado ao cofre", "Pagamento fornecedor", "Reforço de moedas", "Reforço de troco", "Despesa da loja"]
 };
