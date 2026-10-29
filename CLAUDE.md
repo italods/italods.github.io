@@ -18,6 +18,7 @@ calculadora_precos.html, Cheques.html, conversor-extenso.html
                   ← ferramentas (não quebrar). Usam styles/veneza.css + um <style> próprio; o
                     <script> de cada uma é o original. Ferramenta nova: copiar o topo/rodapé de uma
                     delas e incluir um cartão em index.html
+js/extenso.js     ← valor em reais por extenso (centavos), usado por Cheques e Conversor, com testes
 styles/style.css, avatar.svg, 2.png, .melhorias.html ← restos do site antigo, não usados
 (compras.html e linkwhatsapp.html foram removidas a pedido do Italo)
 sistema/
@@ -63,7 +64,7 @@ tests/calculos.test.js ← testes em Node dos cálculos e formatos
 node --test tests/*.test.js
 ```
 
-Inclui os números reais de 23/10/2026 (Caixa 1: falta R$ 54,38; Caixa 2: sobra R$ 863,92).
+Inclui o texto por extenso (tests/extenso.test.js) e os números reais de 23/10/2026 (Caixa 1: falta R$ 54,38; Caixa 2: sobra R$ 863,92).
 
 Para ver as telas localmente:
 
