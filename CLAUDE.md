@@ -1,9 +1,12 @@
 # Site do Italo / Sistema Veneza
 
 Site pessoal do Italo Pereira, hospedado na **Vercel** (projeto ligado a este repositório; a
-branch `main` vai para produção e as outras branches geram uma prévia). Sem `vercel.json`: a Vercel
-serve os arquivos estáticos da raiz como estão. Domínio: https://italods.com.br/ (sistema em https://italods.com.br/sistema/). Dentro dele fica o **Sistema Veneza**, o sistema gerencial do
-Supermercado Veneza (Paes Landim - PI), usado só pelo Italo e pela irmã (sócia).
+branch `main` vai para produção e as outras branches geram uma prévia). A Vercel serve os arquivos
+estáticos da raiz como estão; o `vercel.json` só tem a regra `/q/:token` → `/escuta/index.html`
+(QR codes) e cabeçalhos noindex. Domínio: https://italods.com.br/ (sistema em https://italods.com.br/sistema/). Dentro dele fica o **Sistema Veneza**, o sistema gerencial do
+Supermercado Veneza (Paes Landim - PI), usado só pelo Italo e pela irmã (sócia). O sistema tem duas
+áreas: **Conferência de caixa** e **Veneza Escuta** (sugestões, reclamações, elogios e produtos em
+falta enviados pelos clientes por QR codes nas plaquinhas da loja).
 
 Tudo é HTML/CSS/JS puro, sem framework e sem etapa de build. O que estiver no `main` vai ao ar.
 
@@ -22,15 +25,28 @@ js/extenso.js     ← valor em reais por extenso (centavos), usado por Cheques e
 styles/style.css, avatar.svg, 2.png, .melhorias.html ← restos do site antigo, não usados
 (compras.html e linkwhatsapp.html foram removidas a pedido do Italo)
 sistema/
-  index.html        ← app de página única (login + abas: Caixa, Histórico, Sangrias, Relatório)
-  config.js         ← URL do Supabase, chave anon, lista de CAIXAS, OPERADORES e MOTIVOS
+  index.html        ← app de página única: login + área "Conferência de caixa" (Caixa, Histórico,
+                      Sangrias, Relatório) + área "Veneza Escuta" (Visão geral, Mensagens,
+                      Plaquinhas, Catálogo). Rotas por hash (#caixa, #escuta-mensagens...)
+  plaquinhas.html   ← impressão das plaquinhas (A6, 4 por A4), QR em SVG; exige login
+  config.js         ← URL do Supabase, chave anon, CAIXAS, OPERADORES, MOTIVOS e ESCUTA
+                      (URL_PUBLICA dos QR codes, DOMINIO_DEFINITIVO, LOGO, SETORES)
   css/sistema.css   ← visual (celular primeiro, claro/escuro por prefers-color-scheme)
   js/calculos.js    ← contas puras em centavos (navegador + Node)
   js/formatos.js    ← texto do WhatsApp e CSV (puras, navegador + Node)
   js/db.js          ← acesso ao Supabase + modo demonstração (?demo=1, guarda no localStorage)
-  js/app.js         ← telas e eventos
-supabase/schema.sql ← tabelas, gatilhos e RLS (colar no SQL Editor do Supabase; pode rodar de novo)
-tests/calculos.test.js ← testes em Node dos cálculos e formatos
+  js/app.js         ← telas e eventos do caixa, login e troca de áreas
+  js/escuta-db.js   ← Veneza Escuta: chamadas às funções do banco + demonstração (?demo=1)
+  js/escuta-admin.js← Veneza Escuta: telas do painel
+escuta/             ← formulário PÚBLICO dos clientes (sem login): index.html, escuta.css,
+                      escuta.js, privacidade.html. Fundo branco, verde #123E30/#267357, dourado
+                      da logo. Endereço: /q/<token> (QR) ou /escuta/ (sem plaquinha)
+assets/logo-veneza.png ← logo oficial (ainda não enviada; sem ela aparece o nome em texto)
+supabase/schema.sql ← caixa: tabelas, gatilhos e RLS (colar no SQL Editor; pode rodar de novo)
+supabase/escuta.sql ← Veneza Escuta: tabelas, funções, RLS e pasta privada de fotos (rodar
+                      depois do schema.sql; pode rodar de novo)
+supabase/testes/    ← Supabase simulado + testes SQL (só para Postgres local, nunca no Supabase)
+tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
 ```
 
 ## Regras do projeto
@@ -58,6 +74,26 @@ tests/calculos.test.js ← testes em Node dos cálculos e formatos
 - Erros devem ser claros (sem internet, sessão expirada, sem permissão) e nunca apagar o que foi
   digitado: a contagem fica em rascunho no `localStorage` até salvar.
 
+### Veneza Escuta
+- Cliente (papel `anon`) não lê nenhuma tabela. Só chama `escuta_plaquinha`, `escuta_buscar_produtos`
+  e `escuta_enviar`, e só **cria** arquivo em `escuta-fotos/envios/<id do envio>/<uuid>.jpg`.
+  Toda validação fica no banco (`escuta_enviar`): tipo, tamanhos, telefone, consentimento,
+  plaquinha ativa, foto existente, limite de 8 envios/10 min e 40/dia por rede, campo-armadilha e
+  tempo mínimo. O `id` do envio vem do aparelho: reenviar não duplica.
+- Painel: funções `escuta_*` com `security definer` que chamam `escuta_exigir_admin()`.
+  Gravações só por essas funções (tabelas sem insert/update/delete para `authenticated`).
+- Fotos: pasta privada; o painel abre com link temporário (`createSignedUrl`, 10 min).
+- Token da plaquinha é aleatório e **nunca muda** (editar nome/setor mantém o QR). Plaquinha com
+  mensagens não se apaga: desativa. Desativada não aceita envios.
+- Imagem de produto só vem do catálogo (nunca de URL enviada pelo navegador).
+- Nome/telefone são apagados 12 meses após o envio (dentro de `escuta_enviar`).
+- Open Food Facts: consultado só pelo administrador (aba Catálogo), nunca a cada letra do cliente;
+  busca por nome no máximo a cada 7 s (limite da API: 10/min). O cliente busca no catálogo local.
+  Mostrar a atribuição "Open Food Facts (ODbL / CC BY-SA)" onde aparecerem dados/fotos deles.
+- Enquanto `ESCUTA.DOMINIO_DEFINITIVO` for `false`, as plaquinhas saem marcadas "TESTE".
+- Fora do escopo por enquanto (pedido do Italo): integração com WhatsApp e premiação por sugestões.
+- Não mostrar indicadores inventados: sem dados, dizer que ainda não há dados.
+
 ## Testes
 
 ```bash
@@ -73,8 +109,18 @@ python3 -m http.server 8000
 # abrir http://localhost:8000/sistema/?demo=1  (modo demonstração, sem Supabase)
 ```
 
-O `schema.sql` pode ser testado num Postgres local criando antes um esquema `auth` com a função
-`auth.jwt()` e os papéis `anon`/`authenticated` (imitando o Supabase).
+Formulário dos clientes em demonstração: `http://localhost:8000/escuta/?demo=1` (crie uma plaquinha
+no painel em `?demo=1` e use `?q=<token>&demo=1`). O `/q/<token>` só funciona na Vercel (rewrite).
+
+Banco (Postgres local, nunca no Supabase de produção):
+
+```bash
+createdb teste
+psql -d teste -f supabase/testes/supabase-simulado.sql
+psql -d teste -f supabase/schema.sql
+psql -d teste -f supabase/escuta.sql
+psql -d teste -f supabase/testes/escuta.test.sql   # termina com TODOS_OS_TESTES_PASSARAM
+```
 
 ## Publicar
 
@@ -86,5 +132,8 @@ O `schema.sql` pode ser testado num Postgres local criando antes um esquema `aut
    commits com outro autor não vão ao ar.
 3. Enviar para `main` (a Vercel publica sozinha em 1–2 minutos). Um push em outra branch só gera
    uma prévia na Vercel, que usa o mesmo Supabase: cuidado ao testar lá, os dados são os reais.
-4. Mudança no banco: atualizar `supabase/schema.sql` de forma que possa rodar de novo sem apagar
-   dados (`if not exists`, `create or replace`) e avisar o Italo para colar no SQL Editor.
+4. Mudança no banco: atualizar o `.sql` da área (`schema.sql` ou `escuta.sql`) de forma que possa
+   rodar de novo sem apagar dados (`if not exists`, `add column if not exists`, `create or
+   replace`), atualizar os testes SQL e avisar o Italo para colar o arquivo no SQL Editor.
+   Backup: o plano gratuito do Supabase não guarda cópias para baixar; os CSVs do Histórico e das
+   Mensagens servem de cópia manual.
