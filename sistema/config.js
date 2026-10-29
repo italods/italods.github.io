@@ -5,8 +5,8 @@
  */
 window.VENEZA_CONFIG = {
   // Supabase > Project Settings > API (ou "Connect")
-  SUPABASE_URL: "COLE_AQUI_A_URL_DO_PROJETO",
-  SUPABASE_ANON_KEY: "COLE_AQUI_A_CHAVE_ANON",
+  SUPABASE_URL: "https://ywpdngjtqostisqoehzi.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3cGRuZ2p0cW9zdGlzcW9laHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMzA4OTksImV4cCI6MjEwODgwNjg5OX0.e3eqA44Ze_Nj1wkxhqC7RGbGbk9-GmpJsCZLZuKU9qI",
 
   // Caixas da loja. Para incluir um novo, copie uma linha e troque o id e os nomes.
   // O "id" fica gravado no banco: depois de usar, não mude o id de um caixa.
