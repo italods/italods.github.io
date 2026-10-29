@@ -1,7 +1,8 @@
 # Site do Italo / Sistema Veneza
 
-Site pessoal do Italo Pereira, servido pelo GitHub Pages (branch `main`, raiz do repositório),
-em https://italods.github.io/. Dentro dele fica o **Sistema Veneza**, o sistema gerencial do
+Site pessoal do Italo Pereira, hospedado na **Vercel** (projeto ligado a este repositório; a
+branch `main` vai para produção e as outras branches geram uma prévia). Sem `vercel.json`: a Vercel
+serve os arquivos estáticos da raiz como estão. O sistema fica em `/sistema/` no domínio do site. Dentro dele fica o **Sistema Veneza**, o sistema gerencial do
 Supermercado Veneza (Paes Landim - PI), usado só pelo Italo e pela irmã (sócia).
 
 Tudo é HTML/CSS/JS puro, sem framework e sem etapa de build. O que estiver no `main` vai ao ar.
@@ -70,6 +71,7 @@ O `schema.sql` pode ser testado num Postgres local criando antes um esquema `aut
 
 1. Rodar os testes e conferir as telas em `?demo=1` (celular 390px e computador, claro e escuro).
 2. Commits pequenos, mensagens em português.
-3. Enviar para `main` (o GitHub Pages publica sozinho em 1–2 minutos).
+3. Enviar para `main` (a Vercel publica sozinha em 1–2 minutos). Um push em outra branch só gera
+   uma prévia na Vercel, que usa o mesmo Supabase: cuidado ao testar lá, os dados são os reais.
 4. Mudança no banco: atualizar `supabase/schema.sql` de forma que possa rodar de novo sem apagar
    dados (`if not exists`, `create or replace`) e avisar o Italo para colar no SQL Editor.
