@@ -71,6 +71,10 @@ O `schema.sql` pode ser testado num Postgres local criando antes um esquema `aut
 
 1. Rodar os testes e conferir as telas em `?demo=1` (celular 390px e computador, claro e escuro).
 2. Commits pequenos, mensagens em português.
+   **Autor dos commits: `Italo Pereira <italopereira007@hotmail.com>`** (configurar com
+   `git config user.name "Italo Pereira"` e `git config user.email "italopereira007@hotmail.com"`).
+   A Vercel (plano Hobby) bloqueia a publicação quando o autor do commit não é o dono da conta;
+   commits com outro autor não vão ao ar.
 3. Enviar para `main` (a Vercel publica sozinha em 1–2 minutos). Um push em outra branch só gera
    uma prévia na Vercel, que usa o mesmo Supabase: cuidado ao testar lá, os dados são os reais.
 4. Mudança no banco: atualizar `supabase/schema.sql` de forma que possa rodar de novo sem apagar
