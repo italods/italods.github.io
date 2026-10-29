@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#f6f6f3" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#16171a" media="(prefers-color-scheme: dark)" />
+  <title>Sistema Veneza</title>
+  <link rel="stylesheet" href="css/sistema.css" />
+</head>
+<body>
+  <div id="faixa-demo" class="faixa-demo" hidden>
+    Modo demonstração: os dados ficam só neste aparelho e não vão para o banco.
+  </div>
+
+  <!-- Carregando -->
+  <section id="tela-carregando" class="tela-centro">
+    <p class="marca">Supermercado Veneza</p>
+    <p class="suave">Carregando…</p>
+  </section>
+
+  <!-- Sem configuração -->
+  <section id="tela-config" class="tela-centro" hidden>
+    <p class="marca">Supermercado Veneza</p>
+    <div class="cartao">
+      <h1>Sistema ainda não configurado</h1>
+      <p>Preencha <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code> no arquivo <code>sistema/config.js</code>.</p>
+      <p><a href="?demo=1">Abrir em modo demonstração</a> (os dados ficam só neste aparelho).</p>
+    </div>
+  </section>
+
+  <!-- Login -->
+  <section id="tela-login" class="tela-centro" hidden>
+    <p class="marca">Supermercado Veneza</p>
+    <form id="form-login" class="cartao" novalidate>
+      <h1>Entrar</h1>
+      <label class="campo">
+        <span>E-mail</span>
+        <input type="email" id="login-email" autocomplete="username" inputmode="email" required />
+      </label>
+      <label class="campo">
+        <span>Senha</span>
+        <input type="password" id="login-senha" autocomplete="current-password" required />
+      </label>
+      <p id="login-erro" class="msg-erro" role="alert" hidden></p>
+      <button type="submit" class="botao primario largo" id="login-botao">Entrar</button>
+    </form>
+  </section>
+
+  <!-- Aplicação -->
+  <div id="app" hidden>
+    <header class="topo">
+      <div class="topo-linha">
+        <div>
+          <p class="marca pequena">Supermercado Veneza</p>
+          <p class="suave mini" id="usuario-email"></p>
+        </div>
+        <button type="button" class="botao fantasma" id="botao-sair">Sair</button>
+      </div>
+      <nav class="abas" aria-label="Módulos">
+        <a href="#caixa" data-aba="caixa">Caixa</a>
+        <a href="#historico" data-aba="historico">Histórico</a>
+        <a href="#movimentos" data-aba="movimentos">Sangrias</a>
+        <a href="#relatorio" data-aba="relatorio">Relatório</a>
+      </nav>
+    </header>
+
+    <div id="aviso" class="aviso" role="alert" hidden>
+      <span id="aviso-texto"></span>
+      <button type="button" class="aviso-fechar" id="aviso-fechar" aria-label="Fechar aviso">×</button>
+    </div>
+
+    <main class="conteudo">
+
+      <!-- ===================== CONFERÊNCIA DE CAIXA ===================== -->
+      <section id="aba-caixa" class="aba" hidden>
+        <div id="editando" class="faixa-edicao" hidden>
+          <span id="editando-texto">Editando registro</span>
+          <button type="button" class="botao fantasma pequeno" id="cancelar-edicao">Cancelar edição</button>
+        </div>
+
+        <div class="bloco">
+          <div class="alternador" role="radiogroup" aria-label="Tipo" id="conf-tipo">
+            <button type="button" role="radio" data-valor="abertura">Abertura</button>
+            <button type="button" role="radio" data-valor="fechamento">Fechamento</button>
+          </div>
+          <div class="alternador" role="radiogroup" aria-label="Caixa" id="conf-caixa"></div>
+          <label class="campo">
+            <span>Operador</span>
+            <input type="text" id="conf-operador" list="lista-operadores" autocomplete="off" maxlength="80" />
+          </label>
+          <div class="dupla">
+            <label class="campo">
+              <span>Data</span>
+              <input type="date" id="conf-data" />
+            </label>
+            <label class="campo">
+              <span>Hora</span>
+              <input type="time" id="conf-hora" />
+            </label>
+          </div>
+        </div>
+
+        <div class="bloco">
+          <h2>Cédulas</h2>
+          <div id="linhas-cedulas"></div>
+          <p class="subtotal">Subtotal cédulas <strong id="sub-cedulas">R$ 0,00</strong></p>
+        </div>
+
+        <div class="bloco">
+          <h2>Moedas</h2>
+          <div id="linhas-moedas"></div>
+          <p class="subtotal">Subtotal moedas <strong id="sub-moedas">R$ 0,00</strong></p>
+        </div>
+
+        <div class="bloco destaque">
+          <p class="total-linha">Total contado <strong id="total-contado">R$ 0,00</strong></p>
+        </div>
+
+        <div id="bloco-fechamento" hidden>
+          <div class="bloco">
+            <h2>Comparação com o sistema (Diamante)</h2>
+            <label class="campo">
+              <span>Fundo de caixa</span>
+              <input type="text" inputmode="decimal" class="dinheiro" id="conf-fundo" autocomplete="off" />
+              <small class="suave" id="fundo-origem"></small>
+            </label>
+            <label class="campo">
+              <span>Vendas em dinheiro</span>
+              <input type="text" inputmode="decimal" class="dinheiro" id="conf-vendas" autocomplete="off" placeholder="0,00" />
+            </label>
+            <label class="campo">
+              <span>Recebimentos em dinheiro <small class="suave">(fiado / carteira)</small></span>
+              <input type="text" inputmode="decimal" class="dinheiro" id="conf-recebimentos" autocomplete="off" placeholder="0,00" />
+            </label>
+            <div class="linha-info">
+              <span>Suprimentos do dia</span><strong id="conf-suprimentos">R$ 0,00</strong>
+            </div>
+            <div class="linha-info">
+              <span>Sangrias do dia</span><strong id="conf-sangrias">R$ 0,00</strong>
+            </div>
+            <p class="suave mini" id="movimentos-estado"></p>
+            <div class="linha-info forte">
+              <span>Esperado</span><strong id="conf-esperado">R$ 0,00</strong>
+            </div>
+            <div id="conf-diferenca" class="diferenca bateu">Caixa bateu</div>
+          </div>
+
+          <details class="bloco">
+            <summary>Outros valores do sistema (só registro)</summary>
+            <div class="dupla">
+              <label class="campo"><span>PIX</span>
+                <input type="text" inputmode="decimal" class="dinheiro" id="conf-pix" autocomplete="off" placeholder="0,00" /></label>
+              <label class="campo"><span>Cartão débito</span>
+                <input type="text" inputmode="decimal" class="dinheiro" id="conf-debito" autocomplete="off" placeholder="0,00" /></label>
+            </div>
+            <div class="dupla">
+              <label class="campo"><span>Cartão crédito</span>
+                <input type="text" inputmode="decimal" class="dinheiro" id="conf-credito" autocomplete="off" placeholder="0,00" /></label>
+              <label class="campo"><span>Carteira</span>
+                <input type="text" inputmode="decimal" class="dinheiro" id="conf-carteira" autocomplete="off" placeholder="0,00" /></label>
+            </div>
+          </details>
+
+          <div class="bloco">
+            <label class="campo">
+              <span>Troco para amanhã</span>
+              <input type="text" inputmode="decimal" class="dinheiro" id="conf-troco" autocomplete="off" />
+            </label>
+            <div class="linha-info forte">
+              <span id="cofre-rotulo">Guardar no cofre</span><strong id="conf-cofre">R$ 0,00</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="bloco">
+          <label class="campo">
+            <span>Observação</span>
+            <textarea id="conf-observacao" rows="2" maxlength="2000"></textarea>
+          </label>
+        </div>
+
+        <div class="acoes">
+          <button type="button" class="botao" id="conf-limpar">Limpar</button>
+          <button type="button" class="botao primario" id="conf-salvar">Salvar</button>
+        </div>
+
+        <!-- Resumo fixo no rodapé enquanto conta -->
+        <div class="barra-total" id="barra-total" aria-live="polite">
+          <span>Total <strong id="barra-contado">R$ 0,00</strong></span>
+          <span id="barra-diferenca" class="barra-dif" hidden></span>
+        </div>
+      </section>
+
+      <!-- ============================ HISTÓRICO ============================ -->
+      <section id="aba-historico" class="aba" hidden>
+        <div class="bloco">
+          <div class="dupla">
+            <label class="campo"><span>De</span><input type="date" id="hist-de" /></label>
+            <label class="campo"><span>Até</span><input type="date" id="hist-ate" /></label>
+          </div>
+          <label class="campo">
+            <span>Caixa</span>
+            <select id="hist-caixa"></select>
+          </label>
+          <div class="acoes">
+            <button type="button" class="botao" id="hist-csv">Exportar CSV</button>
+            <button type="button" class="botao primario" id="hist-buscar">Buscar</button>
+          </div>
+        </div>
+        <div id="hist-lista"></div>
+      </section>
+
+      <!-- ===================== SANGRIA E SUPRIMENTO ===================== -->
+      <section id="aba-movimentos" class="aba" hidden>
+        <div id="mov-editando" class="faixa-edicao" hidden>
+          <span>Editando lançamento</span>
+          <button type="button" class="botao fantasma pequeno" id="mov-cancelar">Cancelar edição</button>
+        </div>
+        <div class="bloco">
+          <div class="alternador" role="radiogroup" aria-label="Tipo" id="mov-tipo">
+            <button type="button" role="radio" data-valor="sangria">Sangria <small>retirada</small></button>
+            <button type="button" role="radio" data-valor="suprimento">Suprimento <small>reforço</small></button>
+          </div>
+          <div class="alternador" role="radiogroup" aria-label="Caixa" id="mov-caixa"></div>
+          <div class="dupla">
+            <label class="campo"><span>Data</span><input type="date" id="mov-data" /></label>
+            <label class="campo"><span>Hora</span><input type="time" id="mov-hora" /></label>
+          </div>
+          <label class="campo">
+            <span>Valor</span>
+            <input type="text" inputmode="decimal" class="dinheiro grande" id="mov-valor" autocomplete="off" placeholder="0,00" />
+          </label>
+          <label class="campo">
+            <span>Motivo</span>
+            <input type="text" id="mov-motivo" list="lista-motivos" autocomplete="off" maxlength="300" />
+          </label>
+          <label class="campo">
+            <span>Responsável</span>
+            <input type="text" id="mov-responsavel" list="lista-operadores" autocomplete="off" maxlength="80" />
+          </label>
+          <div class="acoes">
+            <button type="button" class="botao primario largo" id="mov-salvar">Salvar lançamento</button>
+          </div>
+        </div>
+
+        <div class="bloco">
+          <div class="cabecalho-lista">
+            <h2>Lançamentos do dia</h2>
+            <input type="date" id="mov-dia" aria-label="Dia" />
+          </div>
+          <div id="mov-lista"></div>
+        </div>
+      </section>
+
+      <!-- ========================= RELATÓRIO MENSAL ========================= -->
+      <section id="aba-relatorio" class="aba" hidden>
+        <div class="bloco">
+          <div class="dupla">
+            <label class="campo"><span>Mês</span><select id="rel-mes"></select></label>
+            <label class="campo"><span>Ano</span><select id="rel-ano"></select></label>
+          </div>
+          <div class="acoes">
+            <button type="button" class="botao" id="rel-csv">Exportar CSV</button>
+            <button type="button" class="botao primario" id="rel-gerar">Gerar</button>
+          </div>
+        </div>
+        <div id="rel-conteudo"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Janela de detalhe de um registro -->
+  <dialog id="detalhe" class="janela">
+    <div class="janela-topo">
+      <h2 id="detalhe-titulo">Registro</h2>
+      <button type="button" class="botao fantasma" id="detalhe-fechar" aria-label="Fechar">×</button>
+    </div>
+    <pre id="detalhe-texto" class="texto-registro"></pre>
+    <p class="suave mini" id="detalhe-autoria"></p>
+    <div class="acoes quatro">
+      <button type="button" class="botao" id="detalhe-copiar">Copiar</button>
+      <button type="button" class="botao" id="detalhe-pdf">PDF</button>
+      <button type="button" class="botao" id="detalhe-editar">Editar</button>
+      <button type="button" class="botao perigo" id="detalhe-apagar">Apagar</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <datalist id="lista-operadores"></datalist>
+  <datalist id="lista-motivos"></datalist>
+
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
+  <script src="js/calculos.js"></script>
+  <script src="js/formatos.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
