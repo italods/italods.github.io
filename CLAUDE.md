@@ -2,7 +2,7 @@
 
 Site pessoal do Italo Pereira, hospedado na **Vercel** (projeto ligado a este repositório; a
 branch `main` vai para produção e as outras branches geram uma prévia). Sem `vercel.json`: a Vercel
-serve os arquivos estáticos da raiz como estão. O sistema fica em `/sistema/` no domínio do site. Dentro dele fica o **Sistema Veneza**, o sistema gerencial do
+serve os arquivos estáticos da raiz como estão. Domínio: https://italods.com.br/ (sistema em https://italods.com.br/sistema/). Dentro dele fica o **Sistema Veneza**, o sistema gerencial do
 Supermercado Veneza (Paes Landim - PI), usado só pelo Italo e pela irmã (sócia).
 
 Tudo é HTML/CSS/JS puro, sem framework e sem etapa de build. O que estiver no `main` vai ao ar.
