@@ -2,221 +2,91 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#111827">
-<title>Calculadora de Preços</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f6f6f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16171a" media="(prefers-color-scheme: dark)">
+<title>Calculadora de Preços · Supermercado Veneza</title>
+<link rel="stylesheet" href="/styles/veneza.css">
 <style>
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    background: #f3f4f6;
-    color: #111827;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .app {
-    width: min(100%, 520px);
-    margin: 0 auto;
-    padding: 8px;
-  }
-  .header {
-    background: #111827;
-    color: white;
-    border-radius: 14px;
-    padding: 12px 14px;
-    margin-bottom: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,.10);
-  }
-  .header h1 { margin: 0; font-size: 18px; }
-  .header p { margin: 2px 0 0; color: #d1d5db; font-size: 10px; }
-  .card {
-    background: white;
-    border-radius: 13px;
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    box-shadow: 0 3px 14px rgba(0,0,0,.06);
-  }
-  .section-title {
-    font-size: 10px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    color: #6b7280;
-    margin-bottom: 7px;
-  }
-  .toggle {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 5px;
-  }
-  .toggle input { display: none; }
-  .toggle label {
-    border: 1.5px solid #d1d5db;
-    border-radius: 9px;
-    padding: 7px 5px;
-    text-align: center;
-    font-weight: 700;
-    cursor: pointer;
-    background: #fff;
-    color: #374151;
-  }
-  .toggle input:checked + label {
-    border-color: #111827;
-    background: #111827;
-    color: white;
-  }
-  .field-label {
-    display: block;
-    font-size: 11px;
-    font-weight: 700;
-    color: #4b5563;
-    margin: 7px 0 4px;
-  }
-  input[type="text"], input[type="number"] {
-    width: 100%;
-    border: 1.5px solid #d1d5db;
-    border-radius: 9px;
-    padding: 8px 10px;
-    font-size: 19px;
-    font-weight: 750;
-    outline: none;
-    background: #fff;
-    color: #111827;
-  }
-  input:focus { border-color: #111827; box-shadow: 0 0 0 2px rgba(17,24,39,.08); }
-  .unit-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 5px;
-  }
   .hidden { display: none !important; }
   .calc-line {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 4px 0;
-    border-bottom: 1px solid #f0f0f0;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--superficie-2);
+    font-variant-numeric: tabular-nums;
   }
-  .calc-line:last-child { border-bottom: 0; }
-  .calc-line span:first-child { color: #6b7280; font-size: 11px; }
-  .calc-line strong { font-size: 13px; }
-  .highlight {
-    background: #f9fafb;
-    border-radius: 14px;
-    padding: 7px 10px;
-    margin-top: 5px;
-  }
-  .highlight .big {
-    font-size: 21px;
-    font-weight: 850;
-    margin-top: 2px;
-  }
-  .price-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 5px;
-    margin-top: 6px;
-  }
-  .price-box {
-    border: 1.5px solid #e5e7eb;
+  .calc-line span:first-child { color: var(--suave); }
+  .destaque {
+    background: var(--primaria-clara);
     border-radius: 10px;
-    padding: 7px 5px;
+    padding: 10px 12px;
+    margin-top: 8px;
+  }
+  .destaque .rotulo { margin: 0; color: var(--suave); }
+  .destaque .big { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .price-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .price-box {
+    border: 1px solid var(--borda);
+    border-radius: 10px;
+    padding: 10px 6px;
     text-align: center;
-    background: #fff;
   }
-  .price-box .markup { font-size: 10px; color: #6b7280; font-weight: 800; }
-  .price-box .price { font-size: 16px; font-weight: 850; margin-top: 5px; }
-  .comparison {
-    margin-top: 6px;
-    display: grid;
-    gap: 5px;
-  }
+  .price-box .markup { font-size: .85rem; color: var(--suave); font-weight: 700; }
+  .price-box .price { font-size: 1.15rem; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .comparison { margin-top: 10px; display: grid; gap: 8px; }
   .compare-row {
     border-radius: 10px;
-    padding: 7px 9px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    padding: 10px 12px;
+    background: var(--superficie-2);
   }
-  .compare-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-  }
-  .compare-price { font-size: 15px; font-weight: 850; }
+  .compare-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .compare-price { font-size: 1.15rem; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
   .badge {
-    padding: 3px 6px;
+    padding: 3px 8px;
     border-radius: 999px;
-    font-size: 9px;
-    font-weight: 800;
+    font-size: .78rem;
+    font-weight: 700;
     white-space: nowrap;
   }
-  .badge.good { background: #dcfce7; color: #166534; }
-  .badge.bad { background: #fee2e2; color: #991b1b; }
-  .badge.equal { background: #e5e7eb; color: #374151; }
-  .difference {
-    font-size: 10px;
-    margin-top: 3px;
-    color: #4b5563;
-  }
-  .difference strong { color: #111827; }
-  .empty-note {
-    font-size: 13px;
-    color: #9ca3af;
-    text-align: center;
-    padding: 4px 0 1px;
-  }
-  .settings {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 5px;
-  }
-  .settings input {
-    font-size: 15px;
-    padding: 6px 5px;
-    text-align: center;
-  }
-  .small-note { font-size: 11px; color: #9ca3af; margin-top: 8px; line-height: 1.4; }
-  .reset {
-    width: 100%;
-    border: 0;
-    background: transparent;
-    color: #6b7280;
-    padding: 12px;
-    font-size: 10px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  @media (max-width: 360px) {
-    .price-box .price { font-size: 16px; }
-    .app { padding: 10px; }
-  }
+  .badge.good { background: var(--bom-fundo); color: var(--bom); }
+  .badge.bad { background: var(--ruim-fundo); color: var(--ruim); }
+  .badge.equal { background: var(--superficie); color: var(--suave); }
+  .difference { font-size: .88rem; margin-top: 4px; color: var(--suave); }
+  .difference strong { color: var(--texto); }
+  .settings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .settings .campo { text-align: center; }
+  #gondola { margin-bottom: 4px; }
 </style>
 </head>
 <body>
-<div class="app">
-  <header class="header">
+<div class="pagina estreita">
+  <header class="topo-ferramenta">
+    <a class="voltar" href="/">‹ Supermercado Veneza</a>
     <h1>Calculadora de Preços</h1>
     <p>Preço de compra → custo unitário → markup → comparação</p>
   </header>
 
-  <section class="card">
-    <div class="section-title">1. Compra</div>
+  <main>
+  <section class="cartao">
+    <h2>1. Compra</h2>
 
-    <div class="field-label">Nota fiscal</div>
-    <div class="toggle">
+    <span class="rotulo">Nota fiscal</span>
+    <div class="alternador">
       <input type="radio" name="nota" id="semNota" value="0" checked>
       <label for="semNota">Sem nota</label>
       <input type="radio" name="nota" id="comNota" value="8">
       <label for="comNota">Com nota +8%</label>
     </div>
 
-    <label class="field-label" for="preco">Preço informado pelo vendedor</label>
-    <input id="preco" type="text" inputmode="decimal" placeholder="R$ 0,00" autocomplete="off">
+    <label class="rotulo" for="preco">Preço informado pelo vendedor</label>
+    <input id="preco" class="campo" type="text" inputmode="decimal" placeholder="R$ 0,00" autocomplete="off">
 
-    <div class="field-label">Preço é...</div>
-    <div class="toggle">
+    <span class="rotulo">Preço é...</span>
+    <div class="alternador">
       <input type="radio" name="tipo" id="unidade" value="unidade" checked>
       <label for="unidade">Unidade</label>
       <input type="radio" name="tipo" id="caixa" value="caixa">
@@ -224,29 +94,29 @@
     </div>
 
     <div id="quantidadeArea" class="hidden">
-      <label class="field-label" for="quantidade">Quantidade por caixa</label>
-      <input id="quantidade" type="number" inputmode="numeric" min="1" step="1" placeholder="Ex.: 20">
+      <label class="rotulo" for="quantidade">Quantidade por caixa</label>
+      <input id="quantidade" class="campo" type="number" inputmode="numeric" min="1" step="1" placeholder="Ex.: 20">
     </div>
   </section>
 
-  <section class="card">
-    <div class="section-title">2. Custo</div>
+  <section class="cartao">
+    <h2>2. Custo</h2>
 
     <div id="notaDetalhes" class="hidden">
       <div class="calc-line"><span>Preço informado</span><strong id="outPreco">R$ 0,00</strong></div>
       <div class="calc-line"><span>Imposto (8%)</span><strong id="outImposto">R$ 0,00</strong></div>
     </div>
 
-    <div class="highlight">
-      <div class="field-label" style="margin:0;">Custo por unidade</div>
+    <div class="destaque">
+      <span class="rotulo">Custo por unidade</span>
       <div class="big" id="outUnitario">R$ 0,00</div>
     </div>
 
-    <div id="impostoInfo" class="small-note hidden">O imposto é mostrado separadamente e <strong>não é somado ao custo da mercadoria</strong>. Ele é descontado do markup na formação do preço.</div>
+    <p id="impostoInfo" class="nota hidden">O imposto é mostrado separadamente e <strong>não é somado ao custo da mercadoria</strong>. Ele é descontado do markup na formação do preço.</p>
   </section>
 
-  <section class="card">
-    <div class="section-title">3. Preços por markup</div>
+  <section class="cartao">
+    <h2>3. Preços por markup</h2>
     <div class="price-grid">
       <div class="price-box">
         <div class="markup" id="label1">30%</div>
@@ -261,30 +131,33 @@
         <div class="price" id="markup3">R$ 0,00</div>
       </div>
     </div>
-    <div class="small-note">
-      Markup é calculado sobre o custo. Ex.: custo de R$ 2,00 com markup de 30% = R$ 2,60.
-    </div>
+    <p class="nota">Markup é calculado sobre o custo. Ex.: custo de R$ 2,00 com markup de 30% = R$ 2,60.</p>
   </section>
 
-  <section class="card">
-    <div class="section-title">4. Preço da gôndola</div>
-    <input id="gondola" type="text" inputmode="decimal" placeholder="Opcional: R$ 0,00" autocomplete="off">
+  <section class="cartao">
+    <h2>4. Preço da gôndola</h2>
+    <input id="gondola" class="campo" type="text" inputmode="decimal" placeholder="Opcional: R$ 0,00" autocomplete="off" aria-label="Preço da gôndola">
 
     <div id="comparacao" class="comparison hidden"></div>
-    <div id="semComparacao" class="empty-note">Digite o preço da gôndola para comparar.</div>
+    <p id="semComparacao" class="vazio">Digite o preço da gôndola para comparar.</p>
   </section>
 
-  <section class="card">
-    <div class="section-title">Markups padrão</div>
+  <section class="cartao">
+    <h2>Markups padrão</h2>
     <div class="settings">
-      <input id="config1" type="number" inputmode="decimal" min="0" step="0.01" value="30">
-      <input id="config2" type="number" inputmode="decimal" min="0" step="0.01" value="35">
-      <input id="config3" type="number" inputmode="decimal" min="0" step="0.01" value="40">
+      <input id="config1" class="campo" type="number" inputmode="decimal" min="0" step="0.01" value="30" aria-label="Markup 1 (%)">
+      <input id="config2" class="campo" type="number" inputmode="decimal" min="0" step="0.01" value="35" aria-label="Markup 2 (%)">
+      <input id="config3" class="campo" type="number" inputmode="decimal" min="0" step="0.01" value="40" aria-label="Markup 3 (%)">
     </div>
-    <div class="small-note">Você pode alterar os três percentuais. Eles ficam salvos neste navegador.</div>
+    <p class="nota">Você pode alterar os três percentuais. Eles ficam salvos neste navegador.</p>
   </section>
 
-  <button class="reset" id="limpar">Limpar cálculo</button>
+  <button type="button" class="botao largo" id="limpar">Limpar cálculo</button>
+  </main>
+
+  <footer class="rodape">
+    <a href="/">‹ Voltar para o início</a>
+  </footer>
 </div>
 
 <script>
