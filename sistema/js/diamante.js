@@ -235,6 +235,45 @@
     return (caixas || []).filter(function (cx) { return String(cx.terminal) === String(terminal); })[0] || null;
   }
 
+  /*
+   * Em qual fechamento salvo entra este cupom (aba Importar > Cupons do Diamante).
+   * Caixa pelo terminal, mesmo dia, de preferência o que está "falta o cupom"; com vários,
+   * o mais perto da hora de encerramento do cupom. Devolve { conferencia, caixa } ou { erro, caixa, repetido }.
+   */
+  function fechamentoDoCupom(caixas, conferencias, cupom) {
+    function br(iso) { var p = String(iso || "").split("-"); return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : iso; }
+    function hm(h) { return String(h || "").slice(0, 5); }
+    function minutos(h) { var p = hm(h).split(":"); return p.length === 2 ? +p[0] * 60 + +p[1] : null; }
+    if (!cupom || !cupom.data) return { erro: "Não foi possível ler a data do cupom." };
+    var cx = caixaDoTerminal(caixas, cupom.terminal);
+    if (!cx) {
+      return { erro: cupom.terminal ? "O terminal " + cupom.terminal + " do cupom não está ligado a nenhum caixa (config.js)."
+        : "Não foi possível ler o terminal do cupom." };
+    }
+    var nome = cx.curto || cx.id;
+    var fech = (conferencias || []).filter(function (r) {
+      return r.tipo === "fechamento" && r.caixa === cx.id && r.data === cupom.data;
+    });
+    if (!fech.length) {
+      return { caixa: cx, erro: "Não há contagem de fechamento do " + nome + " em " + br(cupom.data) +
+        ". Salve a contagem primeiro (Caixa > Nova contagem) e importe o cupom de novo." };
+    }
+    var mesmo = fech.filter(function (r) { return r.cupom && String(r.cupom.turno || "") === String(cupom.turno || ""); })[0];
+    if (mesmo) return { caixa: cx, repetido: mesmo, erro: "Este cupom já está no fechamento das " + hm(mesmo.hora) + "." };
+    var livres = fech.filter(function (r) { return !r.cupom; });
+    if (!livres.length) return { caixa: cx, erro: "Os fechamentos do " + nome + " em " + br(cupom.data) + " já têm cupom." };
+    var fim = minutos(cupom.encerramento);
+    livres.sort(function (a, b) {
+      if (!!a.pendente !== !!b.pendente) return a.pendente ? -1 : 1;
+      if (fim != null) {
+        var da = Math.abs(minutos(a.hora) - fim), dbb = Math.abs(minutos(b.hora) - fim);
+        if (da !== dbb) return da - dbb;
+      }
+      return hm(a.hora) < hm(b.hora) ? -1 : 1;
+    });
+    return { caixa: cx, conferencia: livres[0] };
+  }
+
   return {
     FORMAS: FORMAS,
     centavos: centavos,
@@ -248,6 +287,7 @@
     caixaDoTerminal: caixaDoTerminal,
     textoDeItensPdf: textoDeItensPdf,
     problemaCaixaDoCupom: problemaCaixaDoCupom,
-    cupomRepetido: cupomRepetido
+    cupomRepetido: cupomRepetido,
+    fechamentoDoCupom: fechamentoDoCupom
   };
 });

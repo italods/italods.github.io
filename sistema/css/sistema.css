@@ -624,3 +624,35 @@ label.botao.ocupado { opacity: .6; pointer-events: none; }
 #aba-cartoes .cartoes .bloco { margin: 0; }
 #aba-cartoes .cartoes .total-linha { font-size: 1.05rem; }
 .tabela-numeros td:last-child { white-space: normal; }
+
+/* ---------- Caixa: tela inicial, escolha e cupons depois ---------- */
+.inicio-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.inicio-topo h2 { margin: 0; }
+.campo.compacto { margin: 0; }
+.campo.compacto input { min-height: 44px; }
+.invisivel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.caixa-cartao { border-top: 1px solid var(--borda); padding: 12px 0 4px; }
+.caixa-cartao:first-child { border-top: 0; padding-top: 0; }
+.caixa-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 1.1rem; }
+.caixa-cab .etiqueta { font-size: .85rem; padding: 4px 8px; margin: 0; }
+.etiqueta.sit-aberto { background: var(--sobra-fundo); color: var(--sobra); }
+.etiqueta.sit-pendente { background: #f6efdc; color: #7a5a12; }
+.cor-pendente { color: #8a5a00; }
+#nova-contagem { width: 100%; min-height: 56px; font-size: 1.1rem; }
+.escolha-caixas button { min-height: 60px; }
+.form-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-size: 1.05rem; }
+#escolha-ok:disabled { opacity: .5; cursor: not-allowed; }
+.lista-versoes, .lista-cupons { list-style: none; margin: 0; padding: 0; }
+.lista-versoes li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--borda); }
+.lista-versoes li:first-child { border-top: 0; }
+.lista-versoes li > div { min-width: 0; overflow-wrap: anywhere; }
+.lista-versoes .botao { flex: 0 0 auto; }
+.lista-cupons > li { padding: 10px 0; border-top: 1px solid var(--borda); overflow-wrap: anywhere; }
+.lista-cupons > li:first-child { border-top: 0; }
+.lista-cupons p { margin: 0 0 6px; }
+.marcar { display: flex; align-items: center; gap: 10px; min-height: 48px; font-weight: 600; }
+.marcar input { width: 24px; height: 24px; flex: 0 0 auto; }
+@media (prefers-color-scheme: dark) {
+  .etiqueta.sit-pendente { background: #3a3016; color: #f3d891; }
+  .cor-pendente { color: #f0c060; }
+}

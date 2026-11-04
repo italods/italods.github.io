@@ -50,6 +50,8 @@ sistema/
   js/cartoes.js     ← área "Cartões": abas Conciliação (#cartoes) e Taxas (#cartoes-taxas)
   js/importar.js    ← aba "Importar" (Conferência de caixa): prévias do CSV da Cielo e do extrato do
                       BB, CNPJ da loja, máquinas, trocas
+  js/cupons.js      ← aba "Importar" > "Cupons do Diamante": vários PDFs de uma vez, cada um no seu
+                      fechamento (terminal + dia, de preferência o "falta o cupom")
   js/db.js          ← acesso ao Supabase + modo demonstração (?demo=1, guarda no localStorage)
   js/app.js         ← telas e eventos do caixa, login e troca de áreas
   js/escuta-db.js   ← Veneza Escuta: chamadas às funções do banco + demonstração (?demo=1)
@@ -81,6 +83,16 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   O banco recalcula totais/esperado/diferença por gatilho (`conferencia_calcular`) e refaz os
   fechamentos quando uma sangria/suprimento muda. Se mudar uma fórmula, mude em `calculos.js`,
   no `schema.sql` e nos testes.
+- **Tela do Caixa** (nov/2026): abre no início (situação de cada caixa no dia + "Nova contagem"); a
+  contagem só começa depois de escolher o caixa e Abertura/Fechamento. Caixa aberto não abre de novo
+  (`C.podeRegistrar` na tela e gatilho `conferencia_regras` no banco: duas aberturas seguidas no mesmo
+  caixa e dia são recusadas); fechar sem abertura só avisa. Fechamento sem cupom fica `pendente`
+  ("Falta o cupom": sem esperado/diferença, fora do Relatório) e já conta como caixa fechado; o cupom
+  entra depois em Importar > Cupons do Diamante (`db.anexarCupom`) ou editando. Aviso quando a abertura
+  não bate com o fundo do cupom. Contagem não salva aparece no início ("Contagem em andamento").
+- **Histórico de edições**: tabela `versoes` (gatilho `guardar_versao`) guarda como cada conferência ou
+  sangria/suprimento estava antes de editar/apagar; Histórico > "Últimas alterações" > Desfazer.
+  Recálculo por outro gatilho não conta como edição. Só o banco grava em `versoes`.
 - Contas novas vão em `calculos.js`/`formatos.js`/`diamante.js` (funções puras) com teste, não em `app.js`.
 - **Cupom do Diamante** (Conferência 2.0, nov/2026): no Fechamento, "Importar PDF do cupom" lê o PDF
   no aparelho (pdf.js; o arquivo não é enviado) ou "Digitar o cupom". O cupom vai na coluna

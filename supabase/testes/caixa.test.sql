@@ -91,6 +91,55 @@ select pg_temp.ok((select esperado_centavos = -400 from conferencias where caixa
 insert into conferencias (tipo, caixa, data, hora, contagem, cupom) values ('abertura', 'caixa9', '2027-01-16', '07:00', '{"5000": 6}', '{"formas": {}}')
 returning id as abertura \gset
 select pg_temp.ok((select cupom is null and sangrias_lancadas_centavos is null from conferencias where id = :'abertura'), 'abertura sem cupom');
+
+-- ===== fechamento só com a contagem (falta o cupom)
+insert into conferencias (tipo, caixa, data, hora, contagem, pendente) values ('fechamento', 'caixa7', '2027-01-20', '19:00', '{"5000": 3}', true)
+returning id as pendente \gset
+select pg_temp.ok((select pendente and esperado_centavos is null and diferenca_centavos is null and total_centavos = 15000
+  from conferencias where id = :'pendente'), 'pendente: guarda a contagem, sem esperado nem diferença');
+update conferencias set cupom = '{"data": "2027-01-20", "formas": {"dinheiro": {"vendas": 10000}}, "fundo": 5000, "sangria": 0, "total_liquido": 15000}'
+  where id = :'pendente';
+select pg_temp.ok((select not pendente and esperado_centavos = 15000 and diferenca_centavos = 0 from conferencias where id = :'pendente'),
+  'com o cupom deixa de ser pendente e calcula a diferença');
+insert into conferencias (tipo, caixa, data, hora, pendente) values ('abertura', 'caixa7', '2027-01-21', '07:00', true) returning id as ab_pend \gset
+select pg_temp.ok((select not pendente from conferencias where id = :'ab_pend'), 'abertura nunca fica pendente');
+
+-- ===== caixa aberto não abre de novo
+insert into conferencias (tipo, caixa, data, hora) values ('abertura', 'caixa6', '2027-01-20', '07:00') returning id as ab1 \gset
+select pg_temp.espera_erro($q$insert into conferencias (tipo, caixa, data, hora) values ('abertura', 'caixa6', '2027-01-20', '08:00')$q$,
+  'já está aberto (abertura das 07:00)');
+select pg_temp.espera_erro($q$insert into conferencias (tipo, caixa, data, hora) values ('abertura', 'caixa6', '2027-01-20', '06:00')$q$,
+  'abertura às 07:00 sem fechamento');
+insert into conferencias (tipo, caixa, data, hora, pendente) values ('fechamento', 'caixa6', '2027-01-20', '12:00', true);
+insert into conferencias (tipo, caixa, data, hora) values ('abertura', 'caixa6', '2027-01-20', '13:00');
+select pg_temp.ok(true, 'depois de fechar (mesmo faltando o cupom) abre de novo');
+insert into conferencias (tipo, caixa, data, hora) values ('abertura', 'caixa6', '2027-01-21', '07:00');
+select pg_temp.ok(true, 'abertura em outro dia não depende do dia anterior');
+insert into conferencias (tipo, caixa, data, hora) values ('abertura', 'caixa5', '2027-01-20', '08:00');
+select pg_temp.ok(true, 'outro caixa abre normalmente');
+insert into conferencias (tipo, caixa, data, hora) values ('fechamento', 'caixa4', '2027-01-20', '19:00');
+select pg_temp.ok(true, 'fechar sem abertura é permitido');
+update conferencias set observacao = 'contagem conferida' where id = :'ab1';
+select pg_temp.ok(true, 'editar a abertura (sem mudar hora) não esbarra nela mesma');
+select pg_temp.espera_erro(format($q$update conferencias set hora = '14:00' where id = %L$q$, :'ab1'), 'já está aberto (abertura das 13:00)');
+
+-- ===== histórico de edições
+select pg_temp.ok((select count(*) = 1 and min(dados ->> 'observacao') = '' and min(operacao) = 'editado' and min(feito_por) = 'dono@x.com'
+  from versoes where registro = :'ab1'), 'editar guarda como estava antes, com quem editou');
+update conferencias set observacao = 'contagem conferida' where id = :'ab1';
+select pg_temp.ok((select count(*) = 1 from versoes where registro = :'ab1'), 'salvar sem mudar nada não cria versão');
+select pg_temp.ok((select count(*) = 0 from versoes where registro = :'sem_cupom'), 'recálculo por sangria lançada não conta como edição');
+select pg_temp.ok((select count(*) = 1 from versoes where registro = :'com_cupom' and dados -> 'cupom' is not null and dados ->> 'cupom' <> 'null'),
+  'tirar o cupom guardou a versão com o cupom');
+delete from conferencias where id = :'ab_pend';
+select pg_temp.ok((select operacao = 'apagado' and dados ->> 'caixa' = 'caixa7' from versoes where registro = :'ab_pend'), 'apagar guarda o registro apagado');
+insert into conferencias select * from jsonb_populate_record(null::conferencias, (select dados from versoes where registro = :'ab_pend'));
+select pg_temp.ok((select count(*) = 1 from conferencias where id = :'ab_pend'), 'registro apagado pode ser restaurado com o mesmo id');
+insert into movimentos (tipo, caixa, data, hora, valor_centavos) values ('sangria', 'caixa6', '2027-01-20', '10:00', 1000) returning id as mov \gset
+update movimentos set valor_centavos = 2000 where id = :'mov';
+select pg_temp.ok((select (dados ->> 'valor_centavos')::int = 1000 and tabela = 'movimentos' from versoes where registro = :'mov'), 'sangria editada também guarda versão');
+select pg_temp.espera_erro($q$insert into versoes (tabela, registro, operacao, dados) values ('movimentos', gen_random_uuid(), 'editado', '{}')$q$, 'permission denied');
+select pg_temp.espera_erro($q$delete from versoes$q$, 'permission denied');
 reset role;
 
 -- ===== Cielo: máquinas, trocas e vendas
@@ -167,12 +216,14 @@ select pg_temp.espera_erro('select cupom from conferencias', 'permission denied'
 select pg_temp.espera_erro('select * from cielo_vendas', 'permission denied');
 select pg_temp.espera_erro('select * from maquinas', 'permission denied');
 select pg_temp.espera_erro('select * from maquina_trocas', 'permission denied');
+select pg_temp.espera_erro('select * from versoes', 'permission denied');
 reset role;
 set role authenticated; set request.jwt.claims = '{"email":"intruso@x.com"}';
 select pg_temp.ok((select count(*) from conferencias) = 0, 'logado mas não autorizado não vê conferências');
 select pg_temp.ok((select count(*) from cielo_vendas) = 0 and (select count(*) from maquinas) = 0, 'não autorizado não vê Cielo nem máquinas');
 select pg_temp.ok((select count(*) from banco_lancamentos) = 0 and (select count(*) from configuracoes) = 0, 'não autorizado não vê BB nem configurações');
 select pg_temp.ok((select count(*) from cielo_taxas) = 0 and (select count(*) from cielo_recebiveis) = 0, 'não autorizado não vê taxas nem recebíveis');
+select pg_temp.ok((select count(*) from versoes) = 0, 'não autorizado não vê o histórico de edições');
 select pg_temp.espera_erro($q$insert into maquinas (numero) values ('123')$q$, 'row-level security');
 select pg_temp.espera_erro($q$insert into conferencias (tipo, caixa, data, hora) values ('abertura', 'caixa9', '2027-01-15', '07:00')$q$, 'row-level security');
 reset role;

@@ -82,6 +82,9 @@ create table if not exists public.conferencias (
 alter table public.conferencias add column if not exists cupom jsonb;
 -- Soma das sangrias lançadas no sistema (para comparar com as do cupom)
 alter table public.conferencias add column if not exists sangrias_lancadas_centavos bigint;
+-- Fechamento salvo só com a contagem, esperando o cupom (nov/2026): sem esperado nem diferença
+-- até o cupom chegar (pela aba Importar ou editando o fechamento). Com cupom, deixa de ser pendente.
+alter table public.conferencias add column if not exists pendente boolean not null default false;
 
 create index if not exists conferencias_data_caixa_idx on public.conferencias (data desc, caixa);
 create index if not exists conferencias_fechamento_idx on public.conferencias (caixa, data) where tipo = 'fechamento';
@@ -272,19 +275,28 @@ begin
       new.credito_centavos  := (new.cupom #>> '{formas,credito,vendas}')::bigint + (new.cupom #>> '{formas,credito,receb}')::bigint;
       new.carteira_centavos := (new.cupom #>> '{formas,carteira,vendas}')::bigint;
       v_san := (new.cupom ->> 'sangria')::bigint;
+      new.pendente := false;
     else
       new.cupom := null;
     end if;
 
+    new.pendente                       := coalesce(new.pendente, false);
     new.fundo_centavos                 := coalesce(new.fundo_centavos, 0);
     new.vendas_dinheiro_centavos       := coalesce(new.vendas_dinheiro_centavos, 0);
     new.recebimentos_dinheiro_centavos := coalesce(new.recebimentos_dinheiro_centavos, 0);
     new.sangrias_centavos              := v_san;
     new.suprimentos_centavos           := v_sup;
-    new.esperado_centavos := new.fundo_centavos + new.vendas_dinheiro_centavos
-                           + new.recebimentos_dinheiro_centavos + v_sup - v_san;
-    new.diferenca_centavos := new.total_centavos - new.esperado_centavos;
+    if new.pendente then
+      -- falta o cupom: ainda não dá para saber o esperado
+      new.esperado_centavos  := null;
+      new.diferenca_centavos := null;
+    else
+      new.esperado_centavos := new.fundo_centavos + new.vendas_dinheiro_centavos
+                             + new.recebimentos_dinheiro_centavos + v_sup - v_san;
+      new.diferenca_centavos := new.total_centavos - new.esperado_centavos;
+    end if;
   else
+    new.pendente                   := false;
     new.cupom                      := null;
     new.sangrias_lancadas_centavos := null;
     new.sangrias_centavos    := null;
@@ -343,6 +355,44 @@ begin
   return null;
 end;
 $$;
+
+-- Caixa aberto não abre de novo: duas aberturas seguidas (no mesmo caixa e dia, pela hora) são recusadas.
+-- Fechar sem abertura é permitido (a tela só avisa).
+create or replace function public.conferencia_regras()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_ant record;
+  v_dep record;
+begin
+  if new.tipo <> 'abertura' then return new; end if;
+  if tg_op = 'UPDATE' and old.tipo = new.tipo and old.caixa = new.caixa and old.data = new.data and old.hora = new.hora then
+    return new;
+  end if;
+  -- duas pessoas abrindo o mesmo caixa ao mesmo tempo: uma espera a outra
+  perform pg_advisory_xact_lock(hashtext('conferencia:' || new.caixa || ':' || new.data::text));
+  select c.tipo, c.hora into v_ant from public.conferencias c
+    where c.caixa = new.caixa and c.data = new.data and c.id <> new.id and c.hora <= new.hora
+    order by c.hora desc, c.criado_em desc limit 1;
+  if found and v_ant.tipo = 'abertura' then
+    raise exception 'Este caixa já está aberto (abertura das %). Feche o caixa antes de abrir de novo.', to_char(v_ant.hora, 'HH24:MI');
+  end if;
+  select c.tipo, c.hora into v_dep from public.conferencias c
+    where c.caixa = new.caixa and c.data = new.data and c.id <> new.id and c.hora > new.hora
+    order by c.hora, c.criado_em limit 1;
+  if found and v_dep.tipo = 'abertura' then
+    raise exception 'Já existe uma abertura às % sem fechamento antes dela. Registre o fechamento primeiro.', to_char(v_dep.hora, 'HH24:MI');
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists conferencias_regras on public.conferencias;
+create trigger conferencias_regras
+  before insert or update on public.conferencias
+  for each row execute function public.conferencia_regras();
 
 drop trigger if exists conferencias_autoria on public.conferencias;
 create trigger conferencias_autoria
@@ -658,6 +708,57 @@ create policy "autorizados podem tudo" on public.cielo_taxas
 drop policy if exists "autorizados podem tudo" on public.cielo_recebiveis;
 create policy "autorizados podem tudo" on public.cielo_recebiveis
   for all to authenticated using (public.autorizado()) with check (public.autorizado());
+
+-- ---------------------------------------------------------------------
+-- 10. Histórico de edições (nov/2026): como o registro estava ANTES de cada edição ou exclusão
+--     de uma conferência ou sangria/suprimento. Serve para desfazer. Só o banco grava aqui.
+-- ---------------------------------------------------------------------
+create table if not exists public.versoes (
+  id        bigint generated always as identity primary key,
+  tabela    text not null check (tabela in ('conferencias', 'movimentos')),
+  registro  uuid not null,
+  operacao  text not null check (operacao in ('editado', 'apagado')),
+  dados     jsonb not null,
+  feito_por text not null default public.email_atual(),
+  feito_em  timestamptz not null default now()
+);
+create index if not exists versoes_registro_idx on public.versoes (registro, feito_em desc);
+create index if not exists versoes_feito_em_idx on public.versoes (feito_em desc);
+
+create or replace function public.guardar_versao()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- recálculo feito por outro gatilho (ex.: sangria lançada) não é edição de ninguém
+  if pg_trigger_depth() > 1 then return null; end if;
+  if tg_op = 'UPDATE' and (to_jsonb(old) - array['editado_por', 'editado_em']) = (to_jsonb(new) - array['editado_por', 'editado_em']) then
+    return null;
+  end if;
+  insert into public.versoes (tabela, registro, operacao, dados)
+  values (tg_table_name, old.id, case when tg_op = 'DELETE' then 'apagado' else 'editado' end, to_jsonb(old));
+  return null;
+end;
+$$;
+revoke all on function public.guardar_versao() from public, anon, authenticated;
+
+drop trigger if exists conferencias_versao on public.conferencias;
+create trigger conferencias_versao
+  after update or delete on public.conferencias
+  for each row execute function public.guardar_versao();
+drop trigger if exists movimentos_versao on public.movimentos;
+create trigger movimentos_versao
+  after update or delete on public.movimentos
+  for each row execute function public.guardar_versao();
+
+alter table public.versoes enable row level security;
+revoke all on public.versoes from anon;
+revoke insert, update, delete on public.versoes from authenticated;
+drop policy if exists "autorizados leem" on public.versoes;
+create policy "autorizados leem" on public.versoes
+  for select to authenticated using (public.autorizado());
 
 -- ---------------------------------------------------------------------
 -- 6. Coloque aqui os e-mails de quem pode usar (troque pelos e-mails reais)

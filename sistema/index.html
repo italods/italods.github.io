@@ -134,17 +134,63 @@
 
       <!-- ===================== CONFERÊNCIA DE CAIXA ===================== -->
       <section id="aba-caixa" class="aba" hidden>
+        <!-- Tela inicial: situação de cada caixa no dia -->
+        <div id="caixa-inicio">
+          <div class="bloco">
+            <div class="inicio-topo">
+              <h2 id="inicio-titulo">Hoje</h2>
+              <label class="campo compacto"><span class="invisivel">Dia</span><input type="date" id="inicio-data" /></label>
+            </div>
+            <div id="inicio-caixas"><p class="vazio">Carregando…</p></div>
+          </div>
+          <div class="bloco destaque" id="inicio-rascunho" hidden>
+            <p><strong>Contagem em andamento</strong> <span id="inicio-rascunho-texto"></span></p>
+            <p class="suave mini">Ainda não foi salva. Ela fica guardada neste aparelho até você salvar ou descartar.</p>
+            <div class="acoes">
+              <button type="button" class="botao" id="rascunho-descartar">Descartar</button>
+              <button type="button" class="botao primario" id="rascunho-continuar">Continuar contagem</button>
+            </div>
+          </div>
+          <div class="acoes">
+            <button type="button" class="botao primario" id="nova-contagem">+ Nova contagem</button>
+          </div>
+        </div>
+
+        <!-- Nova contagem: escolher o caixa e se é abertura ou fechamento -->
+        <div id="caixa-escolha" hidden>
+          <div class="bloco">
+            <h2>Qual caixa?</h2>
+            <div class="alternador escolha-caixas" role="radiogroup" aria-label="Caixa" id="escolha-caixa"></div>
+            <h2>O que vai contar?</h2>
+            <div class="alternador" role="radiogroup" aria-label="Tipo" id="escolha-tipo">
+              <button type="button" role="radio" data-valor="abertura">Abertura</button>
+              <button type="button" role="radio" data-valor="fechamento">Fechamento</button>
+            </div>
+            <p class="msg-aviso" id="escolha-aviso" role="status" hidden></p>
+            <div class="acoes">
+              <button type="button" class="botao" id="escolha-voltar">Voltar</button>
+              <button type="button" class="botao primario" id="escolha-ok">Começar a contagem</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="caixa-form" hidden>
         <div id="editando" class="faixa-edicao" hidden>
           <span id="editando-texto">Editando registro</span>
           <button type="button" class="botao fantasma pequeno" id="cancelar-edicao">Cancelar edição</button>
         </div>
 
         <div class="bloco">
-          <div class="alternador" role="radiogroup" aria-label="Tipo" id="conf-tipo">
+          <div class="form-cabecalho">
+            <strong id="form-titulo">Contagem</strong>
+            <button type="button" class="botao fantasma pequeno" id="form-trocar">Trocar</button>
+          </div>
+          <p class="msg-aviso" id="form-aviso" role="status" hidden></p>
+          <div class="alternador" role="radiogroup" aria-label="Tipo" id="conf-tipo" hidden>
             <button type="button" role="radio" data-valor="abertura">Abertura</button>
             <button type="button" role="radio" data-valor="fechamento">Fechamento</button>
           </div>
-          <div class="alternador" role="radiogroup" aria-label="Caixa" id="conf-caixa"></div>
+          <div class="alternador" role="radiogroup" aria-label="Caixa" id="conf-caixa" hidden></div>
           <label class="campo">
             <span>Operador</span>
             <input type="text" id="conf-operador" list="lista-operadores" autocomplete="off" maxlength="80" />
@@ -179,8 +225,9 @@
 
         <div id="bloco-fechamento" hidden>
           <div class="bloco" id="bloco-cupom">
-            <h2>Cupom do Diamante</h2>
-            <p class="suave mini" id="cupom-estado">Importe o PDF do "Fechamento de turno" (ou digite os valores do cupom). O PDF é lido neste aparelho e não é enviado.</p>
+            <h2>Cupom do Diamante <small class="suave">(opcional)</small></h2>
+            <p class="suave mini" id="cupom-estado">Sem o cupom, a contagem fica salva como <strong>"Falta o cupom"</strong> e a diferença
+              aparece quando você importar o PDF em <strong>Importar &gt; Cupons do Diamante</strong>. O PDF é lido neste aparelho e não é enviado.</p>
             <div class="acoes" id="cupom-acoes">
               <label class="botao primario" for="cupom-arquivo" id="cupom-importar" tabindex="0" role="button">Importar PDF do cupom</label>
               <input type="file" id="cupom-arquivo" accept="application/pdf,.pdf" hidden />
@@ -194,6 +241,7 @@
               </div>
               <div class="cupom-resumo" id="cupom-resumo"></div>
               <div id="cupom-conferencia" role="status"></div>
+              <p class="msg-aviso" id="cupom-fundo-aviso" hidden></p>
               <p class="suave mini" id="cupom-listas"></p>
               <div class="acoes">
                 <button type="button" class="botao perigo pequeno" id="cupom-remover">Remover cupom</button>
@@ -206,7 +254,12 @@
             <div id="formas-conteudo"></div>
           </div>
 
-          <div class="bloco">
+          <div class="bloco" id="bloco-pendente" hidden>
+            <p class="total-linha">Diferença <strong>Falta o cupom</strong></p>
+            <p class="suave mini">A diferença aparece quando o cupom do Diamante for importado.</p>
+          </div>
+
+          <div class="bloco" id="bloco-comparacao">
             <h2>Comparação com o sistema (Diamante)</h2>
             <label class="campo">
               <span>Fundo de caixa</span>
@@ -234,7 +287,7 @@
             <div id="conf-diferenca" class="diferenca bateu">Caixa bateu</div>
           </div>
 
-          <details class="bloco" id="conf-outros">
+          <details class="bloco" id="conf-outros" hidden>
             <summary>Outros valores do sistema (só registro)</summary>
             <div class="dupla">
               <label class="campo"><span>PIX</span>
@@ -272,6 +325,10 @@
           <button type="button" class="botao" id="conf-limpar">Limpar</button>
           <button type="button" class="botao primario" id="conf-salvar">Salvar</button>
         </div>
+        <div class="acoes">
+          <button type="button" class="botao fantasma" id="form-voltar">‹ Voltar para o início</button>
+        </div>
+        </div>
 
         <!-- Resumo fixo no rodapé enquanto conta -->
         <div class="barra-total" id="barra-total" aria-live="polite">
@@ -297,6 +354,12 @@
           </div>
         </div>
         <div id="hist-lista"></div>
+        <div class="bloco">
+          <h2>Últimas alterações</h2>
+          <p class="suave mini">Cada edição ou exclusão de contagem, sangria ou suprimento guarda como o registro estava antes.
+            Use <strong>Desfazer</strong> para voltar.</p>
+          <div id="hist-versoes"><p class="vazio">Carregando…</p></div>
+        </div>
       </section>
 
       <!-- ===================== SANGRIA E SUPRIMENTO ===================== -->
@@ -358,6 +421,18 @@
 
       <!-- ======================= IMPORTAR (Cielo) ======================= -->
       <section id="aba-importar" class="aba" hidden>
+        <div class="bloco">
+          <h2>Cupons do Diamante</h2>
+          <p class="suave mini">Escolha um ou vários PDFs de "Fechamento de turno". Cada cupom vai para o fechamento do seu caixa
+            (pelo terminal) e dia, de preferência o que está <strong>"Falta o cupom"</strong>. Salve a contagem antes.
+            O PDF é lido neste aparelho e não é enviado.</p>
+          <div class="acoes">
+            <label class="botao primario" for="cupons-arquivo" id="cupons-importar" role="button" tabindex="0">Escolher PDFs dos cupons</label>
+            <input type="file" id="cupons-arquivo" accept="application/pdf,.pdf" multiple hidden />
+          </div>
+          <div id="cupons-previa" hidden></div>
+        </div>
+
         <div class="bloco">
           <h2>Vendas da Cielo</h2>
           <p class="suave mini">No app da Cielo, exporte o relatório de vendas <strong>detalhado em CSV</strong> do dia.
@@ -631,6 +706,7 @@
   <script src="js/escuta-db.js"></script>
   <script src="js/escuta-admin.js"></script>
   <script src="js/importar.js"></script>
+  <script src="js/cupons.js"></script>
   <script src="js/cartoes.js"></script>
   <script src="js/app.js"></script>
 </body>

@@ -234,13 +234,13 @@
     Array.prototype.forEach.call(document.querySelectorAll("nav.abas"), function (n) {
       n.hidden = n.dataset.modulo !== modulo;
     });
-    $("barra-total").hidden = aba !== "caixa";
+    $("barra-total").hidden = aba !== "caixa" || conf.vista !== "form";
     var mudou = abaAtual !== aba;
     abaAtual = aba;
     if (!mudou) return;
     if (modulo === "escuta") { window.EscutaAdmin.mostrar(aba); return; }
     if (modulo === "cartoes") { window.Cartoes.mostrar(aba); return; }
-    if (aba === "caixa") atualizarContexto();
+    if (aba === "caixa") { if (conf.vista === "form") atualizarContexto(); else carregarInicio(); }
     if (aba === "historico") buscarHistorico();
     if (aba === "movimentos") listarMovimentosDoDia();
     if (aba === "relatorio" && !relatorioGerado) gerarRelatorio();
@@ -255,6 +255,8 @@
     fundoManual: false,
     movimentos: { sangrias: 0, suprimentos: 0 },
     cupom: null,
+    legado: false,       // fechamento antigo, digitado sem cupom (não fica "falta o cupom")
+    vista: "inicio",     // inicio | escolha | form
     confsDoDia: [],
     cielo: null,
     pedido: 0
@@ -334,6 +336,7 @@
       editRotulo: conf.editRotulo,
       fundoManual: conf.fundoManual,
       cupom: conf.cupom,
+      legado: conf.legado,
       textos: {}
     };
     Object.keys(CAMPOS_DINHEIRO).forEach(function (k) { f.textos[k] = $(CAMPOS_DINHEIRO[k]).value; });
@@ -363,6 +366,7 @@
     conf.editRotulo = f.editRotulo || "";
     conf.fundoManual = !!f.fundoManual;
     conf.cupom = f.cupom && f.cupom.formas ? f.cupom : null;
+    conf.legado = !!f.legado;
     desenharCupom();
     $("editando").hidden = !conf.editId;
     $("editando-texto").textContent = conf.editRotulo || "Editando registro";
@@ -397,7 +401,12 @@
     $("barra-contado").textContent = brl(cont.total);
 
     var fechamento = $("conf-tipo").dataset.valor === "fechamento";
+    $("form-titulo").textContent = F.nomeTipo($("conf-tipo").dataset.valor || "abertura") + " · " +
+      nomeCaixa($("conf-caixa").dataset.valor) + " · " + C.dataBR($("conf-data").value);
     $("bloco-fechamento").hidden = !fechamento;
+    var pendente = fechamento && !conf.cupom && !conf.legado;
+    $("bloco-pendente").hidden = !pendente;
+    $("bloco-comparacao").hidden = pendente;
     var barraDif = $("barra-diferenca");
     if (fechamento) {
       aplicarCupomNosCampos();
@@ -436,7 +445,7 @@
         $("conf-diferenca").textContent = texto;
         barraDif.className = "barra-dif " + r.situacao;
         barraDif.textContent = texto;
-        barraDif.hidden = false;
+        barraDif.hidden = pendente;
         if (r.cofre >= 0) {
           $("cofre-rotulo").textContent = "Guardar no cofre";
           $("conf-cofre").textContent = brl(r.cofre);
@@ -452,7 +461,31 @@
   }
 
   // Busca a abertura (fundo) e as sangrias/suprimentos do dia e caixa escolhidos
+  // Aviso no alto do formulário: caixa já aberto (bloqueia) ou fechamento sem abertura (só avisa)
+  var avisoPedido = 0;
+  function atualizarAvisoForm() {
+    var el = $("form-aviso");
+    var data = $("conf-data").value, caixa = $("conf-caixa").dataset.valor, tipo = $("conf-tipo").dataset.valor;
+    if (!db || !data || !caixa) { el.hidden = true; return; }
+    var pedido = ++avisoPedido;
+    db.listarConferencias({ de: data, ate: data, caixa: caixa }).then(function (confs) {
+      if (pedido !== avisoPedido) return;
+      var outras = confs.filter(function (c) { return c.id !== conf.editId; });
+      if (conf.editId) {
+        // editando: só interessa se a mudança criaria duas aberturas seguidas
+        var hora = $("conf-hora").value;
+        outras = outras.filter(function (c) { return C.horaCurta(c.hora) <= hora; });
+      }
+      var r = C.podeRegistrar(C.situacaoDoCaixa(outras, caixa, data), tipo);
+      var texto = !r.ok ? r.motivo : (!conf.editId && r.aviso) || "";
+      el.textContent = texto;
+      el.className = !r.ok ? "msg-erro" : "msg-aviso";
+      el.hidden = !texto;
+    }, function () { if (pedido === avisoPedido) el.hidden = true; });
+  }
+
   function atualizarContexto() {
+    atualizarAvisoForm();
     if (!db || $("conf-tipo").dataset.valor !== "fechamento") return Promise.resolve();
     var data = $("conf-data").value;
     var caixa = $("conf-caixa").dataset.valor;
@@ -555,6 +588,7 @@
     d.credito_centavos = opcional("conf-credito");
     d.carteira_centavos = opcional("conf-carteira");
     d.cupom = fech ? conf.cupom : null;
+    d.pendente = fech && !conf.cupom && !conf.legado;
     return d;
   }
 
@@ -574,7 +608,7 @@
     db.salvarConferencia(d, conf.editId).then(function (salvo) {
       var eraEdicao = !!conf.editId;
       var msg = "Salvo: " + F.nomeTipo(salvo.tipo) + " · " + nomeCaixa(salvo.caixa) + " · " + brl(salvo.total_centavos);
-      if (salvo.tipo === "fechamento") msg += " · " + F.linhaDiferenca(salvo.diferenca_centavos);
+      if (salvo.tipo === "fechamento") msg += " · " + (C.ehPendente(salvo) ? "falta o cupom" : F.linhaDiferenca(salvo.diferenca_centavos));
       gravarLocal(RASCUNHO_CONF, null);
       var proximo = formularioVazio();
       proximo.tipo = salvo.tipo;
@@ -582,10 +616,12 @@
       proximo.operador = salvo.operador;
       preencherFormularioConf(proximo);
       atualizarConferencia();
-      atualizarContexto();
       relatorioGerado = false;
       toast(msg);
-      if (eraEdicao) location.hash = "#historico";
+      mostrarVista("inicio");
+      if (eraEdicao && voltarAoHistorico) location.hash = "#historico";
+      else { $("inicio-data").value = salvo.data; carregarInicio(); }
+      voltarAoHistorico = false;
     }, mostrarErro).then(function () { ocupado(botao, false); });
   }
 
@@ -612,9 +648,12 @@
     preencherFormularioConf({
       tipo: r.tipo, caixa: r.caixa, operador: r.operador, data: r.data, hora: C.horaCurta(r.hora),
       contagem: r.contagem, observacao: r.observacao, textos: textos, editId: r.id, fundoManual: true, cupom: r.cupom,
+      legado: r.tipo === "fechamento" && !r.cupom && !r.pendente,
       editRotulo: "Editando: " + F.nomeTipo(r.tipo) + " · " + nomeCaixa(r.caixa) + " · " + C.dataBR(r.data) + " " + C.horaCurta(r.hora)
     });
     atualizarConferencia();
+    voltarAoHistorico = abaAtual === "historico";
+    mostrarVista("form");
     location.hash = "#caixa";
     atualizarContexto();
     window.scrollTo(0, 0);
@@ -624,7 +663,213 @@
     gravarLocal(RASCUNHO_CONF, null);
     preencherFormularioConf(formularioVazio());
     atualizarConferencia();
+    mostrarVista("inicio");
+    carregarInicio();
+  }
+
+  /* ---------------- Tela inicial do Caixa e escolha da contagem ---------------- */
+
+  var voltarAoHistorico = false;
+  var inicio = { data: "", confs: [], pedido: 0 };
+  var escolha = { modo: "nova", data: "", caixa: "", tipo: "", confs: [] };
+
+  function mostrarVista(v) {
+    conf.vista = v;
+    $("caixa-inicio").hidden = v !== "inicio";
+    $("caixa-escolha").hidden = v !== "escolha";
+    $("caixa-form").hidden = v !== "form";
+    $("barra-total").hidden = v !== "form" || abaAtual !== "caixa";
+  }
+
+  function rascunhoComConteudo() {
+    var r = lerLocal(RASCUNHO_CONF);
+    if (!r) return null;
+    var total = C.calcularContagem(r.contagem).total;
+    return total > 0 || r.editId || (r.cupom && r.cupom.formas) ? { r: r, total: total } : null;
+  }
+
+  function descricaoSituacao(sit) {
+    if (sit.estado === "sem_registro") return { texto: "Não aberto", classe: "sit-fechado" };
+    var u = sit.ultima;
+    if (sit.estado === "aberto") return { texto: "Aberto às " + C.horaCurta(u.hora), classe: "sit-aberto" };
+    return { texto: "Fechado às " + C.horaCurta(u.hora) + (C.ehPendente(u) ? " · falta o cupom" : ""),
+      classe: C.ehPendente(u) ? "sit-pendente" : "sit-fechado" };
+  }
+
+  function linhaRegistro(r) {
+    var dif = "";
+    if (r.tipo === "fechamento") {
+      dif = C.ehPendente(r) ? '<span class="r-dif cor-pendente">Falta o cupom</span>'
+        : '<span class="r-dif cor-' + C.classificarDiferenca(r.diferenca_centavos) + '">' + escapar(F.linhaDiferenca(r.diferenca_centavos)) + "</span>";
+    } else {
+      dif = '<span class="r-dif"></span>';
+    }
+    return '<button type="button" class="registro" data-id="' + escapar(r.id) + '">' +
+      '<span class="r-titulo"><span class="etiqueta">' + escapar(F.nomeTipo(r.tipo)) + "</span>" + C.horaCurta(r.hora) + "</span>" +
+      '<span class="r-total">' + brl(r.total_centavos) + "</span>" +
+      '<span class="r-sub">' + (r.operador ? escapar(r.operador) : "&nbsp;") + "</span>" + dif + "</button>";
+  }
+
+  function carregarInicio() {
+    var data = $("inicio-data").value || hojeISO();
+    $("inicio-data").value = data;
+    $("inicio-titulo").textContent = (data === hojeISO() ? "Hoje" : diaDaSemana(data)) + ", " + C.dataBR(data);
+    desenharRascunhoInicio();
+    if (!db) return;
+    var pedido = ++inicio.pedido;
+    db.listarConferencias({ de: data, ate: data }).then(function (confs) {
+      if (pedido !== inicio.pedido) return;
+      inicio.data = data;
+      inicio.confs = confs;
+      desenharInicio();
+    }, function (e) {
+      if (pedido !== inicio.pedido) return;
+      $("inicio-caixas").innerHTML = '<p class="vazio">Não foi possível carregar.</p>';
+      mostrarErro(e);
+    });
+  }
+
+  function desenharInicio() {
+    $("inicio-caixas").innerHTML = CAIXAS.map(function (cx) {
+      var sit = C.situacaoDoCaixa(inicio.confs, cx.id, inicio.data);
+      var d = descricaoSituacao(sit);
+      return '<div class="caixa-cartao">' +
+        '<div class="caixa-cab"><strong>' + escapar(cx.curto) + '</strong><span class="etiqueta ' + d.classe + '">' + escapar(d.texto) + "</span></div>" +
+        (sit.registros.length ? sit.registros.map(linhaRegistro).join("") : '<p class="suave mini">Nenhuma contagem neste dia.</p>') +
+        "</div>";
+    }).join("");
+  }
+
+  function desenharRascunhoInicio() {
+    var x = rascunhoComConteudo();
+    $("inicio-rascunho").hidden = !x;
+    if (!x) return;
+    var r = x.r;
+    $("inicio-rascunho-texto").textContent = (r.editId ? "(edição) " : "") + F.nomeTipo(r.tipo || "abertura") + " · " +
+      nomeCaixa(r.caixa) + " · " + C.dataBR(r.data) + " · " + brl(x.total);
+  }
+
+  function abrirEscolha(modo) {
+    escolha.modo = modo;
+    if (modo === "trocar") {
+      escolha.data = $("conf-data").value || hojeISO();
+      escolha.caixa = $("conf-caixa").dataset.valor;
+      escolha.tipo = $("conf-tipo").dataset.valor;
+    } else {
+      escolha.data = $("inicio-data").value || hojeISO();
+      escolha.caixa = "";
+      escolha.tipo = "";
+    }
+    escolha.confs = escolha.data === inicio.data ? inicio.confs : [];
+    mostrarVista("escolha");
+    desenharEscolha();
+    window.scrollTo(0, 0);
+    if (!db) return;
+    db.listarConferencias({ de: escolha.data, ate: escolha.data }).then(function (confs) {
+      escolha.confs = confs;
+      desenharEscolha();
+    }, mostrarErro);
+  }
+
+  function situacaoNaEscolha(caixa) {
+    var outras = escolha.confs.filter(function (c) { return !(escolha.modo === "trocar" && c.id === conf.editId); });
+    return C.situacaoDoCaixa(outras, caixa, escolha.data);
+  }
+
+  function desenharEscolha() {
+    $("escolha-caixa").innerHTML = CAIXAS.map(function (cx) {
+      return '<button type="button" role="radio" data-valor="' + escapar(cx.id) + '">' + escapar(cx.curto) +
+        " <small>" + escapar(descricaoSituacao(situacaoNaEscolha(cx.id)).texto) + "</small></button>";
+    }).join("");
+    definirAlternador($("escolha-caixa"), escolha.caixa);
+    if (escolha.caixa && !escolha.tipo) {
+      escolha.tipo = situacaoNaEscolha(escolha.caixa).estado === "aberto" ? "fechamento" : "abertura";
+    }
+    definirAlternador($("escolha-tipo"), escolha.tipo);
+    var el = $("escolha-aviso");
+    var ok = !!escolha.caixa && !!escolha.tipo;
+    el.hidden = true;
+    if (ok) {
+      var r = C.podeRegistrar(situacaoNaEscolha(escolha.caixa), escolha.tipo);
+      if (!r.ok) { el.textContent = r.motivo; el.className = "msg-erro"; el.hidden = false; ok = false; }
+      else if (r.aviso) { el.textContent = r.aviso; el.className = "msg-aviso"; el.hidden = false; }
+    } else if (!escolha.caixa) {
+      el.textContent = "Escolha o caixa."; el.className = "suave mini"; el.hidden = false;
+    }
+    $("escolha-ok").disabled = !ok;
+  }
+
+  function confirmarEscolha() {
+    if (!escolha.caixa || !escolha.tipo) return;
+    if (escolha.modo === "trocar") {
+      definirAlternador($("conf-tipo"), escolha.tipo);
+      definirAlternador($("conf-caixa"), escolha.caixa);
+    } else {
+      var f = formularioVazio();
+      f.tipo = escolha.tipo;
+      f.caixa = escolha.caixa;
+      f.data = escolha.data;
+      preencherFormularioConf(f);
+    }
+    mostrarVista("form");
+    atualizarConferencia();
     atualizarContexto();
+    window.scrollTo(0, 0);
+  }
+
+  function iniciarInicio() {
+    $("inicio-data").value = hojeISO();
+    $("inicio-data").addEventListener("change", carregarInicio);
+    $("nova-contagem").addEventListener("click", function () {
+      var x = rascunhoComConteudo();
+      if (x && !confirm("Há uma contagem em andamento que não foi salva (" + $("inicio-rascunho-texto").textContent +
+          "). Descartar e começar outra?")) return;
+      if (x) { gravarLocal(RASCUNHO_CONF, null); preencherFormularioConf(formularioVazio()); desenharRascunhoInicio(); }
+      abrirEscolha("nova");
+    });
+    $("rascunho-continuar").addEventListener("click", function () {
+      var x = rascunhoComConteudo();
+      if (!x) return;
+      preencherFormularioConf(x.r);
+      mostrarVista("form");
+      atualizarConferencia();
+      atualizarContexto();
+      window.scrollTo(0, 0);
+    });
+    $("rascunho-descartar").addEventListener("click", function () {
+      if (!confirm("Descartar a contagem em andamento? O que foi digitado será apagado.")) return;
+      gravarLocal(RASCUNHO_CONF, null);
+      preencherFormularioConf(formularioVazio());
+      atualizarConferencia();
+      gravarLocal(RASCUNHO_CONF, null);
+      desenharRascunhoInicio();
+    });
+    $("inicio-caixas").addEventListener("click", function (ev) {
+      var b = ev.target.closest("button[data-id]");
+      if (!b) return;
+      var r = inicio.confs.filter(function (x) { return x.id === b.dataset.id; })[0];
+      if (r) abrirDetalhe(r);
+    });
+    $("escolha-caixa").addEventListener("click", function (ev) {
+      var b = ev.target.closest("button[data-valor]");
+      if (!b) return;
+      if (escolha.caixa !== b.dataset.valor && escolha.modo === "nova") escolha.tipo = "";
+      escolha.caixa = b.dataset.valor;
+      desenharEscolha();
+    });
+    $("escolha-tipo").addEventListener("click", function (ev) {
+      var b = ev.target.closest("button[data-valor]");
+      if (!b) return;
+      escolha.tipo = b.dataset.valor;
+      desenharEscolha();
+    });
+    $("escolha-ok").addEventListener("click", confirmarEscolha);
+    $("escolha-voltar").addEventListener("click", function () {
+      if (escolha.modo === "trocar") mostrarVista("form");
+      else { mostrarVista("inicio"); carregarInicio(); }
+    });
+    $("form-trocar").addEventListener("click", function () { abrirEscolha("trocar"); });
+    $("form-voltar").addEventListener("click", function () { mostrarVista("inicio"); carregarInicio(); window.scrollTo(0, 0); });
   }
 
   /* ===================== Conferência por forma (Cielo) ===================== */
@@ -899,6 +1144,18 @@
     if (rep) r.push({ nivel: "aviso", texto: "Já existe um fechamento salvo com o cupom deste caixa, dia e turno (" +
       C.horaCurta(rep.hora) + "). Para corrigir, edite aquele no Histórico." });
     r = r.concat(Dm.conferirCupom(c));
+    // A abertura contada deveria ser o fundo do cupom
+    var ab = C.aberturaAntes(conf.confsDoDia, { id: conf.editId, caixa: $("conf-caixa").dataset.valor,
+      data: $("conf-data").value, hora: $("conf-hora").value });
+    var avisoFundo = $("cupom-fundo-aviso");
+    if (ab && ab.total_centavos !== c.fundo) {
+      avisoFundo.textContent = "Atenção: a abertura das " + C.horaCurta(ab.hora) + " contou " + brl(ab.total_centavos) +
+        ", mas o fundo no cupom é " + brl(c.fundo) + " (diferença de " + brl(Math.abs(ab.total_centavos - c.fundo)) +
+        "). Confira se a abertura foi registrada no caixa e no dia certos.";
+      avisoFundo.hidden = false;
+    } else {
+      avisoFundo.hidden = true;
+    }
     $("cupom-conferencia").innerHTML = r.length ? '<ul class="cupom-avisos">' + r.map(function (x) {
       return '<li class="' + (x.nivel === "erro" ? "msg-erro" : "msg-aviso") + '">' + escapar(x.texto) + "</li>";
     }).join("") + "</ul>" : '<p class="msg-ok">As somas do cupom batem.</p>';
@@ -908,11 +1165,14 @@
     var c = conf.cupom;
     $("cupom-detalhe").hidden = !c;
     $("cupom-digitar").hidden = !!c;
-    $("conf-outros").hidden = !!c;
+    $("conf-outros").hidden = !!c || !conf.legado;
     $("cupom-importar").textContent = c ? "Importar outro PDF" : "Importar PDF do cupom";
     ["conf-fundo", "conf-vendas", "conf-recebimentos"].forEach(function (id) { $(id).readOnly = !!c; });
     if (!c) {
-      $("cupom-estado").textContent = "Importe o PDF do \"Fechamento de turno\" (ou digite os valores do cupom). O PDF é lido neste aparelho e não é enviado.";
+      $("cupom-estado").innerHTML = conf.legado ? "Fechamento salvo sem cupom (valores digitados). Se quiser, importe o PDF do cupom."
+        : 'Sem o cupom, a contagem fica salva como <strong>"Falta o cupom"</strong> e a diferença aparece quando você importar o PDF em ' +
+          "<strong>Importar &gt; Cupons do Diamante</strong>. O PDF é lido neste aparelho e não é enviado.";
+      $("cupom-fundo-aviso").hidden = true;
       return;
     }
     var partes = [];
@@ -1042,7 +1302,7 @@
       if (primeiro) primeiro.focus();
     });
     $("cupom-remover").addEventListener("click", function () {
-      if (!confirm("Remover o cupom deste fechamento? Fundo, vendas e sangrias voltam a ser digitados/lançados.")) return;
+      if (!confirm("Remover o cupom deste fechamento? Ele volta a ficar \"Falta o cupom\".")) return;
       conf.cupom = null;
       conf.fundoManual = false;
       desenharCupom();
@@ -1091,9 +1351,9 @@
     var rascunho = lerLocal(RASCUNHO_CONF);
     preencherFormularioConf(rascunho || formularioVazio());
     atualizarConferencia();
-    if (rascunho && C.calcularContagem(rascunho.contagem).total > 0) {
-      toast("Contagem não salva recuperada.");
-    }
+    iniciarInicio();
+    mostrarVista("inicio");
+    desenharRascunhoInicio();
   }
 
   /* ========================== Histórico ========================== */
@@ -1101,7 +1361,54 @@
   var historico = [];
   var registroAberto = null;
 
+  /* ---------------- Histórico de edições (desfazer) ---------------- */
+
+  var versoes = [];
+  function carregarVersoes() {
+    if (!db || !db.listarVersoes) return;
+    db.listarVersoes({ limite: 40 }).then(function (lista) {
+      versoes = lista || [];
+      desenharVersoes();
+    }, function (e) {
+      $("hist-versoes").innerHTML = '<p class="vazio">Não foi possível carregar as alterações.</p>';
+      if (e.tipo === "sessao") mostrarErro(e);
+    });
+  }
+
+  function descreverVersao(v) {
+    var d = v.dados || {};
+    var o = d.tipo === "sangria" ? "Sangria" : d.tipo === "suprimento" ? "Suprimento" : F.nomeTipo(d.tipo);
+    var valor = v.tabela === "movimentos" ? d.valor_centavos : d.total_centavos;
+    return o + " · " + nomeCaixa(d.caixa) + " · " + C.dataBR(d.data) + " " + C.horaCurta(d.hora) + " · antes: " + brl(valor);
+  }
+
+  function desenharVersoes() {
+    if (!versoes.length) {
+      $("hist-versoes").innerHTML = '<p class="vazio">Nenhuma alteração ainda.</p>';
+      return;
+    }
+    $("hist-versoes").innerHTML = '<ul class="lista-versoes">' + versoes.map(function (v) {
+      var quem = String(v.feito_por || "?").split("@")[0];
+      return '<li><div><strong>' + escapar(v.operacao === "apagado" ? "Apagado" : "Editado") + "</strong> " +
+        escapar(descreverVersao(v)) + '<br><small class="suave">' + escapar(quem + " em " + dataHoraBR(v.feito_em)) + "</small></div>" +
+        '<button type="button" class="botao pequeno" data-versao="' + escapar(String(v.id)) + '">Desfazer</button></li>';
+    }).join("") + "</ul>";
+  }
+
+  function desfazerVersao(v) {
+    var pergunta = v.operacao === "apagado"
+      ? "Trazer de volta o registro apagado (" + descreverVersao(v) + ")?"
+      : "Voltar o registro para como estava antes desta alteração (" + descreverVersao(v) + ")?";
+    if (!confirm(pergunta)) return;
+    db.restaurarVersao(v).then(function () {
+      toast("Desfeito.");
+      relatorioGerado = false;
+      buscarHistorico();
+    }, mostrarErro);
+  }
+
   function buscarHistorico() {
+    carregarVersoes();
     limparErro();
     var de = $("hist-de").value, ate = $("hist-ate").value;
     if (de && ate && de > ate) { mostrarErro({ message: "A data \"De\" está depois da data \"Até\"." }); return; }
@@ -1138,7 +1445,9 @@
         '<button type="button" class="botao pequeno" data-pdf-dia="' + dia.data + '">PDF do dia</button></div></div>' +
         dia.registros.map(function (r) {
           var dif = "";
-          if (r.tipo === "fechamento") {
+          if (C.ehPendente(r)) {
+            dif = '<span class="r-dif cor-pendente">Falta o cupom</span>';
+          } else if (r.tipo === "fechamento") {
             var s = C.classificarDiferenca(r.diferenca_centavos);
             dif = '<span class="r-dif cor-' + s + '">' + escapar(F.linhaDiferenca(r.diferenca_centavos)) + "</span>";
           } else {
@@ -1185,14 +1494,16 @@
     var r = registroAberto;
     if (!r) return;
     var desc = F.nomeTipo(r.tipo) + " do " + nomeCaixa(r.caixa) + " de " + C.dataBR(r.data) + " às " + C.horaCurta(r.hora);
-    if (!confirm("Apagar " + desc + "? Isso não pode ser desfeito.")) return;
+    if (!confirm("Apagar " + desc + "?")) return;
     db.apagarConferencia(r.id).then(function () {
       fecharDetalhe();
       historico = historico.filter(function (x) { return x.id !== r.id; });
       desenharHistorico();
       relatorioGerado = false;
       if (conf.editId === r.id) cancelarEdicao();
-      toast("Registro apagado.");
+      if (abaAtual === "caixa" && conf.vista === "inicio") carregarInicio();
+      if (abaAtual === "historico") carregarVersoes();
+      toast("Registro apagado. Dá para desfazer em Histórico > Últimas alterações.");
     }, function (e) { fecharDetalhe(); mostrarErro(e); });
   }
 
@@ -1221,6 +1532,12 @@
         var r = historico.filter(function (x) { return x.id === b.dataset.id; })[0];
         if (r) abrirDetalhe(r);
       }
+    });
+    $("hist-versoes").addEventListener("click", function (ev) {
+      var b = ev.target.closest("button[data-versao]");
+      if (!b) return;
+      var v = versoes.filter(function (x) { return String(x.id) === b.dataset.versao; })[0];
+      if (v) desfazerVersao(v);
     });
     $("detalhe-fechar").addEventListener("click", fecharDetalhe);
     $("detalhe-copiar").addEventListener("click", function () { copiar(F.textoConferencia(registroAberto, nomeCaixa)); });
@@ -1488,8 +1805,11 @@
     var r = relatorio.resumo, p = relatorio.periodo;
     var caixas = caixasDoRelatorio(r);
     var t = r.totais;
+    var avisoPendentes = t.pendentes ? '<p class="msg-aviso">' + t.pendentes + (t.pendentes === 1 ? " fechamento ainda está" : " fechamentos ainda estão") +
+      ' com "Falta o cupom" e não entra' + (t.pendentes === 1 ? "" : "m") + " nas contas. Importe em Importar &gt; Cupons do Diamante.</p>" : "";
     if (!r.porDia.length) {
-      $("rel-conteudo").innerHTML = '<p class="vazio">Nenhum registro em ' + escapar(p.rotulo) + ".</p>";
+      $("rel-conteudo").innerHTML = avisoPendentes + '<p class="vazio">Nenhum fechamento completo em ' + escapar(p.rotulo) + ".</p>";
+      if (!t.pendentes) $("rel-conteudo").innerHTML = '<p class="vazio">Nenhum registro em ' + escapar(p.rotulo) + ".</p>";
       return;
     }
     var html = '<h2 style="margin:4px 0 10px">' + escapar(p.rotulo) + "</h2>" +
@@ -1499,6 +1819,7 @@
       '<div class="bloco"><p class="rotulo">Sangrias</p><p class="numero">' + brl(t.sangrias) + "</p></div>" +
       '<div class="bloco"><p class="rotulo">Suprimentos</p><p class="numero">' + brl(t.suprimentos) + "</p></div>" +
       "</div>" +
+      avisoPendentes +
       tabelaGrupos("Por caixa", r.porCaixa, nomeCaixa) +
       tabelaGrupos("Por operador", r.porOperador, function (n) { return n; }) +
       '<div class="bloco"><h2>Diferença por dia</h2><div class="grafico"><canvas id="rel-grafico" aria-label="Gráfico da diferença de cada dia por caixa"></canvas></div>' +
@@ -1617,6 +1938,11 @@
     window.Cartoes.iniciar({
       db: db, toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, ocupado: ocupado, escapar: escapar,
       brl: brl, dataBR: C.dataBR, horaCurta: C.horaCurta, hojeISO: hojeISO
+    });
+    window.CuponsDiamante.iniciar({
+      db: db, toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, ocupado: ocupado, escapar: escapar,
+      brl: brl, caixas: CAIXAS, nomeCaixa: nomeCaixa, dataBR: C.dataBR, horaCurta: C.horaCurta, lerTextoPdf: lerTextoPdf,
+      aoGravar: function () { relatorioGerado = false; }
     });
     window.ImportarCielo.iniciar({
       db: db, toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, ocupado: ocupado, escapar: escapar,

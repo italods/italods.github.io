@@ -9,7 +9,7 @@
 
   var CAMPOS_CONFERENCIA = ["tipo", "caixa", "operador", "data", "hora", "contagem", "fundo_centavos",
     "vendas_dinheiro_centavos", "recebimentos_dinheiro_centavos", "pix_centavos", "debito_centavos",
-    "credito_centavos", "carteira_centavos", "troco_amanha_centavos", "observacao", "cupom"];
+    "credito_centavos", "carteira_centavos", "troco_amanha_centavos", "observacao", "cupom", "pendente"];
   var CAMPOS_MOVIMENTO = ["tipo", "caixa", "data", "hora", "valor_centavos", "motivo", "responsavel"];
   var CAMPOS_MAQUINA = ["numero", "apelido", "caixa", "ativa"];
   var CAMPOS_TROCA = ["data", "maquina", "caixa", "hora_de", "hora_ate", "observacao"];
@@ -144,6 +144,24 @@
       apagarConferencia: function (id) {
         return cliente.from("conferencias").delete().eq("id", id)
           .then(resultado("apagar a conferência"), falhaRede("apagar a conferência"));
+      },
+      // Cupom importado depois (aba Importar): completa o fechamento que estava "falta o cupom"
+      anexarCupom: function (id, cupom) {
+        return cliente.from("conferencias").update({ cupom: cupom, pendente: false }).eq("id", id).select().single()
+          .then(resultado("gravar o cupom no fechamento"), falhaRede("gravar o cupom no fechamento"));
+      },
+      // Histórico de edições: como cada registro estava antes de ser editado ou apagado
+      listarVersoes: function (f) {
+        f = f || {};
+        var q = cliente.from("versoes").select("*").order("feito_em", { ascending: false }).limit(f.limite || 60);
+        if (f.registro) q = q.eq("registro", f.registro);
+        return q.then(resultado("carregar o histórico de edições"), falhaRede("carregar o histórico de edições"));
+      },
+      restaurarVersao: function (v) {
+        var d = filtrarCampos(v.dados || {}, v.tabela === "movimentos" ? CAMPOS_MOVIMENTO : CAMPOS_CONFERENCIA);
+        var t = cliente.from(v.tabela);
+        var q = v.operacao === "apagado" ? t.insert(Object.assign({ id: v.registro }, d)) : t.update(d).eq("id", v.registro);
+        return q.select().single().then(resultado("desfazer a alteração"), falhaRede("desfazer a alteração"));
       },
       listarMovimentos: function (f) {
         return consulta("movimentos", f || {}).then(resultado("carregar sangrias e suprimentos"), falhaRede("carregar sangrias e suprimentos"));
@@ -287,9 +305,11 @@
           c.pix_centavos = vr("pix"); c.debito_centavos = vr("debito"); c.credito_centavos = vr("credito");
           c.carteira_centavos = (cp.formas.carteira || {}).vendas || 0;
           sangrias = cp.sangria || 0;
+          c.pendente = false;
         } else {
           c.cupom = null;
         }
+        c.pendente = !!c.pendente;
         c.fundo_centavos = c.fundo_centavos || 0;
         c.vendas_dinheiro_centavos = c.vendas_dinheiro_centavos || 0;
         c.recebimentos_dinheiro_centavos = c.recebimentos_dinheiro_centavos || 0;
@@ -300,7 +320,9 @@
           recebimentos: c.recebimentos_dinheiro_centavos, sangrias: sangrias, suprimentos: m.suprimentos
         });
         c.diferenca_centavos = c.total_centavos - c.esperado_centavos;
+        if (c.pendente) c.esperado_centavos = c.diferenca_centavos = null;
       } else {
+        c.pendente = false;
         c.sangrias_centavos = c.suprimentos_centavos = c.esperado_centavos = c.diferenca_centavos = null;
         c.cupom = c.sangrias_lancadas_centavos = null;
       }
@@ -319,17 +341,50 @@
         return a.data === b.data ? String(a.hora).localeCompare(String(b.hora)) : (a.data < b.data ? 1 : -1);
       });
     }
-    function salvar(nome, campos, dados, idExistente) {
+    // Igual ao gatilho conferencia_regras: duas aberturas seguidas no mesmo caixa e dia são recusadas
+    function regraAbertura(lista, c, idProprio) {
+      if (c.tipo !== "abertura") return null;
+      var h = function (x) { return String(x.hora || "").slice(0, 5); };
+      var doDia = lista.filter(function (x) { return x.caixa === c.caixa && x.data === c.data && x.id !== idProprio; })
+        .sort(function (a, b) { return h(a) < h(b) ? -1 : h(a) > h(b) ? 1 : String(a.criado_em).localeCompare(String(b.criado_em)); });
+      var antes = doDia.filter(function (x) { return h(x) <= h(c); }).pop();
+      if (antes && antes.tipo === "abertura") {
+        return "Este caixa já está aberto (abertura das " + h(antes) + "). Feche o caixa antes de abrir de novo.";
+      }
+      var depois = doDia.filter(function (x) { return h(x) > h(c); })[0];
+      if (depois && depois.tipo === "abertura") {
+        return "Já existe uma abertura às " + h(depois) + " sem fechamento antes dela. Registre o fechamento primeiro.";
+      }
+      return null;
+    }
+    function guardarVersao(nome, antigo, operacao) {
+      if (nome !== "conferencias" && nome !== "movimentos") return;
+      var v = ler("versoes");
+      v.unshift({ id: id(), tabela: nome, registro: antigo.id, operacao: operacao, dados: JSON.parse(JSON.stringify(antigo)),
+        feito_por: EMAIL, feito_em: new Date().toISOString() });
+      gravar("versoes", v.slice(0, 300));
+    }
+    function salvar(nome, campos, dados, idExistente, idNovo) {
       var lista = ler(nome);
       var d = filtrarCampos(dados, campos);
       var agora = new Date().toISOString();
       var reg;
+      if (nome === "conferencias") {
+        var atual = idExistente ? lista.filter(function (x) { return x.id === idExistente; })[0] : null;
+        var regra = regraAbertura(lista, Object.assign({}, atual || {}, d), idExistente);
+        var igual = atual && d.tipo === atual.tipo && d.caixa === atual.caixa && d.data === atual.data &&
+          String(d.hora).slice(0, 5) === String(atual.hora).slice(0, 5);
+        if (regra && !igual) return Promise.reject(erroAmigavel({ message: regra }, "salvar a conferência"));
+      }
       if (idExistente) {
         reg = lista.filter(function (x) { return x.id === idExistente; })[0];
         if (!reg) return Promise.reject(erroAmigavel({ message: "registro não encontrado" }, "salvar"));
-        Object.assign(reg, d, { editado_por: EMAIL, editado_em: agora });
+        var antes = JSON.parse(JSON.stringify(reg));
+        Object.assign(reg, d);
+        var mudou = Object.keys(d).some(function (k) { return JSON.stringify(antes[k]) !== JSON.stringify(reg[k]); });
+        if (mudou) { guardarVersao(nome, antes, "editado"); reg.editado_por = EMAIL; reg.editado_em = agora; }
       } else {
-        reg = Object.assign({ id: id(), criado_por: EMAIL, criado_em: agora }, d);
+        reg = Object.assign({ id: idNovo || id(), criado_por: EMAIL, criado_em: agora }, d);
         lista.push(reg);
       }
       gravar(nome, lista);
@@ -337,6 +392,8 @@
       return Promise.resolve(ler(nome).filter(function (x) { return x.id === reg.id; })[0]);
     }
     function apagar(nome, idApagar) {
+      var velho = ler(nome).filter(function (x) { return x.id === idApagar; })[0];
+      if (velho) guardarVersao(nome, velho, "apagado");
       gravar(nome, ler(nome).filter(function (x) { return x.id !== idApagar; }));
       recalcularTudo();
       return Promise.resolve(null);
@@ -355,6 +412,17 @@
       listarConferencias: function (f) { return Promise.resolve(filtrar(ler("conferencias"), f)); },
       salvarConferencia: function (d, i) { return salvar("conferencias", CAMPOS_CONFERENCIA, d, i); },
       apagarConferencia: function (i) { return apagar("conferencias", i); },
+      anexarCupom: function (i, cupom) { return salvar("conferencias", CAMPOS_CONFERENCIA, { cupom: cupom, pendente: false }, i); },
+      listarVersoes: function (f) {
+        f = f || {};
+        return Promise.resolve(ler("versoes").filter(function (v) { return !f.registro || v.registro === f.registro; })
+          .slice(0, f.limite || 60));
+      },
+      restaurarVersao: function (v) {
+        var campos = v.tabela === "movimentos" ? CAMPOS_MOVIMENTO : CAMPOS_CONFERENCIA;
+        return v.operacao === "apagado" ? salvar(v.tabela, campos, v.dados, null, v.registro)
+          : salvar(v.tabela, campos, v.dados, v.registro);
+      },
       listarMovimentos: function (f) { return Promise.resolve(filtrar(ler("movimentos"), f)); },
       salvarMovimento: function (d, i) { return salvar("movimentos", CAMPOS_MOVIMENTO, d, i); },
       apagarMovimento: function (i) { return apagar("movimentos", i); },

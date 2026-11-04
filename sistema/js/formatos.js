@@ -47,7 +47,9 @@
 
     l.push("");
     l.push("*Total contado: " + C.formatarBRL(cont.total) + "*");
-    if (r.tipo === "fechamento") {
+    if (r.tipo === "fechamento" && r.pendente === true) {
+      l.push("Falta o cupom do Diamante: a diferença aparece quando ele for importado.");
+    } else if (r.tipo === "fechamento") {
       var esperado = r.esperado_centavos;
       var dif = r.diferenca_centavos;
       if (esperado == null) {
@@ -119,6 +121,7 @@
       var cont = C.calcularContagem(r.contagem);
       var q = cont.cedulas.concat(cont.moedas).map(function (x) { return x.quantidade; });
       var fech = r.tipo === "fechamento";
+      var pend = fech && r.pendente === true;
       return [C.dataBR(r.data), C.horaCurta(r.hora), nomeTipo(r.tipo), nomeCaixa(r.caixa), r.operador || ""]
         .concat(q)
         .concat([
@@ -128,9 +131,9 @@
           fech ? numeroCSV(r.recebimentos_dinheiro_centavos) : "",
           fech ? numeroCSV(r.suprimentos_centavos) : "",
           fech ? numeroCSV(r.sangrias_centavos) : "",
-          fech ? numeroCSV(r.esperado_centavos) : "",
-          fech ? numeroCSV(r.diferenca_centavos) : "",
-          fech ? linhaDiferenca(r.diferenca_centavos).split(":")[0] : "",
+          fech && !pend ? numeroCSV(r.esperado_centavos) : "",
+          fech && !pend ? numeroCSV(r.diferenca_centavos) : "",
+          pend ? "Falta o cupom" : fech ? linhaDiferenca(r.diferenca_centavos).split(":")[0] : "",
           numeroCSV(r.pix_centavos), numeroCSV(r.debito_centavos), numeroCSV(r.credito_centavos),
           numeroCSV(r.carteira_centavos), fech ? numeroCSV(r.troco_amanha_centavos) : "",
           r.observacao || "", r.criado_por || "", r.editado_por || ""

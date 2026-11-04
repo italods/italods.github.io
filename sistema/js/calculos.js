@@ -167,6 +167,62 @@
   }
 
   /*
+   * Situação de um caixa num dia, pela ordem das contagens (hora):
+   * "sem_registro" (nada no dia), "aberto" (a última é uma abertura) ou "fechado" (a última é um fechamento).
+   * Fechamento que ainda espera o cupom (pendente) já conta como fechado.
+   */
+  function ordemConferencia(a, b) {
+    var x = String(a.hora || "").slice(0, 8), y = String(b.hora || "").slice(0, 8);
+    if (x !== y) return x < y ? -1 : 1;
+    return String(a.criado_em || "").localeCompare(String(b.criado_em || ""));
+  }
+  function situacaoDoCaixa(conferencias, caixa, data) {
+    var doDia = (conferencias || []).filter(function (c) { return c.caixa === caixa && c.data === data; })
+      .sort(ordemConferencia);
+    var ultima = doDia[doDia.length - 1] || null;
+    return {
+      estado: !ultima ? "sem_registro" : ultima.tipo === "abertura" ? "aberto" : "fechado",
+      ultima: ultima,
+      registros: doDia,
+      aberturas: doDia.filter(function (c) { return c.tipo === "abertura"; }).length,
+      fechamentos: doDia.filter(function (c) { return c.tipo === "fechamento"; }).length,
+      pendentes: doDia.filter(ehPendente).length
+    };
+  }
+
+  // Pode registrar esta contagem? { ok, motivo } (ok = false bloqueia) ou { ok: true, aviso }
+  function podeRegistrar(situacao, tipo) {
+    var u = situacao && situacao.ultima;
+    if (tipo === "abertura") {
+      if (situacao && situacao.estado === "aberto") {
+        return { ok: false, motivo: "Este caixa já está aberto (abertura das " + horaCurta(u.hora) + "). Feche antes de abrir de novo." };
+      }
+      return { ok: true };
+    }
+    if (!situacao || situacao.estado === "sem_registro") {
+      return { ok: true, aviso: "Não há abertura deste caixa no dia. Dá para fechar assim mesmo." };
+    }
+    if (situacao.estado === "fechado") {
+      return { ok: true, aviso: "Este caixa já foi fechado às " + horaCurta(u.hora) + " e não tem abertura depois. Dá para fechar assim mesmo." };
+    }
+    return { ok: true };
+  }
+
+  // Fechamento salvo só com a contagem, esperando o cupom do Diamante
+  function ehPendente(c) {
+    return !!c && c.tipo === "fechamento" && c.pendente === true;
+  }
+
+  // Abertura do mesmo caixa e dia logo antes deste fechamento (para comparar com o fundo do cupom)
+  function aberturaAntes(conferencias, fechamento) {
+    var antes = (conferencias || []).filter(function (c) {
+      return c.tipo === "abertura" && c.caixa === fechamento.caixa && c.data === fechamento.data &&
+        c.id !== fechamento.id && (!fechamento.hora || String(c.hora).slice(0, 5) <= String(fechamento.hora).slice(0, 5));
+    }).sort(ordemConferencia);
+    return antes[antes.length - 1] || null;
+  }
+
+  /*
    * Resumo do mês. Recebe conferências e movimentos já filtrados pelo mês.
    * Só fechamentos contam para sobras/faltas.
    */
@@ -184,10 +240,11 @@
     }
 
     var porCaixa = {}, porOperador = {}, porDia = {};
-    var totais = { sangrias: 0, suprimentos: 0, vendasDinheiro: 0, fechamentos: 0, saldo: 0 };
+    var totais = { sangrias: 0, suprimentos: 0, vendasDinheiro: 0, fechamentos: 0, saldo: 0, pendentes: 0 };
 
     (conferencias || []).forEach(function (c) {
       if (c.tipo !== "fechamento") return;
+      if (ehPendente(c)) { totais.pendentes += 1; return; }
       var dif = inteiro(c.diferenca_centavos);
       var op = (c.operador || "").trim() || "(sem operador)";
       acumular(porCaixa[c.caixa] = porCaixa[c.caixa] || novoGrupo(c.caixa), dif);
@@ -232,6 +289,10 @@
     calcularFechamento: calcularFechamento,
     somarMovimentos: somarMovimentos,
     fundoDoDia: fundoDoDia,
+    situacaoDoCaixa: situacaoDoCaixa,
+    podeRegistrar: podeRegistrar,
+    ehPendente: ehPendente,
+    aberturaAntes: aberturaAntes,
     reaisParaCentavos: reaisParaCentavos,
     formatarBRL: formatarBRL,
     rotuloValor: rotuloValor,
