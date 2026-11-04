@@ -119,8 +119,29 @@ select pg_temp.ok((select pagador = 'MARIA M.' from cielo_vendas where chave = '
 select pg_temp.espera_erro($q$insert into cielo_vendas (chave, data, hora, forma, valor_centavos, aprovada, maquina) values ('x', '2027-01-15', '10:00', 'pix', 10, true, '1')$q$, 'chave');
 reset role;
 
+-- ===== Banco do Brasil e configurações
+set role authenticated; set request.jwt.claims = '{"email":"dono@x.com"}';
+insert into configuracoes (chave, valor) values ('cnpj_loja', '11222333000144');
+select pg_temp.ok((select criado_por = 'dono@x.com' from configuracoes where chave = 'cnpj_loja'), 'configuração com autoria');
+select pg_temp.espera_erro($q$insert into configuracoes (chave, valor) values ('Chave Errada', 'x')$q$, 'check');
+insert into banco_lancamentos (chave, data, hora, data_lancamento, tipo, categoria, pagador_tipo, pagador, documento, valor_centavos)
+values ('bb|40744200000004|2027-01-04|95000|', '2027-01-04', '07:44', '2027-01-04', 'Pix - Recebido', 'pix_terceiro', 'pf', 'JOANA DE TAL DA SILVA', '40744200000004', 95000),
+       ('bb|310708500000001|2027-01-04|150045|', '2026-12-31', '07:08', '2027-01-04', 'Pix - Recebido', 'repasse_cielo', '', '', '310708500000001', 150045);
+select pg_temp.ok((select pagador = 'JOANA T.' and importado_por = 'dono@x.com' from banco_lancamentos where valor_centavos = 95000), 'pagador do BB abreviado pelo banco');
+insert into banco_lancamentos (chave, data, data_lancamento, categoria, valor_centavos)
+values ('bb|40744200000004|2027-01-04|95000|', '2027-01-04', '2027-01-04', 'pix_terceiro', 95000) on conflict (chave) do nothing;
+select pg_temp.ok((select count(*) from banco_lancamentos) = 2, 'reimportar o extrato não duplica');
+select pg_temp.espera_erro($q$insert into banco_lancamentos (chave, data, data_lancamento, categoria, valor_centavos) values ('bb|x|1|2', '2027-01-04', '2027-01-04', 'saida', 100)$q$, 'check');
+select pg_temp.espera_erro($q$insert into banco_lancamentos (chave, data, data_lancamento, categoria, valor_centavos) values ('bb|x|1|3', '2027-01-04', '2027-01-04', 'outro', -100)$q$, 'check');
+select pg_temp.espera_erro($q$insert into banco_lancamentos (chave, data, data_lancamento, categoria, valor_centavos, documento) values ('bb|x|1|4', '2027-01-04', '2027-01-04', 'outro', 100, '123.456.789-01')$q$, 'check');
+update banco_lancamentos set caixa = 'caixa1' where valor_centavos = 95000;
+select pg_temp.ok((select caixa = 'caixa1' and pagador = 'JOANA T.' from banco_lancamentos where valor_centavos = 95000), 'atribuir PIX a um caixa');
+reset role;
+
 -- ===== segurança
 set role anon; set request.jwt.claims = '{}';
+select pg_temp.espera_erro('select * from banco_lancamentos', 'permission denied');
+select pg_temp.espera_erro('select * from configuracoes', 'permission denied');
 select pg_temp.espera_erro('select cupom from conferencias', 'permission denied');
 select pg_temp.espera_erro('select * from cielo_vendas', 'permission denied');
 select pg_temp.espera_erro('select * from maquinas', 'permission denied');
@@ -129,6 +150,7 @@ reset role;
 set role authenticated; set request.jwt.claims = '{"email":"intruso@x.com"}';
 select pg_temp.ok((select count(*) from conferencias) = 0, 'logado mas não autorizado não vê conferências');
 select pg_temp.ok((select count(*) from cielo_vendas) = 0 and (select count(*) from maquinas) = 0, 'não autorizado não vê Cielo nem máquinas');
+select pg_temp.ok((select count(*) from banco_lancamentos) = 0 and (select count(*) from configuracoes) = 0, 'não autorizado não vê BB nem configurações');
 select pg_temp.espera_erro($q$insert into maquinas (numero) values ('123')$q$, 'row-level security');
 select pg_temp.espera_erro($q$insert into conferencias (tipo, caixa, data, hora) values ('abertura', 'caixa9', '2027-01-15', '07:00')$q$, 'row-level security');
 reset role;

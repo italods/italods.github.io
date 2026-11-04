@@ -460,10 +460,11 @@
     conf.cielo = null;
     desenharFormas();
     // Vendas da Cielo do dia (separado: se falhar, o resto do fechamento continua)
-    Promise.all([db.listarCielo({ de: data, ate: data }), db.listarMaquinas(), db.listarTrocas({ de: data, ate: data })])
+    Promise.all([db.listarCielo({ de: data, ate: data }), db.listarMaquinas(), db.listarTrocas({ de: data, ate: data }),
+      db.listarBanco({ de: data, ate: data }), db.listarConferencias({ de: data, ate: data })])
       .then(function (r) {
         if (pedido !== conf.pedido) return;
-        conf.cielo = { vendas: r[0] || [], maquinas: r[1] || [], trocas: r[2] || [] };
+        conf.cielo = { vendas: r[0] || [], maquinas: r[1] || [], trocas: r[2] || [], banco: r[3] || [], confsTodas: r[4] || [] };
         desenharFormas();
       }, function (e) {
         if (pedido !== conf.pedido) return;
@@ -651,9 +652,33 @@
       if (soma.nao_aprovadas) html += '<p class="suave mini">' + soma.nao_aprovadas + (soma.nao_aprovadas === 1 ? " venda não aprovada" : " vendas não aprovadas") + " na Cielo (não contam).</p>";
       if (semCaixa.length) html += '<p class="msg-aviso">' + semCaixa.length + " vendas da Cielo deste dia são de máquina sem caixa. <a href=\"#importar\">Ligar a máquina ao caixa</a></p>";
     }
-    html += '<p class="suave mini">PIX Delivery (' + brl(window.Diamante.esperadoPorForma(c).pix_delivery) + ") será conferido com o extrato do BB. " +
-      "Carteira (fiado vendido, " + brl(c.formas.carteira.vendas) + ") é só informativo. Dinheiro: veja a contagem abaixo.</p>";
+    html += linhaPixDelivery(c, caixa, data);
+    html += '<p class="suave mini">Carteira (fiado vendido, ' + brl(c.formas.carteira.vendas) + ") é só informativo. Dinheiro: veja a contagem abaixo.</p>";
     el.innerHTML = html;
+  }
+
+  // PIX Delivery: o BB não diz o caixa, então a conta é do DIA (cupons de todos os caixas)
+  function linhaPixDelivery(c, caixa, data) {
+    var banco = (conf.cielo.banco || []).filter(function (l) { return l.data === data; });
+    var titulo = '<h3 class="mini">PIX Delivery (dia inteiro, todos os caixas)</h3>';
+    if (!banco.length) {
+      return titulo + '<p class="msg-aviso">O extrato do BB deste dia ainda não foi importado. <a href="#importar">Importar o extrato do BB</a></p>';
+    }
+    // cupom deste caixa (o da tela) + o último fechamento com cupom de cada outro caixa
+    var porCaixa = {};
+    porCaixa[caixa] = c;
+    (conf.cielo.confsTodas || []).filter(function (r) { return r.tipo === "fechamento" && r.cupom && r.caixa !== caixa; })
+      .sort(function (a, b) { return String(a.hora).localeCompare(String(b.hora)); })
+      .forEach(function (r) { porCaixa[r.caixa] = r.cupom; });
+    var faltam = CAIXAS.filter(function (cx) { return !porCaixa[cx.id]; }).map(function (cx) { return cx.curto; });
+    var cupons = Object.keys(porCaixa).map(function (k) { return porCaixa[k]; });
+    var r = window.Banco.compararPixDelivery(cupons, banco, data);
+    var t = r.situacao === "bateu" ? "Bateu" : "BB tem " + brl(Math.abs(r.diferenca)) + (r.situacao === "sobra" ? " a mais" : " a menos");
+    return titulo + '<div class="formas-tabela"><div class="forma-linha"><span class="cupom-cab">Forma</span><span class="cupom-cab">Diamante</span>' +
+      '<span class="cupom-cab">BB</span></div><div class="forma-linha" data-forma="pix_delivery"><span class="cupom-forma">PIX de clientes</span><span>' +
+      brl(r.esperado) + "</span><span>" + brl(r.encontrado) + '</span><span class="forma-dif diferenca ' + r.situacao + '">' + escapar(t) + "</span></div></div>" +
+      '<p class="suave mini">' + r.quantidade + " PIX de clientes no BB neste dia." +
+      (faltam.length ? " Atenção: ainda falta o cupom do " + escapar(faltam.join(" e do ")) + " deste dia, então o Diamante está incompleto." : "") + "</p>";
   }
 
   /* ========================== Cupom do Diamante ========================== */

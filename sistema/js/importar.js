@@ -5,10 +5,13 @@
 (function () {
   "use strict";
   var CI = window.Cielo;
+  var BB = window.Banco;
   var u = null;          // utilidades do app (db, toast, mostrarErro, ...)
   var previa = null;     // { nome, leitura, escolhas: { numero: caixa } }
   var maquinas = [];
   var trocas = [];
+  var cnpjLoja = "";     // do banco (configuracoes.cnpj_loja); nunca no código
+  var bbPrevia = null;   // { nome, texto, leitura, sugestao }
 
   function $(id) { return document.getElementById(id); }
   function brl(c) { return u.brl(c); }
@@ -114,6 +117,82 @@
     });
   }
 
+  /* ------------------------------ Extrato do BB ------------------------------ */
+
+  function lerArquivoBB(arquivo) {
+    u.limparErro();
+    if (!arquivo) return;
+    if (arquivo.size > 20 * 1024 * 1024) { u.mostrarErro({ message: "Arquivo grande demais (mais de 20 MB)." }); return; }
+    arquivo.arrayBuffer().then(function (buf) {
+      var texto = CI.decodificar(buf);
+      var r = BB.lerExtrato(texto, cnpjLoja);
+      if (r.erros.length) throw new Error(r.erros.join(" "));
+      if (!r.lancamentos.length) throw new Error("O extrato não tem nenhuma entrada para importar.");
+      bbPrevia = { nome: arquivo.name, texto: texto, leitura: r, sugestao: cnpjLoja ? null : BB.sugerirCnpjLoja(r.documentos) };
+      desenharBB();
+    }).catch(function (e) {
+      bbPrevia = null;
+      desenharBB();
+      u.mostrarErro({ message: e.message || "Não consegui ler o extrato." });
+    });
+  }
+
+  function desenharBB() {
+    var el = $("bb-previa");
+    if (!bbPrevia) { el.hidden = true; el.innerHTML = ""; return; }
+    var r = bbPrevia.leitura;
+    var periodo = r.de === r.ate ? u.dataBR(r.de) : u.dataBR(r.de) + " a " + u.dataBR(r.ate);
+    var html = '<h3 class="mini">Prévia: ' + esc(bbPrevia.nome) + "</h3>" +
+      '<p class="mini">Transações de <strong>' + esc(periodo) + "</strong> · " + r.lancamentos.length + " entradas lidas · " +
+      r.ignorados.saidas + " saídas e " + r.ignorados.saldos + " linhas de saldo ignoradas (não vão para o banco)" +
+      (r.ignorados.outros.length ? " · " + r.ignorados.outros.length + " linhas com problema ignoradas" : "") + "</p>";
+    if (!cnpjLoja) {
+      html += '<div class="registro maquina-previa"><div><strong>CNPJ da loja</strong>' +
+        '<p class="mini">O PIX da maquininha chega no BB com o CNPJ da própria loja. Ele fica guardado só no banco do sistema (não no código).</p>' +
+        (bbPrevia.sugestao ? '<p class="mini">O CNPJ que mais aparece neste extrato é <strong>' + esc(BB.formatarCnpj(bbPrevia.sugestao)) +
+          "</strong> (" + r.documentos[bbPrevia.sugestao] + ' vezes). É o da loja?</p><div class="acoes"><button type="button" class="botao primario" id="bb-cnpj-sim">Sim, é o da loja</button></div>' : "") +
+        '<label class="campo"><span>' + (bbPrevia.sugestao ? "Ou digite o CNPJ da loja" : "Digite o CNPJ da loja") +
+        '</span><input type="text" inputmode="numeric" id="bb-cnpj" maxlength="18" placeholder="00.000.000/0000-00" /></label>' +
+        '<div class="acoes"><button type="button" class="botao" id="bb-cnpj-salvar">Salvar CNPJ</button></div></div></div>';
+    } else {
+      var soma = BB.somarPorCategoria(r.lancamentos);
+      html += '<div class="tabela-rolagem"><table class="tabela-bb"><thead><tr><th>Categoria</th><th>Qtd.</th><th>Total</th></tr></thead><tbody>' +
+        Object.keys(BB.CATEGORIAS).map(function (k) {
+          return "<tr><td>" + esc(BB.CATEGORIAS[k]) + "</td><td>" + soma.qtd[k] + "</td><td>" + brl(soma[k]) + "</td></tr>";
+        }).join("") + "</tbody></table></div>" +
+        '<p class="suave mini">CNPJ da loja: ' + esc(BB.formatarCnpj(cnpjLoja)) +
+        ' · <button type="button" class="botao fantasma pequeno" id="bb-cnpj-trocar">trocar</button></p>';
+    }
+    html += '<div class="acoes"><button type="button" class="botao" id="bb-cancelar">Cancelar</button>' +
+      '<button type="button" class="botao primario" id="bb-gravar"' + (cnpjLoja ? "" : " disabled") + ">Gravar no sistema</button></div>";
+    el.innerHTML = html;
+    el.hidden = false;
+  }
+
+  function definirCnpj(valor) {
+    var d = String(valor || "").replace(/\D/g, "");
+    if (d.length !== 14) { u.mostrarErro({ message: "O CNPJ precisa ter 14 números." }); return; }
+    u.db.salvarConfiguracao("cnpj_loja", d).then(function () {
+      cnpjLoja = d;
+      if (bbPrevia) { bbPrevia.leitura = BB.lerExtrato(bbPrevia.texto, d); bbPrevia.sugestao = null; }
+      u.toast("CNPJ da loja salvo.");
+      desenharBB();
+    }, u.mostrarErro);
+  }
+
+  function gravarBB() {
+    u.limparErro();
+    var botao = $("bb-gravar");
+    u.ocupado(botao, true, "Gravando…");
+    u.db.importarBanco(bbPrevia.leitura.lancamentos).then(function (r) {
+      u.toast(r.novas + (r.novas === 1 ? " entrada nova gravada" : " entradas novas gravadas") +
+        (r.repetidas ? "; " + r.repetidas + " já estavam no sistema" : "") + ".");
+      bbPrevia = null;
+      desenharBB();
+      return atualizar();
+    }, function (e) { u.ocupado(botao, false); u.mostrarErro(e); });
+  }
+
   /* --------------------------- Máquinas e trocas --------------------------- */
 
   function desenharMaquinas() {
@@ -160,7 +239,22 @@
     }, u.mostrarErro).then(function () { u.ocupado(botao, false); });
   }
 
-  function desenharImportado(vendas) {
+  function desenharImportadoBB(lanc) {
+    var dias = {};
+    lanc.forEach(function (l) {
+      var d = dias[l.data] || (dias[l.data] = { repasse_cielo: 0, pix_maquininha: 0, pix_terceiro: 0, outro: 0 });
+      d[l.categoria] += l.valor_centavos;
+    });
+    var datas = Object.keys(dias).sort().reverse();
+    return datas.length ? '<h3 class="mini">Extrato do BB (entradas por dia da transação)</h3>' + datas.map(function (d) {
+      var x = dias[d];
+      return '<div class="registro mov"><span><strong>' + esc(u.dataBR(d)) + "</strong>" +
+        '<br><small class="suave">PIX maquininha ' + brl(x.pix_maquininha) + " · PIX de clientes " + brl(x.pix_terceiro) +
+        " · Repasse Cielo " + brl(x.repasse_cielo) + (x.outro ? " · Outras " + brl(x.outro) : "") + "</small></span></div>";
+    }).join("") : "";
+  }
+
+  function desenharImportado(vendas, lancBB) {
     var dias = {};
     vendas.forEach(function (v) {
       var d = dias[v.data] || (dias[v.data] = { qtd: 0, total: 0, caixas: {}, semCaixa: 0 });
@@ -171,23 +265,26 @@
       else d.caixas[cx] = (d.caixas[cx] || 0) + v.valor_centavos;
     });
     var datas = Object.keys(dias).sort().reverse();
-    $("cielo-importado").innerHTML = datas.length ? datas.map(function (d) {
+    $("cielo-importado").innerHTML = (datas.length ? '<h3 class="mini">Cielo (vendas aprovadas por dia)</h3>' + datas.map(function (d) {
       var x = dias[d];
       return '<div class="registro mov"><span><strong>' + esc(u.dataBR(d)) + "</strong> · " + x.qtd + " aprovadas · " + brl(x.total) +
         '<br><small class="suave">' + Object.keys(x.caixas).sort().map(function (c) { return esc(u.nomeCaixa(c)) + " " + brl(x.caixas[c]); }).join(" · ") +
         (x.semCaixa ? " · sem caixa " + brl(x.semCaixa) : "") + "</small></span></div>";
-    }).join("") : '<p class="vazio">Nada importado nos últimos 14 dias.</p>';
+    }).join("") : "") + desenharImportadoBB(lancBB || []);
+    if (!$("cielo-importado").innerHTML) $("cielo-importado").innerHTML = '<p class="vazio">Nada importado nos últimos 14 dias.</p>';
   }
 
   function atualizar() {
     var hoje = u.hojeISO();
     var de = new Date(hoje + "T12:00:00"); de.setDate(de.getDate() - 13);
     var deISO = de.toISOString().slice(0, 10);
-    return Promise.all([u.db.listarMaquinas(), u.db.listarTrocas({ de: deISO }), u.db.listarCielo({ de: deISO, ate: hoje })])
+    return Promise.all([u.db.listarMaquinas(), u.db.listarTrocas({ de: deISO }), u.db.listarCielo({ de: deISO, ate: hoje }),
+      u.db.listarBanco({ de: deISO, ate: hoje }), u.db.obterConfiguracao("cnpj_loja")])
       .then(function (r) {
-        maquinas = r[0] || []; trocas = r[1] || [];
-        desenharMaquinas(); desenharTrocas(); desenharImportado(r[2] || []);
+        maquinas = r[0] || []; trocas = r[1] || []; cnpjLoja = r[4] || "";
+        desenharMaquinas(); desenharTrocas(); desenharImportado(r[2] || [], r[3] || []);
         if (previa) desenharPrevia();
+        if (bbPrevia) desenharBB();
       }, function (e) {
         $("maquinas-lista").innerHTML = '<p class="vazio">Não foi possível carregar (' + esc(e.message) + ").</p>";
         $("cielo-importado").innerHTML = "";
@@ -223,6 +320,26 @@
       u.db.salvarMaquina(d).then(function () { u.toast("Máquina " + CI.finalMaquina(n) + " salva."); return atualizar(); }, u.mostrarErro);
     });
     $("troca-salvar").addEventListener("click", salvarTroca);
+    $("bb-arquivo").addEventListener("change", function (ev) {
+      var a = ev.target.files && ev.target.files[0];
+      ev.target.value = "";
+      lerArquivoBB(a);
+    });
+    $("bb-importar").addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); $("bb-arquivo").click(); }
+    });
+    $("bb-previa").addEventListener("click", function (ev) {
+      var id = ev.target.id;
+      if (id === "bb-cancelar") { bbPrevia = null; desenharBB(); }
+      if (id === "bb-gravar") gravarBB();
+      if (id === "bb-cnpj-sim") definirCnpj(bbPrevia.sugestao);
+      if (id === "bb-cnpj-salvar") definirCnpj($("bb-cnpj").value);
+      if (id === "bb-cnpj-trocar" && confirm("Trocar o CNPJ da loja? O próximo extrato será separado com o novo CNPJ.")) {
+        cnpjLoja = "";
+        if (bbPrevia) { bbPrevia.leitura = BB.lerExtrato(bbPrevia.texto, ""); bbPrevia.sugestao = BB.sugerirCnpjLoja(bbPrevia.leitura.documentos); }
+        desenharBB();
+      }
+    });
     $("trocas-lista").addEventListener("click", function (ev) {
       var id = ev.target.dataset.apagarTroca;
       if (!id || !confirm("Apagar esta troca de máquina?")) return;

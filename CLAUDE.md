@@ -38,7 +38,10 @@ sistema/
                       colado, confere as somas, esperado por forma, nome abreviado (puras + testes)
   js/cielo.js       ← CSV de vendas detalhado da Cielo: leitura (colunas pelo nome, Windows-1252),
                       totalizador, chave anti-duplicação, caixa da venda (máquina + troca), cupom × Cielo
-  js/importar.js    ← aba "Importar" (Conferência de caixa): prévia do CSV da Cielo, máquinas, trocas
+  js/banco.js       ← extrato CSV do Banco do Brasil: data real da descrição, categorias (repasse
+                      Cielo, PIX da maquininha, PIX de cliente, outro), chave, PIX Delivery do dia
+  js/importar.js    ← aba "Importar" (Conferência de caixa): prévias do CSV da Cielo e do extrato do
+                      BB, CNPJ da loja, máquinas, trocas
   js/db.js          ← acesso ao Supabase + modo demonstração (?demo=1, guarda no localStorage)
   js/app.js         ← telas e eventos do caixa, login e troca de áreas
   js/escuta-db.js   ← Veneza Escuta: chamadas às funções do banco + demonstração (?demo=1)
@@ -86,6 +89,14 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   caixa padrão); `maquina_trocas` = máquina em outro caixa num dia (horário opcional). No fechamento
   com cupom, o quadro "Conferência por forma" compara débito, crédito e PIX da maquininha do cupom
   (vendas + recebimentos) com a Cielo do caixa e dia. Na tela, mostrar só o final da máquina.
+- **Banco do Brasil**: aba Importar lê o extrato CSV e grava em `banco_lancamentos` só as
+  **entradas** (saídas e saldos são descartados no aparelho). A data/hora vem da descrição
+  ("DD/MM HH:MM DOC NOME"), não do lançamento. CPF/CNPJ dos pagadores nunca são gravados (só
+  `pagador_tipo` pf/pj e o nome abreviado); `documento` é o nº do documento do BB. O PIX da
+  maquininha é reconhecido pelo **CNPJ da loja**, guardado só em `configuracoes.cnpj_loja` (o
+  sistema sugere o CNPJ que mais aparece e o Italo confirma). O repasse da Cielo é reconhecido pelo
+  nome "CIELO". No fechamento, o PIX Delivery é conferido por **dia** (cupons de todos os caixas ×
+  PIX de clientes no BB), porque o BB não diz o caixa. Ainda falta OFX/Excel (sem amostra).
 - **Celular primeiro**: botões de no mínimo 48px, sem rolagem lateral em 360–390px de largura.
 - Tudo em **português do Brasil**, visual limpo, sem gradientes.
 - Páginas do sistema com `<meta name="robots" content="noindex">`.

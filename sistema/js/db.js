@@ -13,6 +13,8 @@
   var CAMPOS_MOVIMENTO = ["tipo", "caixa", "data", "hora", "valor_centavos", "motivo", "responsavel"];
   var CAMPOS_MAQUINA = ["numero", "apelido", "caixa", "ativa"];
   var CAMPOS_TROCA = ["data", "maquina", "caixa", "hora_de", "hora_ate", "observacao"];
+  var CAMPOS_BANCO = ["chave", "data", "hora", "data_lancamento", "tipo", "categoria", "pagador_tipo", "pagador",
+    "documento", "valor_centavos"];
   var CAMPOS_CIELO = ["chave", "data", "hora", "forma", "forma_original", "parcelas", "bandeira", "valor_centavos",
     "aprovada", "status", "maquina", "nsu", "autorizacao", "id_pix", "txid", "pagador"];
 
@@ -179,39 +181,54 @@
         return cliente.from("maquina_trocas").delete().eq("id", id)
           .then(resultado("apagar a troca"), falhaRede("apagar a troca"));
       },
-      // Grava as vendas lidas do CSV. Venda que já existe (mesma chave) é ignorada. Devolve quantas entraram.
-      importarCielo: function (vendas) {
-        var lotes = [];
-        for (var i = 0; i < vendas.length; i += 500) lotes.push(vendas.slice(i, i + 500));
-        var novas = 0;
-        return lotes.reduce(function (p, lote) {
-          return p.then(function () {
-            return cliente.from("cielo_vendas")
-              .upsert(lote.map(function (v) { return filtrarCampos(v, CAMPOS_CIELO); }), { onConflict: "chave", ignoreDuplicates: true })
-              .select("chave")
-              .then(resultado("gravar as vendas da Cielo"), falhaRede("gravar as vendas da Cielo"))
-              .then(function (r) { novas += (r || []).length; });
-          });
-        }, Promise.resolve()).then(function () { return { novas: novas, repetidas: vendas.length - novas }; });
+      // Vendas lidas do CSV. Venda que já existe (mesma chave) é ignorada. Devolve quantas entraram.
+      importarCielo: function (vendas) { return importarSemDuplicar("cielo_vendas", CAMPOS_CIELO, vendas, "gravar as vendas da Cielo"); },
+      listarCielo: function (f) { return listarTudo("cielo_vendas", CAMPOS_CIELO, f, "carregar as vendas da Cielo"); },
+      importarBanco: function (l) { return importarSemDuplicar("banco_lancamentos", CAMPOS_BANCO, l, "gravar o extrato do banco"); },
+      listarBanco: function (f) { return listarTudo("banco_lancamentos", CAMPOS_BANCO.concat(["caixa"]), f, "carregar o extrato do banco"); },
+      obterConfiguracao: function (chave) {
+        return cliente.from("configuracoes").select("valor").eq("chave", chave).maybeSingle()
+          .then(resultado("carregar a configuração"), falhaRede("carregar a configuração"))
+          .then(function (r) { return r ? r.valor : ""; });
       },
-      // Vendas da Cielo de um período (busca em páginas de 1000)
-      listarCielo: function (f) {
-        f = f || {};
-        var todas = [];
-        function pagina(n) {
-          var q = cliente.from("cielo_vendas").select(CAMPOS_CIELO.join(",") + ",id");
-          if (f.de) q = q.gte("data", f.de);
-          if (f.ate) q = q.lte("data", f.ate);
-          return q.order("data").order("hora").order("id").range(n * 1000, n * 1000 + 999)
-            .then(resultado("carregar as vendas da Cielo"), falhaRede("carregar as vendas da Cielo"))
-            .then(function (r) {
-              todas = todas.concat(r || []);
-              return r && r.length === 1000 && n < 50 ? pagina(n + 1) : todas;
-            });
-        }
-        return pagina(0);
+      salvarConfiguracao: function (chave, valor) {
+        return cliente.from("configuracoes").upsert({ chave: chave, valor: valor }, { onConflict: "chave" })
+          .then(resultado("salvar a configuração"), falhaRede("salvar a configuração"));
       }
     };
+
+    function importarSemDuplicar(tabela, campos, linhas, acao) {
+      var lotes = [];
+      for (var i = 0; i < linhas.length; i += 500) lotes.push(linhas.slice(i, i + 500));
+      var novas = 0;
+      return lotes.reduce(function (p, lote) {
+        return p.then(function () {
+          return cliente.from(tabela)
+            .upsert(lote.map(function (v) { return filtrarCampos(v, campos); }), { onConflict: "chave", ignoreDuplicates: true })
+            .select("chave")
+            .then(resultado(acao), falhaRede(acao))
+            .then(function (r) { novas += (r || []).length; });
+        });
+      }, Promise.resolve()).then(function () { return { novas: novas, repetidas: linhas.length - novas }; });
+    }
+
+    // Linhas de um período (o Supabase devolve no máximo 1000 por vez: busca em páginas)
+    function listarTudo(tabela, campos, f, acao) {
+      f = f || {};
+      var todas = [];
+      function pagina(n) {
+        var q = cliente.from(tabela).select(campos.join(",") + ",id");
+        if (f.de) q = q.gte("data", f.de);
+        if (f.ate) q = q.lte("data", f.ate);
+        return q.order("data").order("hora").order("id").range(n * 1000, n * 1000 + 999)
+          .then(resultado(acao), falhaRede(acao))
+          .then(function (r) {
+            todas = todas.concat(r || []);
+            return r && r.length === 1000 && n < 50 ? pagina(n + 1) : todas;
+          });
+      }
+      return pagina(0);
+    }
   }
 
   /* ------------------- Demonstração (só neste aparelho) ------------------- */
@@ -331,26 +348,34 @@
       listarTrocas: function (f) { return Promise.resolve(filtrar(ler("trocas"), f || {})); },
       salvarTroca: function (t, i) { return salvar("trocas", CAMPOS_TROCA, t, i); },
       apagarTroca: function (i) { return apagar("trocas", i); },
-      importarCielo: function (vendas) {
-        var lista = ler("cielo"), chaves = {};
+      importarBanco: function (l) { return importarDemo("banco", CAMPOS_BANCO, l); },
+      listarBanco: function (f) { return listarDemo("banco", f); },
+      obterConfiguracao: function (chave) { return Promise.resolve((ler("config")[0] || {})[chave] || ""); },
+      salvarConfiguracao: function (chave, valor) {
+        var c = ler("config")[0] || {}; c[chave] = valor; gravar("config", [c]); return Promise.resolve(null);
+      },
+      importarCielo: function (vendas) { return importarDemo("cielo", CAMPOS_CIELO, vendas); },
+      listarCielo: function (f) { return listarDemo("cielo", f); }
+    };
+    function importarDemo(nome, campos, vendas) {
+        var lista = ler(nome), chaves = {};
         lista.forEach(function (v) { chaves[v.chave] = true; });
         var novas = 0;
         vendas.forEach(function (v) {
           if (chaves[v.chave]) return;
           chaves[v.chave] = true;
-          lista.push(Object.assign({ id: id() }, filtrarCampos(v, CAMPOS_CIELO)));
+          lista.push(Object.assign({ id: id() }, filtrarCampos(v, campos)));
           novas++;
         });
-        gravar("cielo", lista);
+        gravar(nome, lista);
         return Promise.resolve({ novas: novas, repetidas: vendas.length - novas });
-      },
-      listarCielo: function (f) {
+    }
+    function listarDemo(nome, f) {
         f = f || {};
-        return Promise.resolve(ler("cielo").filter(function (v) {
+        return Promise.resolve(ler(nome).filter(function (v) {
           return (!f.de || v.data >= f.de) && (!f.ate || v.data <= f.ate);
-        }).sort(function (a, b) { return (a.data + a.hora).localeCompare(b.data + b.hora); }));
-      }
-    };
+        }).sort(function (a, b) { return (a.data + (a.hora || "")).localeCompare(b.data + (b.hora || "")); }));
+    }
   }
 
   function configurado() {

@@ -366,6 +366,18 @@
         </div>
 
         <div class="bloco">
+          <h2>Extrato do Banco do Brasil</h2>
+          <p class="suave mini">No BB, exporte o extrato da conta em <strong>CSV</strong> (pode ser o mês inteiro).
+            Lido neste aparelho: vão para o banco só as <strong>entradas</strong> (data e hora da transação, tipo, valor,
+            nº do documento e o nome do pagador abreviado). Saídas não são importadas e CPF/CNPJ de clientes não são guardados.</p>
+          <div class="acoes">
+            <label class="botao primario" for="bb-arquivo" id="bb-importar" role="button" tabindex="0">Escolher extrato do BB (CSV)</label>
+            <input type="file" id="bb-arquivo" accept=".csv,text/csv,text/plain" hidden />
+          </div>
+          <div id="bb-previa" hidden></div>
+        </div>
+
+        <div class="bloco">
           <h2>Máquinas</h2>
           <p class="suave mini">Cada máquina tem um caixa padrão. Se um dia ela ficar em outro caixa, registre a troca abaixo.</p>
           <div id="maquinas-lista"><p class="vazio">Carregando…</p></div>
@@ -551,6 +563,7 @@
   <script src="js/formatos.js"></script>
   <script src="js/diamante.js"></script>
   <script src="js/cielo.js"></script>
+  <script src="js/banco.js"></script>
   <script src="js/db.js"></script>
   <script src="js/escuta-db.js"></script>
   <script src="js/escuta-admin.js"></script>

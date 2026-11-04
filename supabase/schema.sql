@@ -501,6 +501,78 @@ create policy "autorizados podem tudo" on public.cielo_vendas
   for all to authenticated using (public.autorizado()) with check (public.autorizado());
 
 -- ---------------------------------------------------------------------
+-- 8. Banco do Brasil: lançamentos de ENTRADA importados do extrato (CSV) e configurações
+--    Saídas não são importadas. CPF/CNPJ de clientes não são guardados (só PF/PJ e nome abreviado).
+-- ---------------------------------------------------------------------
+-- Configurações do sistema que não podem ficar no código público (ex.: cnpj_loja)
+create table if not exists public.configuracoes (
+  chave       text primary key check (chave ~ '^[a-z_]{1,40}$'),
+  valor       text not null default '' check (length(valor) <= 500),
+  criado_por  text not null default public.email_atual(),
+  criado_em   timestamptz not null default now(),
+  editado_por text,
+  editado_em  timestamptz
+);
+
+create table if not exists public.banco_lancamentos (
+  id              uuid primary key default gen_random_uuid(),
+  chave           text not null unique check (length(chave) between 5 and 200),  -- não duplica ao reimportar
+  data            date not null,              -- data da transação (da descrição)
+  hora            time,
+  data_lancamento date not null,              -- data em que o BB lançou (pode ser o dia útil seguinte)
+  tipo            text not null default '' check (length(tipo) <= 60),
+  categoria       text not null check (categoria in ('repasse_cielo', 'pix_maquininha', 'pix_terceiro', 'outro')),
+  pagador_tipo    text not null default '' check (pagador_tipo in ('', 'pf', 'pj')),
+  pagador         text not null default '' check (length(pagador) <= 30),  -- nome abreviado
+  documento       text not null default '' check (documento ~ '^[0-9]{0,30}$'),  -- nº do documento do BB
+  valor_centavos  bigint not null check (valor_centavos > 0),
+  caixa           text check (length(caixa) between 1 and 40),  -- PIX de cliente atribuído a um caixa
+  importado_por   text not null default public.email_atual(),
+  importado_em    timestamptz not null default now()
+);
+create index if not exists banco_lancamentos_data_idx on public.banco_lancamentos (data, categoria);
+
+-- Nome sempre abreviado e autoria da importação
+create or replace function public.banco_lancamento_normalizar()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.pagador := left(public.abreviar_nome(new.pagador), 30);
+  if tg_op = 'INSERT' then
+    new.importado_por := public.email_atual();
+    new.importado_em  := now();
+  else
+    new.importado_por := old.importado_por;
+    new.importado_em  := old.importado_em;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists banco_lancamentos_normalizar on public.banco_lancamentos;
+create trigger banco_lancamentos_normalizar
+  before insert or update on public.banco_lancamentos
+  for each row execute function public.banco_lancamento_normalizar();
+
+drop trigger if exists configuracoes_autoria on public.configuracoes;
+create trigger configuracoes_autoria
+  before insert or update on public.configuracoes
+  for each row execute function public.marcar_autoria();
+
+alter table public.configuracoes     enable row level security;
+alter table public.banco_lancamentos enable row level security;
+revoke all on public.configuracoes, public.banco_lancamentos from anon;
+
+drop policy if exists "autorizados podem tudo" on public.configuracoes;
+create policy "autorizados podem tudo" on public.configuracoes
+  for all to authenticated using (public.autorizado()) with check (public.autorizado());
+drop policy if exists "autorizados podem tudo" on public.banco_lancamentos;
+create policy "autorizados podem tudo" on public.banco_lancamentos
+  for all to authenticated using (public.autorizado()) with check (public.autorizado());
+
+-- ---------------------------------------------------------------------
 -- 6. Coloque aqui os e-mails de quem pode usar (troque pelos e-mails reais)
 -- ---------------------------------------------------------------------
 -- insert into public.usuarios_autorizados (email, nome) values
