@@ -600,3 +600,16 @@ label.botao.ocupado { opacity: .6; pointer-events: none; }
 
 /* Prévia do extrato do BB */
 .tabela-bb th:first-child, .tabela-bb td:first-child { text-align: left; white-space: normal; }
+
+/* ---------- Investigar diferença ---------- */
+.janela-larga { width: min(720px, calc(100% - 16px)); }
+.forma-dif .botao.pequeno { float: right; margin: -4px -6px 0 8px; min-height: 32px; }
+.explicacoes { margin: 4px 0 12px; padding-left: 18px; }
+.explicacoes li { margin-bottom: 6px; }
+.explicacoes .exp-nada { color: var(--suave); }
+.tabela-inv tr.destaque td { background: var(--sobra-fundo); font-weight: 600; }
+.tabela-inv td, .tabela-inv th { white-space: normal; vertical-align: top; }
+.tabela-inv th:first-child, .tabela-inv td:first-child { text-align: left; }
+.tabela-inv select { min-height: 40px; width: 100%; max-width: 8.5rem; min-width: 6.5rem; }
+.diferenca-texto.sobra { color: var(--sobra); font-weight: 700; }
+.diferenca-texto.falta { color: var(--falta); font-weight: 700; }

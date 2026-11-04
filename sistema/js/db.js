@@ -186,6 +186,11 @@
       listarCielo: function (f) { return listarTudo("cielo_vendas", CAMPOS_CIELO, f, "carregar as vendas da Cielo"); },
       importarBanco: function (l) { return importarSemDuplicar("banco_lancamentos", CAMPOS_BANCO, l, "gravar o extrato do banco"); },
       listarBanco: function (f) { return listarTudo("banco_lancamentos", CAMPOS_BANCO.concat(["caixa"]), f, "carregar o extrato do banco"); },
+      // PIX de cliente: de qual caixa é ("fora" = não é venda; null = não sei)
+      atribuirBanco: function (id, caixa) {
+        return cliente.from("banco_lancamentos").update({ caixa: caixa || null }).eq("id", id)
+          .then(resultado("marcar o PIX"), falhaRede("marcar o PIX"));
+      },
       obterConfiguracao: function (chave) {
         return cliente.from("configuracoes").select("valor").eq("chave", chave).maybeSingle()
           .then(resultado("carregar a configuração"), falhaRede("carregar a configuração"))
@@ -349,6 +354,12 @@
       salvarTroca: function (t, i) { return salvar("trocas", CAMPOS_TROCA, t, i); },
       apagarTroca: function (i) { return apagar("trocas", i); },
       importarBanco: function (l) { return importarDemo("banco", CAMPOS_BANCO, l); },
+      atribuirBanco: function (idLanc, caixa) {
+        var lista = ler("banco");
+        lista.forEach(function (l) { if (l.id === idLanc) l.caixa = caixa || null; });
+        gravar("banco", lista);
+        return Promise.resolve(null);
+      },
       listarBanco: function (f) { return listarDemo("banco", f); },
       obterConfiguracao: function (chave) { return Promise.resolve((ler("config")[0] || {})[chave] || ""); },
       salvarConfiguracao: function (chave, valor) {

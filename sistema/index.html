@@ -537,6 +537,15 @@
   <datalist id="esc-setores"></datalist>
 
   <!-- Janela de detalhe de um registro -->
+  <!-- Conferência de caixa: investigar diferença -->
+  <dialog id="investigar" class="janela janela-larga">
+    <div class="janela-topo">
+      <h2 id="investigar-titulo">Investigar diferença</h2>
+      <button type="button" class="botao fantasma" id="investigar-fechar" aria-label="Fechar">×</button>
+    </div>
+    <div id="investigar-corpo"></div>
+  </dialog>
+
   <dialog id="detalhe" class="janela">
     <div class="janela-topo">
       <h2 id="detalhe-titulo">Registro</h2>
@@ -564,6 +573,7 @@
   <script src="js/diamante.js"></script>
   <script src="js/cielo.js"></script>
   <script src="js/banco.js"></script>
+  <script src="js/investigar.js"></script>
   <script src="js/db.js"></script>
   <script src="js/escuta-db.js"></script>
   <script src="js/escuta-admin.js"></script>

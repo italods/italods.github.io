@@ -150,7 +150,8 @@
       var f = (c && c.formas && c.formas.pix_delivery) || {};
       return s + (f.vendas || 0) + (f.receb || 0);
     }, 0);
-    var doDia = (lancamentos || []).filter(function (l) { return l.data === data && l.categoria === "pix_terceiro"; });
+    // "fora" = o Italo marcou que não é venda (transferência, devolução...): não entra na conta
+    var doDia = (lancamentos || []).filter(function (l) { return l.data === data && l.categoria === "pix_terceiro" && l.caixa !== "fora"; });
     var encontrado = doDia.reduce(function (s, l) { return s + l.valor_centavos; }, 0);
     var dif = encontrado - esperado;
     return { esperado: esperado, encontrado: encontrado, diferenca: dif, quantidade: doDia.length,

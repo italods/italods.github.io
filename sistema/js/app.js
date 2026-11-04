@@ -647,7 +647,8 @@
         window.Cielo.compararComCupom(c, soma).map(function (l) {
           var t = l.situacao === "bateu" ? "Bateu" : (l.situacao === "sobra" ? "Cielo tem " : "Cielo tem ") + brl(Math.abs(l.diferenca)) + (l.situacao === "sobra" ? " a mais" : " a menos");
           return '<div class="forma-linha" data-forma="' + l.forma + '"><span class="cupom-forma">' + escapar(l.nome) + "</span><span>" + brl(l.esperado) +
-            "</span><span>" + brl(l.encontrado) + "</span>" + '<span class="forma-dif diferenca ' + l.situacao + '">' + escapar(t) + "</span></div>";
+            "</span><span>" + brl(l.encontrado) + "</span>" + '<span class="forma-dif diferenca ' + l.situacao + '">' + escapar(t) +
+            (l.diferenca ? ' <button type="button" class="botao pequeno" data-investigar="' + l.forma + '">Investigar</button>' : "") + "</span></div>";
         }).join("") + "</div>";
       if (soma.nao_aprovadas) html += '<p class="suave mini">' + soma.nao_aprovadas + (soma.nao_aprovadas === 1 ? " venda não aprovada" : " vendas não aprovadas") + " na Cielo (não contam).</p>";
       if (semCaixa.length) html += '<p class="msg-aviso">' + semCaixa.length + " vendas da Cielo deste dia são de máquina sem caixa. <a href=\"#importar\">Ligar a máquina ao caixa</a></p>";
@@ -676,9 +677,150 @@
     var t = r.situacao === "bateu" ? "Bateu" : "BB tem " + brl(Math.abs(r.diferenca)) + (r.situacao === "sobra" ? " a mais" : " a menos");
     return titulo + '<div class="formas-tabela"><div class="forma-linha"><span class="cupom-cab">Forma</span><span class="cupom-cab">Diamante</span>' +
       '<span class="cupom-cab">BB</span></div><div class="forma-linha" data-forma="pix_delivery"><span class="cupom-forma">PIX de clientes</span><span>' +
-      brl(r.esperado) + "</span><span>" + brl(r.encontrado) + '</span><span class="forma-dif diferenca ' + r.situacao + '">' + escapar(t) + "</span></div></div>" +
+      brl(r.esperado) + "</span><span>" + brl(r.encontrado) + '</span><span class="forma-dif diferenca ' + r.situacao + '">' + escapar(t) +
+      ' <button type="button" class="botao pequeno" data-investigar="pix_delivery">' + (r.diferenca ? "Investigar" : "Ver PIX") + "</button></span></div></div>" +
       '<p class="suave mini">' + r.quantidade + " PIX de clientes no BB neste dia." +
       (faltam.length ? " Atenção: ainda falta o cupom do " + escapar(faltam.join(" e do ")) + " deste dia, então o Diamante está incompleto." : "") + "</p>";
+  }
+
+  /* ========================= Investigar diferença ========================= */
+
+  // Cupom mais recente de cada caixa no dia (o deste caixa é o da tela, mesmo sem salvar)
+  function cuponsDoDia(caixa, c) {
+    var porCaixa = {};
+    porCaixa[caixa] = c;
+    (conf.cielo.confsTodas || []).filter(function (r) { return r.tipo === "fechamento" && r.cupom && r.caixa !== caixa; })
+      .sort(function (a, b) { return String(a.hora).localeCompare(String(b.hora)); })
+      .forEach(function (r) { porCaixa[r.caixa] = r.cupom; });
+    return porCaixa;
+  }
+
+  function linhaVenda(v, destaque) {
+    var extra = v.forma === "pix" ? (v.pagador || "") : (v.bandeira || "") + (v.parcelas > 1 ? " " + v.parcelas + "x" : "");
+    return "<tr" + (destaque ? ' class="destaque"' : "") + "><td>" + escapar(C.horaCurta(v.hora)) + "</td><td>" + brl(v.valor_centavos) +
+      "</td><td>" + escapar(extra) + "</td><td>" + (v.aprovada === false ? '<span class="msg-erro">não aprovada</span>' : "") + "</td></tr>";
+  }
+  function tabela(cab, linhas) {
+    return linhas.length ? '<div class="tabela-rolagem"><table class="tabela-inv"><thead><tr>' + cab.map(function (h) { return "<th>" + h + "</th>"; }).join("") +
+      "</tr></thead><tbody>" + linhas.join("") + "</tbody></table></div>" : '<p class="suave mini">Nada.</p>';
+  }
+
+  function abrirInvestigar(forma) {
+    var c = conf.cupom, caixa = $("conf-caixa").dataset.valor, data = $("conf-data").value;
+    if (!c || !conf.cielo || conf.cielo.erro) return;
+    var CI = window.Cielo, IV = window.Investigar, K = conf.cielo;
+    var doCaixa = function (cx) { return K.vendas.filter(function (v) { return v.data === data && CI.caixaDaVenda(v, K.maquinas, K.trocas) === cx; }); };
+    var vendas = doCaixa(caixa);
+    var aprovadas = vendas.filter(function (v) { return v.aprovada; });
+    var difsDe = function (cup, cx) {
+      var o = {};
+      CI.compararComCupom(cup, CI.somarPorForma(K.vendas, cx, data, K.maquinas, K.trocas)).forEach(function (l) { o[l.forma] = l.diferenca; });
+      return o;
+    };
+    var cupons = cuponsDoDia(caixa, c);
+    var difs = difsDe(c, caixa);
+    var banco = (K.banco || []).filter(function (l) { return l.data === data; });
+    var recebTodos = [];
+    Object.keys(cupons).forEach(function (k) { recebTodos = recebTodos.concat(cupons[k].recebimentos || []); });
+    var terceiros = banco.filter(function (l) { return l.categoria === "pix_terceiro" && l.caixa !== "fora"; });
+    var delivery = IV.casarPixDelivery(recebTodos, terceiros);
+    var html = "";
+    var titulo = { debito: "Cartão débito", credito: "Cartão crédito", pix: "PIX da maquininha", pix_delivery: "PIX Delivery (dia inteiro)" }[forma];
+    $("investigar-titulo").textContent = titulo + " · " + nomeCaixa(caixa) + " · " + C.dataBR(data);
+
+    if (forma !== "pix_delivery") {
+      var linha = CI.compararComCupom(c, CI.somarPorForma(K.vendas, caixa, data, K.maquinas, K.trocas)).filter(function (l) { return l.forma === forma; })[0];
+      var outro = null;
+      Object.keys(cupons).forEach(function (k) {
+        if (k === caixa) return;
+        var d = difsDe(cupons[k], k);
+        if (!outro || d[forma] === -linha.diferenca) outro = d;
+      });
+      var exp = IV.explicarDiferenca({ forma: forma, diferenca: linha.diferenca, vendas: aprovadas,
+        naoAprovadas: vendas.filter(function (v) { return !v.aprovada; }), difs: difs, difsOutroCaixa: outro, bbTerceiros: delivery.soBB });
+      var marcados = [];
+      exp.forEach(function (x) { marcados = marcados.concat(x.itens || []); });
+      html += '<p>Diamante <strong>' + brl(linha.esperado) + "</strong> · Cielo <strong>" + brl(linha.encontrado) + '</strong> · <span class="diferenca-texto ' +
+        linha.situacao + '">' + (linha.diferenca ? (linha.diferenca > 0 ? "Cielo tem " : "Cielo tem ") + brl(Math.abs(linha.diferenca)) + (linha.diferenca > 0 ? " a mais" : " a menos") : "bateu") + "</span></p>";
+      html += '<h3 class="mini">O que pode explicar</h3><ul class="explicacoes">' + exp.map(function (x) {
+        return '<li class="exp-' + x.tipo + '">' + escapar(x.texto) + "</li>";
+      }).join("") + "</ul>";
+      if (forma === "pix") {
+        var todosPix = K.vendas.filter(function (v) { return v.data === data && v.forma === "pix" && v.aprovada; });
+        var pm = IV.casarPixMaquininha(todosPix, banco.filter(function (l) { return l.categoria === "pix_maquininha"; }));
+        var meus = function (v) { return CI.caixaDaVenda(v, K.maquinas, K.trocas) === caixa; };
+        var deste = pm.pares.filter(function (p) { return meus(p.cielo); });
+        var naoChegou = pm.soCielo.filter(meus);
+        html += '<h3 class="mini">PIX da maquininha × Banco do Brasil</h3><p class="mini">' + deste.length + " de " + (deste.length + naoChegou.length) +
+          " PIX deste caixa caíram no BB (taxa média do dia " + (pm.taxaMedia * 100).toFixed(2).replace(".", ",") + "%)." +
+          (banco.length ? "" : " O extrato do BB deste dia não foi importado.") + "</p>";
+        var atrasados = deste.filter(function (p) { return p.atrasado; });
+        if (atrasados.length) html += '<p class="mini">Caíram bem depois: ' + atrasados.map(function (p) {
+          return escapar(brl(p.cielo.valor_centavos) + " das " + C.horaCurta(p.cielo.hora) + " só às " + C.horaCurta(p.bb.hora));
+        }).join("; ") + ".</p>";
+        if (naoChegou.length) html += '<p class="msg-aviso">Não acharam no BB: ' + naoChegou.map(function (v) { return escapar(brl(v.valor_centavos) + " às " + C.horaCurta(v.hora)); }).join("; ") + ".</p>";
+      }
+      var daForma = vendas.filter(function (v) { return v.forma === forma; });
+      html += '<h3 class="mini">Vendas da Cielo neste caixa (' + escapar(titulo.toLowerCase()) + ")</h3>" +
+        tabela(["Hora", "Valor", forma === "pix" ? "Pagador" : "Bandeira", ""], daForma.map(function (v) { return linhaVenda(v, marcados.indexOf(v) >= 0); }));
+    } else {
+      var e = 0;
+      Object.keys(cupons).forEach(function (k) { e += cupons[k].formas.pix_delivery.vendas + cupons[k].formas.pix_delivery.receb; });
+      var vendasDelivery = Object.keys(cupons).reduce(function (s, k) { return s + cupons[k].formas.pix_delivery.vendas; }, 0);
+      var sobraBB = delivery.soBB.reduce(function (s, l) { return s + l.valor_centavos; }, 0);
+      var faltam = CAIXAS.filter(function (cx) { return !cupons[cx.id]; }).map(function (cx) { return cx.curto; });
+      html += '<p class="mini">O BB não diz de qual caixa veio o PIX. Os <strong>recebimentos</strong> do cupom (fiado pago por PIX) são casados pelo valor; ' +
+        "o que sobra no BB deveria somar as <strong>vendas</strong> em PIX Delivery dos cupons (" + brl(vendasDelivery) + ").</p>";
+      if (faltam.length) html += '<p class="msg-aviso">Falta o cupom do ' + escapar(faltam.join(" e do ")) + " deste dia: a conta está incompleta.</p>";
+      var celCupom = function (r) { return "<td>" + brl(r.valor) + '<br><small class="suave">' + escapar(r.nome || "") + "</small></td>"; };
+      var celBB = function (l) { return "<td>" + brl(l.valor_centavos) + '<br><small class="suave">' + escapar(C.horaCurta(l.hora)) + "</small></td>"; };
+      html += '<h3 class="mini">Recebimentos do cupom × BB</h3>' + tabela(["Cupom", "BB", ""],
+        delivery.exatos.map(function (x) { return "<tr>" + celCupom(x.cupom) + celBB(x.bb) + '<td class="msg-ok">igual</td></tr>'; })
+          .concat(delivery.proximos.map(function (x) { return '<tr class="destaque">' + celCupom(x.cupom) + celBB(x.bb) +
+            '<td class="msg-aviso">' + brl(x.diferenca) + "</td></tr>"; }))
+          .concat(delivery.soCupom.map(function (x) { return '<tr class="destaque">' + celCupom(x) + '<td>—</td><td class="msg-erro">não está no BB</td></tr>'; })));
+      html += '<h3 class="mini">PIX de clientes no BB sem recebimento no cupom</h3><p class="mini">Somam ' + brl(sobraBB) + " (vendas em PIX Delivery dos cupons: " + brl(vendasDelivery) +
+        "; diferença " + brl(sobraBB - vendasDelivery) + "). Marque o que não é venda para tirar da conta.</p>" +
+        tabela(["PIX", "Pagador", "É do"], delivery.soBB.map(function (l) {
+          return "<tr>" + celBB(l) + "<td>" + escapar(l.pagador || (l.pagador_tipo === "pj" ? "empresa" : "")) +
+            '</td><td><select data-atribuir="' + escapar(l.id) + '" aria-label="De qual caixa"><option value="">Não sei</option>' +
+            CAIXAS.map(function (cx) { return '<option value="' + escapar(cx.id) + '"' + (l.caixa === cx.id ? " selected" : "") + ">" + escapar(cx.curto) + "</option>"; }).join("") +
+            '<option value="fora">Não é venda</option></select></td></tr>';
+        }));
+      var fora = banco.filter(function (l) { return l.categoria === "pix_terceiro" && l.caixa === "fora"; });
+      if (fora.length) html += '<p class="suave mini">Fora da conta (não é venda): ' + fora.map(function (l) {
+        return escapar(brl(l.valor_centavos) + " às " + C.horaCurta(l.hora)) + ' <button type="button" class="botao fantasma pequeno" data-desfazer="' + escapar(l.id) + '">voltar</button>';
+      }).join(" · ") + "</p>";
+    }
+    $("investigar-corpo").innerHTML = html;
+    var dlg = $("investigar");
+    dlg.dataset.forma = forma;
+    if (!dlg.open) { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+  }
+
+  function iniciarInvestigar() {
+    $("formas-conteudo").addEventListener("click", function (ev) {
+      var b = ev.target.closest("[data-investigar]");
+      if (b) abrirInvestigar(b.dataset.investigar);
+    });
+    $("investigar-fechar").addEventListener("click", function () {
+      var dlg = $("investigar");
+      if (dlg.close) dlg.close(); else dlg.removeAttribute("open");
+    });
+    function marcar(id, valor) {
+      db.atribuirBanco(id, valor).then(function () {
+        (conf.cielo.banco || []).forEach(function (l) { if (l.id === id) l.caixa = valor || null; });
+        toast(valor === "fora" ? "Marcado: não é venda." : valor ? "Marcado como do " + nomeCaixa(valor) + "." : "Desmarcado.");
+        abrirInvestigar($("investigar").dataset.forma);
+        desenharFormas();
+      }, mostrarErro);
+    }
+    $("investigar-corpo").addEventListener("change", function (ev) {
+      if (ev.target.dataset.atribuir) marcar(ev.target.dataset.atribuir, ev.target.value);
+    });
+    $("investigar-corpo").addEventListener("click", function (ev) {
+      if (ev.target.dataset.desfazer) marcar(ev.target.dataset.desfazer, "");
+    });
   }
 
   /* ========================== Cupom do Diamante ========================== */
@@ -920,6 +1062,7 @@
 
   function iniciarConferencia() {
     iniciarCupom();
+    iniciarInvestigar();
     botoesCaixa($("conf-caixa"));
     montarLinhasContagem();
     alternador($("conf-tipo"), function () { atualizarConferencia(); atualizarContexto(); });

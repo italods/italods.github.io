@@ -40,6 +40,9 @@ sistema/
                       totalizador, chave anti-duplicação, caixa da venda (máquina + troca), cupom × Cielo
   js/banco.js       ← extrato CSV do Banco do Brasil: data real da descrição, categorias (repasse
                       Cielo, PIX da maquininha, PIX de cliente, outro), chave, PIX Delivery do dia
+  js/investigar.js  ← "Investigar diferença": explica a diferença de uma forma (venda exata, forma
+                      trocada, outro caixa, não aprovada, PIX na chave, combinação, repetida), casa
+                      PIX da maquininha × BB (taxa/atraso) e recebimentos PIX Delivery × BB
   js/importar.js    ← aba "Importar" (Conferência de caixa): prévias do CSV da Cielo e do extrato do
                       BB, CNPJ da loja, máquinas, trocas
   js/db.js          ← acesso ao Supabase + modo demonstração (?demo=1, guarda no localStorage)
@@ -97,6 +100,10 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   sistema sugere o CNPJ que mais aparece e o Italo confirma). O repasse da Cielo é reconhecido pelo
   nome "CIELO". No fechamento, o PIX Delivery é conferido por **dia** (cupons de todos os caixas ×
   PIX de clientes no BB), porque o BB não diz o caixa. Ainda falta OFX/Excel (sem amostra).
+- **Investigar diferença**: botão em cada forma com diferença no quadro "Conferência por forma".
+  Só sugere (não muda nada sozinho) e, sem explicação, diz que não achou. No PIX Delivery, o Italo
+  marca cada PIX de cliente que sobrou como de um caixa ou "Não é venda" (`banco_lancamentos.caixa`
+  = id do caixa ou `fora`; `fora` sai da conta do PIX Delivery).
 - **Celular primeiro**: botões de no mínimo 48px, sem rolagem lateral em 360–390px de largura.
 - Tudo em **português do Brasil**, visual limpo, sem gradientes.
 - Páginas do sistema com `<meta name="robots" content="noindex">`.

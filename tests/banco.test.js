@@ -108,3 +108,9 @@ test("PIX Delivery do dia: cupons dos caixas × PIX de clientes no BB", () => {
   assert.equal(B.compararPixDelivery([c1], r.lancamentos, "2027-01-05").encontrado, 0, "outro dia");
   assert.equal(B.compararPixDelivery([], [], "2027-01-04").situacao, "bateu");
 });
+
+test("PIX marcado como 'não é venda' sai da conta do PIX Delivery", () => {
+  const r = B.lerExtrato(EXTRATO, LOJA);
+  const lanc = r.lancamentos.map((l) => (l.valor_centavos === 30000 ? { ...l, caixa: "fora" } : l));
+  assert.equal(B.compararPixDelivery([], lanc, "2027-01-04").encontrado, 88000);
+});
