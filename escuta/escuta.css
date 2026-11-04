@@ -4,7 +4,7 @@
   --verde: #123E30;
   --verde-2: #267357;
   --verde-claro: #e8f1ed;
-  --dourado: #b8913e;          /* trocar pelo tom exato da logo quando o arquivo chegar */
+  --dourado: #b8913e;          /* detalhe da identidade (a logo oficial é preta) */
   --fundo: #ffffff;
   --cinza: #f4f6f5;
   --borda: #dbe3df;
@@ -45,7 +45,8 @@ button, input, textarea { font: inherit; color: inherit; }
   text-align: center;
 }
 .marca { display: inline-flex; align-items: center; justify-content: center; min-height: 56px; }
-.marca img { max-height: 64px; max-width: 220px; height: auto; width: auto; display: block; }
+/* A logo oficial é preta; no topo verde ela aparece em branco */
+.marca img { max-height: 64px; max-width: 220px; height: auto; width: auto; display: block; filter: brightness(0) invert(1); }
 .marca-texto {
   color: #fff;
   font-weight: 800;

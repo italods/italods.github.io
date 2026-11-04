@@ -41,7 +41,8 @@ sistema/
 escuta/             ← formulário PÚBLICO dos clientes (sem login): index.html, escuta.css,
                       escuta.js, privacidade.html. Fundo branco, verde #123E30/#267357, dourado
                       da logo. Endereço: /q/<token> (QR) ou /escuta/ (sem plaquinha)
-assets/logo-veneza.png ← logo oficial (ainda não enviada; sem ela aparece o nome em texto)
+assets/logo-veneza.png ← logo oficial (preta, fundo transparente, versão sem a onda). No topo verde do
+                    formulário ela aparece branca (filtro no escuta.css); nas plaquinhas, preta
 supabase/schema.sql ← caixa: tabelas, gatilhos e RLS (colar no SQL Editor; pode rodar de novo)
 supabase/escuta.sql ← Veneza Escuta: tabelas, funções, RLS e pasta privada de fotos (rodar
                       depois do schema.sql; pode rodar de novo)
