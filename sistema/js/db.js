@@ -11,6 +11,10 @@
     "vendas_dinheiro_centavos", "recebimentos_dinheiro_centavos", "pix_centavos", "debito_centavos",
     "credito_centavos", "carteira_centavos", "troco_amanha_centavos", "observacao", "cupom"];
   var CAMPOS_MOVIMENTO = ["tipo", "caixa", "data", "hora", "valor_centavos", "motivo", "responsavel"];
+  var CAMPOS_MAQUINA = ["numero", "apelido", "caixa", "ativa"];
+  var CAMPOS_TROCA = ["data", "maquina", "caixa", "hora_de", "hora_ate", "observacao"];
+  var CAMPOS_CIELO = ["chave", "data", "hora", "forma", "forma_original", "parcelas", "bandeira", "valor_centavos",
+    "aprovada", "status", "maquina", "nsu", "autorizacao", "id_pix", "txid", "pagador"];
 
   function filtrarCampos(obj, campos) {
     var r = {};
@@ -146,6 +150,66 @@
       apagarMovimento: function (id) {
         return cliente.from("movimentos").delete().eq("id", id)
           .then(resultado("apagar o lançamento"), falhaRede("apagar o lançamento"));
+      },
+
+      /* ---- Cielo: máquinas, trocas e vendas ---- */
+      listarMaquinas: function () {
+        return cliente.from("maquinas").select("*").order("numero")
+          .then(resultado("carregar as máquinas"), falhaRede("carregar as máquinas"));
+      },
+      salvarMaquina: function (m) {
+        var d = filtrarCampos(m, CAMPOS_MAQUINA);
+        return cliente.from("maquinas").upsert(d, { onConflict: "numero" }).select().single()
+          .then(resultado("salvar a máquina"), falhaRede("salvar a máquina"));
+      },
+      listarTrocas: function (f) {
+        f = f || {};
+        var q = cliente.from("maquina_trocas").select("*");
+        if (f.de) q = q.gte("data", f.de);
+        if (f.ate) q = q.lte("data", f.ate);
+        return q.order("data", { ascending: false }).limit(1000)
+          .then(resultado("carregar as trocas de máquina"), falhaRede("carregar as trocas de máquina"));
+      },
+      salvarTroca: function (t, id) {
+        var d = filtrarCampos(t, CAMPOS_TROCA);
+        var q = id ? cliente.from("maquina_trocas").update(d).eq("id", id) : cliente.from("maquina_trocas").insert(d);
+        return q.select().single().then(resultado("salvar a troca"), falhaRede("salvar a troca"));
+      },
+      apagarTroca: function (id) {
+        return cliente.from("maquina_trocas").delete().eq("id", id)
+          .then(resultado("apagar a troca"), falhaRede("apagar a troca"));
+      },
+      // Grava as vendas lidas do CSV. Venda que já existe (mesma chave) é ignorada. Devolve quantas entraram.
+      importarCielo: function (vendas) {
+        var lotes = [];
+        for (var i = 0; i < vendas.length; i += 500) lotes.push(vendas.slice(i, i + 500));
+        var novas = 0;
+        return lotes.reduce(function (p, lote) {
+          return p.then(function () {
+            return cliente.from("cielo_vendas")
+              .upsert(lote.map(function (v) { return filtrarCampos(v, CAMPOS_CIELO); }), { onConflict: "chave", ignoreDuplicates: true })
+              .select("chave")
+              .then(resultado("gravar as vendas da Cielo"), falhaRede("gravar as vendas da Cielo"))
+              .then(function (r) { novas += (r || []).length; });
+          });
+        }, Promise.resolve()).then(function () { return { novas: novas, repetidas: vendas.length - novas }; });
+      },
+      // Vendas da Cielo de um período (busca em páginas de 1000)
+      listarCielo: function (f) {
+        f = f || {};
+        var todas = [];
+        function pagina(n) {
+          var q = cliente.from("cielo_vendas").select(CAMPOS_CIELO.join(",") + ",id");
+          if (f.de) q = q.gte("data", f.de);
+          if (f.ate) q = q.lte("data", f.ate);
+          return q.order("data").order("hora").order("id").range(n * 1000, n * 1000 + 999)
+            .then(resultado("carregar as vendas da Cielo"), falhaRede("carregar as vendas da Cielo"))
+            .then(function (r) {
+              todas = todas.concat(r || []);
+              return r && r.length === 1000 && n < 50 ? pagina(n + 1) : todas;
+            });
+        }
+        return pagina(0);
       }
     };
   }
@@ -253,7 +317,39 @@
       apagarConferencia: function (i) { return apagar("conferencias", i); },
       listarMovimentos: function (f) { return Promise.resolve(filtrar(ler("movimentos"), f)); },
       salvarMovimento: function (d, i) { return salvar("movimentos", CAMPOS_MOVIMENTO, d, i); },
-      apagarMovimento: function (i) { return apagar("movimentos", i); }
+      apagarMovimento: function (i) { return apagar("movimentos", i); },
+      listarMaquinas: function () {
+        return Promise.resolve(ler("maquinas").sort(function (a, b) { return a.numero.localeCompare(b.numero); }));
+      },
+      salvarMaquina: function (m) {
+        var lista = ler("maquinas"), d = filtrarCampos(m, CAMPOS_MAQUINA);
+        var reg = lista.filter(function (x) { return x.numero === d.numero; })[0];
+        if (reg) Object.assign(reg, d); else { reg = Object.assign({ ativa: true, apelido: "" }, d); lista.push(reg); }
+        gravar("maquinas", lista);
+        return Promise.resolve(reg);
+      },
+      listarTrocas: function (f) { return Promise.resolve(filtrar(ler("trocas"), f || {})); },
+      salvarTroca: function (t, i) { return salvar("trocas", CAMPOS_TROCA, t, i); },
+      apagarTroca: function (i) { return apagar("trocas", i); },
+      importarCielo: function (vendas) {
+        var lista = ler("cielo"), chaves = {};
+        lista.forEach(function (v) { chaves[v.chave] = true; });
+        var novas = 0;
+        vendas.forEach(function (v) {
+          if (chaves[v.chave]) return;
+          chaves[v.chave] = true;
+          lista.push(Object.assign({ id: id() }, filtrarCampos(v, CAMPOS_CIELO)));
+          novas++;
+        });
+        gravar("cielo", lista);
+        return Promise.resolve({ novas: novas, repetidas: vendas.length - novas });
+      },
+      listarCielo: function (f) {
+        f = f || {};
+        return Promise.resolve(ler("cielo").filter(function (v) {
+          return (!f.de || v.data >= f.de) && (!f.ate || v.data <= f.ate);
+        }).sort(function (a, b) { return (a.data + a.hora).localeCompare(b.data + b.hora); }));
+      }
     };
   }
 

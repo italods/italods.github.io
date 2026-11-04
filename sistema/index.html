@@ -110,6 +110,7 @@
         <a href="#historico" data-aba="historico">Histórico</a>
         <a href="#movimentos" data-aba="movimentos">Sangrias</a>
         <a href="#relatorio" data-aba="relatorio">Relatório</a>
+        <a href="#importar" data-aba="importar">Importar</a>
       </nav>
       <nav class="abas" data-modulo="escuta" aria-label="Veneza Escuta" hidden>
         <a href="#escuta" data-aba="escuta">Visão geral</a>
@@ -193,6 +194,11 @@
                 <button type="button" class="botao perigo pequeno" id="cupom-remover">Remover cupom</button>
               </div>
             </div>
+          </div>
+
+          <div class="bloco" id="bloco-formas" hidden>
+            <h2>Conferência por forma</h2>
+            <div id="formas-conteudo"></div>
           </div>
 
           <div class="bloco">
@@ -343,6 +349,48 @@
           </div>
         </div>
         <div id="rel-conteudo"></div>
+      </section>
+
+      <!-- ======================= IMPORTAR (Cielo) ======================= -->
+      <section id="aba-importar" class="aba" hidden>
+        <div class="bloco">
+          <h2>Vendas da Cielo</h2>
+          <p class="suave mini">No app da Cielo, exporte o relatório de vendas <strong>detalhado em CSV</strong> do dia.
+            O arquivo é lido neste aparelho: vão para o banco só data, hora, forma, bandeira, valor, máquina,
+            NSU/autorização e o nome do pagador do PIX abreviado. Importar o mesmo dia de novo não duplica.</p>
+          <div class="acoes">
+            <label class="botao primario" for="cielo-arquivo" id="cielo-importar" role="button" tabindex="0">Escolher CSV da Cielo</label>
+            <input type="file" id="cielo-arquivo" accept=".csv,text/csv,text/plain" hidden />
+          </div>
+          <div id="cielo-previa" hidden></div>
+        </div>
+
+        <div class="bloco">
+          <h2>Máquinas</h2>
+          <p class="suave mini">Cada máquina tem um caixa padrão. Se um dia ela ficar em outro caixa, registre a troca abaixo.</p>
+          <div id="maquinas-lista"><p class="vazio">Carregando…</p></div>
+        </div>
+
+        <div class="bloco">
+          <h2>Troca de máquina no dia</h2>
+          <div class="dupla">
+            <label class="campo"><span>Data</span><input type="date" id="troca-data" /></label>
+            <label class="campo"><span>Máquina</span><select id="troca-maquina"></select></label>
+          </div>
+          <label class="campo"><span>Ficou no caixa</span><select id="troca-caixa"></select></label>
+          <div class="dupla">
+            <label class="campo"><span>Das <small class="suave">(opcional)</small></span><input type="time" id="troca-de" /></label>
+            <label class="campo"><span>Até <small class="suave">(opcional)</small></span><input type="time" id="troca-ate" /></label>
+          </div>
+          <p class="suave mini">Sem horário, a troca vale o dia inteiro.</p>
+          <div class="acoes"><button type="button" class="botao primario" id="troca-salvar">Salvar troca</button></div>
+          <div id="trocas-lista"></div>
+        </div>
+
+        <div class="bloco">
+          <h2>Já importado</h2>
+          <div id="cielo-importado"><p class="vazio">Carregando…</p></div>
+        </div>
       </section>
       <!-- ===================== VENEZA ESCUTA: VISÃO GERAL ===================== -->
       <section id="aba-escuta" class="aba" hidden>
@@ -502,9 +550,11 @@
   <script src="js/calculos.js"></script>
   <script src="js/formatos.js"></script>
   <script src="js/diamante.js"></script>
+  <script src="js/cielo.js"></script>
   <script src="js/db.js"></script>
   <script src="js/escuta-db.js"></script>
   <script src="js/escuta-admin.js"></script>
+  <script src="js/importar.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

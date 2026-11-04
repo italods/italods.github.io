@@ -211,7 +211,7 @@
     $("app").hidden = qual !== "app";
   }
 
-  var ABAS_CAIXA = ["caixa", "historico", "movimentos", "relatorio"];
+  var ABAS_CAIXA = ["caixa", "historico", "movimentos", "relatorio", "importar"];
   var ABAS_ESCUTA = ["escuta", "escuta-mensagens", "escuta-plaquinhas", "escuta-catalogo"];
   var ABAS = ABAS_CAIXA.concat(ABAS_ESCUTA);
   var abaAtual = null;
@@ -242,6 +242,7 @@
     if (aba === "historico") buscarHistorico();
     if (aba === "movimentos") listarMovimentosDoDia();
     if (aba === "relatorio" && !relatorioGerado) gerarRelatorio();
+    if (aba === "importar") window.ImportarCielo.mostrar();
   }
 
   /* ========================= Módulo 1: Conferência ========================= */
@@ -253,6 +254,7 @@
     movimentos: { sangrias: 0, suprimentos: 0 },
     cupom: null,
     confsDoDia: [],
+    cielo: null,
     pedido: 0
   };
 
@@ -398,6 +400,7 @@
     if (fechamento) {
       aplicarCupomNosCampos();
       desenharConferenciaCupom();
+      desenharFormas();
       var fundo = lerDinheiro($("conf-fundo"), C.FUNDO_PADRAO);
       var vendas = lerDinheiro($("conf-vendas"));
       var receb = lerDinheiro($("conf-recebimentos"));
@@ -454,6 +457,19 @@
     if (!data || !caixa) return Promise.resolve();
     var pedido = ++conf.pedido;
     $("movimentos-estado").textContent = "Buscando abertura, sangrias e suprimentos…";
+    conf.cielo = null;
+    desenharFormas();
+    // Vendas da Cielo do dia (separado: se falhar, o resto do fechamento continua)
+    Promise.all([db.listarCielo({ de: data, ate: data }), db.listarMaquinas(), db.listarTrocas({ de: data, ate: data })])
+      .then(function (r) {
+        if (pedido !== conf.pedido) return;
+        conf.cielo = { vendas: r[0] || [], maquinas: r[1] || [], trocas: r[2] || [] };
+        desenharFormas();
+      }, function (e) {
+        if (pedido !== conf.pedido) return;
+        conf.cielo = { erro: e.message };
+        desenharFormas();
+      });
     return Promise.all([
       db.listarConferencias({ de: data, ate: data, caixa: caixa }),
       db.listarMovimentos({ de: data, ate: data, caixa: caixa })
@@ -606,6 +622,38 @@
     preencherFormularioConf(formularioVazio());
     atualizarConferencia();
     atualizarContexto();
+  }
+
+  /* ===================== Conferência por forma (Cielo) ===================== */
+
+  function desenharFormas() {
+    var el = $("formas-conteudo");
+    var c = conf.cupom;
+    var fech = $("conf-tipo").dataset.valor === "fechamento";
+    $("bloco-formas").hidden = !(fech && c);
+    if (!fech || !c) return;
+    if (!conf.cielo) { el.innerHTML = '<p class="suave mini">Buscando as vendas da Cielo deste dia…</p>'; return; }
+    if (conf.cielo.erro) { el.innerHTML = '<p class="msg-erro">Não foi possível buscar a Cielo (' + escapar(conf.cielo.erro) + ").</p>"; return; }
+    var caixa = $("conf-caixa").dataset.valor, data = $("conf-data").value;
+    var vendas = conf.cielo.vendas.filter(function (v) { return v.data === data; });
+    var html = "";
+    if (!vendas.length) {
+      html = '<p class="msg-aviso">As vendas da Cielo deste dia ainda não foram importadas. <a href="#importar">Importar o CSV da Cielo</a></p>';
+    } else {
+      var soma = window.Cielo.somarPorForma(vendas, caixa, data, conf.cielo.maquinas, conf.cielo.trocas);
+      var semCaixa = vendas.filter(function (v) { return v.aprovada && !window.Cielo.caixaDaVenda(v, conf.cielo.maquinas, conf.cielo.trocas); });
+      html = '<div class="formas-tabela"><div class="forma-linha"><span class="cupom-cab">Forma</span><span class="cupom-cab">Diamante</span><span class="cupom-cab">Cielo</span></div>' +
+        window.Cielo.compararComCupom(c, soma).map(function (l) {
+          var t = l.situacao === "bateu" ? "Bateu" : (l.situacao === "sobra" ? "Cielo tem " : "Cielo tem ") + brl(Math.abs(l.diferenca)) + (l.situacao === "sobra" ? " a mais" : " a menos");
+          return '<div class="forma-linha" data-forma="' + l.forma + '"><span class="cupom-forma">' + escapar(l.nome) + "</span><span>" + brl(l.esperado) +
+            "</span><span>" + brl(l.encontrado) + "</span>" + '<span class="forma-dif diferenca ' + l.situacao + '">' + escapar(t) + "</span></div>";
+        }).join("") + "</div>";
+      if (soma.nao_aprovadas) html += '<p class="suave mini">' + soma.nao_aprovadas + (soma.nao_aprovadas === 1 ? " venda não aprovada" : " vendas não aprovadas") + " na Cielo (não contam).</p>";
+      if (semCaixa.length) html += '<p class="msg-aviso">' + semCaixa.length + " vendas da Cielo deste dia são de máquina sem caixa. <a href=\"#importar\">Ligar a máquina ao caixa</a></p>";
+    }
+    html += '<p class="suave mini">PIX Delivery (' + brl(window.Diamante.esperadoPorForma(c).pix_delivery) + ") será conferido com o extrato do BB. " +
+      "Carteira (fiado vendido, " + brl(c.formas.carteira.vendas) + ") é só informativo. Dinheiro: veja a contagem abaixo.</p>";
+    el.innerHTML = html;
   }
 
   /* ========================== Cupom do Diamante ========================== */
@@ -1396,6 +1444,10 @@
     iniciarHistorico();
     iniciarMovimentos();
     iniciarRelatorio();
+    window.ImportarCielo.iniciar({
+      db: db, toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, ocupado: ocupado, escapar: escapar,
+      brl: brl, caixas: CAIXAS, nomeCaixa: nomeCaixa, dataBR: C.dataBR, horaCurta: C.horaCurta, hojeISO: hojeISO
+    });
     window.EscutaAdmin.iniciar({
       banco: window.EscutaBanco.criarPainel(db.cliente, DEMO),
       demo: DEMO,

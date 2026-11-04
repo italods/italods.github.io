@@ -36,6 +36,9 @@ sistema/
   js/formatos.js    ← texto do WhatsApp e CSV (puras, navegador + Node)
   js/diamante.js    ← cupom "Fechamento de turno" do ERP Diamante: lê o texto do PDF (pdf.js) ou
                       colado, confere as somas, esperado por forma, nome abreviado (puras + testes)
+  js/cielo.js       ← CSV de vendas detalhado da Cielo: leitura (colunas pelo nome, Windows-1252),
+                      totalizador, chave anti-duplicação, caixa da venda (máquina + troca), cupom × Cielo
+  js/importar.js    ← aba "Importar" (Conferência de caixa): prévia do CSV da Cielo, máquinas, trocas
   js/db.js          ← acesso ao Supabase + modo demonstração (?demo=1, guarda no localStorage)
   js/app.js         ← telas e eventos do caixa, login e troca de áreas
   js/escuta-db.js   ← Veneza Escuta: chamadas às funções do banco + demonstração (?demo=1)
@@ -76,6 +79,13 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   (`cupom_normalizar`) aceita só os campos conhecidos e **abrevia o nome** dos clientes dos
   recebimentos ("MARIA A."). O terminal do cupom escolhe o caixa (`CAIXAS[].terminal` no config.js).
   Nunca colocar cupons, CSVs ou extratos reais no repositório: amostras ficam em `privado/`.
+- **Cielo**: aba Importar lê o CSV no aparelho e grava em `cielo_vendas` só data, hora, forma,
+  bandeira, valor, status, máquina, NSU, autorização, ID/TxID do PIX e o pagador abreviado (o banco
+  abrevia de novo). Sem número de cartão, CPF/CNPJ nem instituições. `chave` única: reimportar não
+  duplica (`upsert ... ignoreDuplicates`). Números de máquina ficam só no banco (`maquinas`, com o
+  caixa padrão); `maquina_trocas` = máquina em outro caixa num dia (horário opcional). No fechamento
+  com cupom, o quadro "Conferência por forma" compara débito, crédito e PIX da maquininha do cupom
+  (vendas + recebimentos) com a Cielo do caixa e dia. Na tela, mostrar só o final da máquina.
 - **Celular primeiro**: botões de no mínimo 48px, sem rolagem lateral em 360–390px de largura.
 - Tudo em **português do Brasil**, visual limpo, sem gradientes.
 - Páginas do sistema com `<meta name="robots" content="noindex">`.

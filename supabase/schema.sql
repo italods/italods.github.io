@@ -397,6 +397,110 @@ create policy "autorizados podem tudo" on public.movimentos
   with check (public.autorizado());
 
 -- ---------------------------------------------------------------------
+-- 7. Cielo: máquinas, troca no dia e vendas importadas do CSV (Conferência 2.0)
+--    O CSV é lido no aparelho; aqui ficam só os campos necessários (sem cartão, sem CPF).
+-- ---------------------------------------------------------------------
+create table if not exists public.maquinas (
+  numero      text primary key check (numero ~ '^[0-9]{1,20}$'),
+  apelido     text not null default '' check (length(apelido) <= 40),
+  caixa       text check (length(caixa) between 1 and 40),   -- caixa padrão (null = sem caixa)
+  ativa       boolean not null default true,
+  criado_por  text not null default public.email_atual(),
+  criado_em   timestamptz not null default now(),
+  editado_por text,
+  editado_em  timestamptz
+);
+
+-- "Hoje a máquina X ficou no Caixa 2" (dia inteiro ou só num horário)
+create table if not exists public.maquina_trocas (
+  id          uuid primary key default gen_random_uuid(),
+  data        date not null,
+  maquina     text not null references public.maquinas (numero) on update cascade,
+  caixa       text not null check (length(caixa) between 1 and 40),
+  hora_de     time,
+  hora_ate    time,
+  observacao  text not null default '' check (length(observacao) <= 300),
+  criado_por  text not null default public.email_atual(),
+  criado_em   timestamptz not null default now(),
+  editado_por text,
+  editado_em  timestamptz,
+  constraint troca_horario check (hora_de is null or hora_ate is null or hora_de <= hora_ate)
+);
+create index if not exists maquina_trocas_data_idx on public.maquina_trocas (data, maquina);
+
+create table if not exists public.cielo_vendas (
+  id             uuid primary key default gen_random_uuid(),
+  chave          text not null unique check (length(chave) between 5 and 200),  -- não duplica ao reimportar
+  data           date not null,
+  hora           time not null,
+  forma          text not null check (forma in ('debito', 'credito', 'pix', 'outro')),
+  forma_original text not null default '' check (length(forma_original) <= 60),
+  parcelas       smallint not null default 1 check (parcelas between 1 and 99),
+  bandeira       text not null default '' check (length(bandeira) <= 40),
+  valor_centavos bigint not null check (valor_centavos > 0),
+  aprovada       boolean not null,
+  status         text not null default '' check (length(status) <= 40),
+  maquina        text not null check (maquina ~ '^[0-9]{1,20}$'),
+  nsu            text not null default '' check (length(nsu) <= 30),
+  autorizacao    text not null default '' check (length(autorizacao) <= 20),
+  id_pix         text not null default '' check (length(id_pix) <= 60),
+  txid           text not null default '' check (length(txid) <= 60),
+  pagador        text not null default '' check (length(pagador) <= 30),  -- PIX: nome abreviado
+  importado_por  text not null default public.email_atual(),
+  importado_em   timestamptz not null default now()
+);
+create index if not exists cielo_vendas_data_idx on public.cielo_vendas (data, maquina);
+
+-- Nome do pagador sempre abreviado, mesmo que o navegador mande inteiro
+create or replace function public.cielo_venda_normalizar()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.pagador := left(public.abreviar_nome(new.pagador), 30);
+  if tg_op = 'INSERT' then
+    new.importado_por := public.email_atual();
+    new.importado_em  := now();
+  else
+    new.importado_por := old.importado_por;
+    new.importado_em  := old.importado_em;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists cielo_vendas_normalizar on public.cielo_vendas;
+create trigger cielo_vendas_normalizar
+  before insert or update on public.cielo_vendas
+  for each row execute function public.cielo_venda_normalizar();
+
+drop trigger if exists maquinas_autoria on public.maquinas;
+create trigger maquinas_autoria
+  before insert or update on public.maquinas
+  for each row execute function public.marcar_autoria();
+
+drop trigger if exists maquina_trocas_autoria on public.maquina_trocas;
+create trigger maquina_trocas_autoria
+  before insert or update on public.maquina_trocas
+  for each row execute function public.marcar_autoria();
+
+alter table public.maquinas       enable row level security;
+alter table public.maquina_trocas enable row level security;
+alter table public.cielo_vendas   enable row level security;
+revoke all on public.maquinas, public.maquina_trocas, public.cielo_vendas from anon;
+
+drop policy if exists "autorizados podem tudo" on public.maquinas;
+create policy "autorizados podem tudo" on public.maquinas
+  for all to authenticated using (public.autorizado()) with check (public.autorizado());
+drop policy if exists "autorizados podem tudo" on public.maquina_trocas;
+create policy "autorizados podem tudo" on public.maquina_trocas
+  for all to authenticated using (public.autorizado()) with check (public.autorizado());
+drop policy if exists "autorizados podem tudo" on public.cielo_vendas;
+create policy "autorizados podem tudo" on public.cielo_vendas
+  for all to authenticated using (public.autorizado()) with check (public.autorizado());
+
+-- ---------------------------------------------------------------------
 -- 6. Coloque aqui os e-mails de quem pode usar (troque pelos e-mails reais)
 -- ---------------------------------------------------------------------
 -- insert into public.usuarios_autorizados (email, nome) values

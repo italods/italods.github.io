@@ -93,12 +93,43 @@ returning id as abertura \gset
 select pg_temp.ok((select cupom is null and sangrias_lancadas_centavos is null from conferencias where id = :'abertura'), 'abertura sem cupom');
 reset role;
 
+-- ===== Cielo: máquinas, trocas e vendas
+set role authenticated; set request.jwt.claims = '{"email":"dono@x.com"}';
+insert into maquinas (numero, apelido, caixa) values ('00011111', 'Máquina A', 'caixa1'), ('00022222', 'Máquina B', 'caixa2');
+select pg_temp.ok((select criado_por = 'dono@x.com' from maquinas where numero = '00011111'), 'máquina com autoria');
+select pg_temp.espera_erro($q$insert into maquinas (numero) values ('12a')$q$, 'check');
+insert into maquina_trocas (data, maquina, caixa, hora_de, hora_ate) values ('2027-01-15', '00011111', 'caixa2', '12:00', '13:00');
+select pg_temp.espera_erro($q$insert into maquina_trocas (data, maquina, caixa, hora_de, hora_ate) values ('2027-01-15', '00011111', 'caixa2', '14:00', '13:00')$q$, 'troca_horario');
+select pg_temp.espera_erro($q$insert into maquina_trocas (data, maquina, caixa) values ('2027-01-15', '99999999', 'caixa2')$q$, 'foreign key');
+
+insert into cielo_vendas (chave, data, hora, forma, forma_original, bandeira, valor_centavos, aprovada, status, maquina, nsu, txid, pagador)
+values ('pix|TX1', '2027-01-15', '18:33', 'pix', 'Pix', 'Pix', 4200, true, 'Aprovada', '00022222', '5550001', 'TX1', 'JOANA DE TAL DA SILVA'),
+       ('cartao|00011111|2027-01-15|900002|654321|100000', '2027-01-15', '12:10', 'debito', 'Débito à vista', 'Visa', 100000, true, 'Aprovada', '00011111', '900002', '', '');
+select pg_temp.ok((select pagador = 'JOANA T.' and importado_por = 'dono@x.com' from cielo_vendas where chave = 'pix|TX1'), 'pagador abreviado pelo banco');
+-- reimportar: on conflict (chave) do nothing não duplica
+insert into cielo_vendas (chave, data, hora, forma, valor_centavos, aprovada, maquina)
+values ('pix|TX1', '2027-01-15', '18:33', 'pix', 4200, true, '00022222'), ('pix|TX2', '2027-01-15', '18:40', 'pix', 600, true, '00022222')
+on conflict (chave) do nothing;
+select pg_temp.ok((select count(*) from cielo_vendas) = 3, 'reimportar não duplica (só a venda nova entrou)');
+select pg_temp.espera_erro($q$insert into cielo_vendas (chave, data, hora, forma, valor_centavos, aprovada, maquina) values ('x|1', '2027-01-15', '10:00', 'cheque', 100, true, '1')$q$, 'check');
+select pg_temp.espera_erro($q$insert into cielo_vendas (chave, data, hora, forma, valor_centavos, aprovada, maquina) values ('x|2', '2027-01-15', '10:00', 'pix', 0, true, '1')$q$, 'check');
+insert into cielo_vendas (chave, data, hora, forma, valor_centavos, aprovada, maquina, pagador)
+values ('pix|TX3', '2027-01-15', '10:00', 'pix', 10, true, '1', 'MARIA ' || repeat('MUITO ', 10));
+select pg_temp.ok((select pagador = 'MARIA M.' from cielo_vendas where chave = 'pix|TX3'), 'nome comprido é aceito e abreviado');
+select pg_temp.espera_erro($q$insert into cielo_vendas (chave, data, hora, forma, valor_centavos, aprovada, maquina) values ('x', '2027-01-15', '10:00', 'pix', 10, true, '1')$q$, 'chave');
+reset role;
+
 -- ===== segurança
 set role anon; set request.jwt.claims = '{}';
 select pg_temp.espera_erro('select cupom from conferencias', 'permission denied');
+select pg_temp.espera_erro('select * from cielo_vendas', 'permission denied');
+select pg_temp.espera_erro('select * from maquinas', 'permission denied');
+select pg_temp.espera_erro('select * from maquina_trocas', 'permission denied');
 reset role;
 set role authenticated; set request.jwt.claims = '{"email":"intruso@x.com"}';
 select pg_temp.ok((select count(*) from conferencias) = 0, 'logado mas não autorizado não vê conferências');
+select pg_temp.ok((select count(*) from cielo_vendas) = 0 and (select count(*) from maquinas) = 0, 'não autorizado não vê Cielo nem máquinas');
+select pg_temp.espera_erro($q$insert into maquinas (numero) values ('123')$q$, 'row-level security');
 select pg_temp.espera_erro($q$insert into conferencias (tipo, caixa, data, hora) values ('abertura', 'caixa9', '2027-01-15', '07:00')$q$, 'row-level security');
 reset role;
 \echo TODOS_OS_TESTES_PASSARAM
