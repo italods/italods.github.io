@@ -37,6 +37,7 @@ $$;
 create or replace function public.escuta_novo_token()
 returns text
 language sql volatile
+set search_path = public
 as $$
   select substr(replace(gen_random_uuid()::text, '-', ''), 1, 16)
 $$;
@@ -45,6 +46,7 @@ $$;
 create or replace function public.escuta_texto(t text, maximo int)
 returns text
 language sql immutable
+set search_path = public
 as $$
   select nullif(left(btrim(regexp_replace(coalesce(t, ''), '[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]', '', 'g')), maximo), '')
 $$;
@@ -144,6 +146,7 @@ create table if not exists public.escuta_itens (
 
 create index if not exists escuta_itens_envio_idx on public.escuta_itens (envio_id);
 create index if not exists escuta_itens_nome_idx on public.escuta_itens (nome_busca);
+create index if not exists escuta_itens_catalogo_idx on public.escuta_itens (catalogo_id);
 
 -- ---------------------------------------------------------------------
 -- 5. Fotos anexadas (arquivo fica na pasta privada "escuta-fotos")
@@ -159,6 +162,7 @@ create table if not exists public.escuta_fotos (
 );
 
 create index if not exists escuta_fotos_envio_idx on public.escuta_fotos (envio_id);
+create index if not exists escuta_fotos_item_idx on public.escuta_fotos (item_id);
 
 -- ---------------------------------------------------------------------
 -- 6. Histórico de situação (quem mudou e quando)
