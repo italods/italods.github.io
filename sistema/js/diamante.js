@@ -186,6 +186,31 @@
   }
 
   /*
+   * O cupom é deste caixa? Devolve null (ok) ou a mensagem do problema.
+   * Compara o terminal do cupom com o terminal cadastrado do caixa escolhido (config.CAIXAS).
+   */
+  function problemaCaixaDoCupom(caixas, cupom, caixaId) {
+    if (!cupom || !cupom.terminal) return null;
+    var escolhido = (caixas || []).filter(function (cx) { return cx.id === caixaId; })[0];
+    var doCupom = caixaDoTerminal(caixas, cupom.terminal);
+    if (!doCupom) return "O terminal " + cupom.terminal + " do cupom não está ligado a nenhum caixa (config.js).";
+    if (!escolhido || doCupom.id !== escolhido.id) {
+      return "Este cupom é do Terminal " + cupom.terminal + " (" + (doCupom.curto || doCupom.id) + "), mas o fechamento está no " +
+        (escolhido ? escolhido.curto || escolhido.id : "caixa " + caixaId) + ".";
+    }
+    return null;
+  }
+
+  // Outro fechamento já salvo com cupom do mesmo caixa, dia e turno (para não importar duas vezes)
+  function cupomRepetido(conferencias, cupom, caixa, data, idAtual) {
+    if (!cupom) return null;
+    return (conferencias || []).filter(function (r) {
+      return r.tipo === "fechamento" && r.cupom && r.id !== idAtual && r.caixa === caixa && r.data === data &&
+        String(r.cupom.turno || "") === String(cupom.turno || "");
+    })[0] || null;
+  }
+
+  /*
    * Monta o texto do cupom a partir dos pedaços que o pdf.js devolve ({ str, transform: [.., .., .., .., x, y] }).
    * Pedaços com a mesma altura (y, tolerância de 3 pontos) formam uma linha, da esquerda para a direita.
    */
@@ -221,6 +246,8 @@
     conferirCupom: conferirCupom,
     esperadoPorForma: esperadoPorForma,
     caixaDoTerminal: caixaDoTerminal,
-    textoDeItensPdf: textoDeItensPdf
+    textoDeItensPdf: textoDeItensPdf,
+    problemaCaixaDoCupom: problemaCaixaDoCupom,
+    cupomRepetido: cupomRepetido
   };
 });

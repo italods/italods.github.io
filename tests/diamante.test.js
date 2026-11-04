@@ -193,3 +193,26 @@ test("monta as linhas a partir dos pedaços do PDF", () => {
   assert.equal(texto, "FECHAMENTO DE TURNO\nTERMINAL..... : 7\nDINHEIRO 1.000,50 200,00");
   assert.equal(D.textoDeItensPdf([]), "");
 });
+
+test("cupom no caixa certo", () => {
+  const caixas = [{ id: "caixa1", curto: "Caixa 1", terminal: "1" }, { id: "caixa2", curto: "Caixa 2", terminal: "3" }];
+  assert.equal(D.problemaCaixaDoCupom(caixas, { terminal: "1" }, "caixa1"), null);
+  assert.match(D.problemaCaixaDoCupom(caixas, { terminal: "1" }, "caixa2"), /Terminal 1 \(Caixa 1\), mas o fechamento está no Caixa 2/);
+  assert.match(D.problemaCaixaDoCupom(caixas, { terminal: "9" }, "caixa1"), /não está ligado/);
+  assert.equal(D.problemaCaixaDoCupom(caixas, { terminal: "" }, "caixa1"), null, "cupom digitado sem terminal passa");
+  assert.equal(D.problemaCaixaDoCupom(caixas, null, "caixa1"), null);
+});
+
+test("cupom repetido no mesmo caixa, dia e turno", () => {
+  const salvos = [
+    { id: "a", tipo: "fechamento", caixa: "caixa1", data: "2027-01-15", cupom: { turno: "12-1" } },
+    { id: "b", tipo: "fechamento", caixa: "caixa1", data: "2027-01-15", cupom: null },
+    { id: "c", tipo: "abertura", caixa: "caixa1", data: "2027-01-15", cupom: { turno: "12-1" } },
+  ];
+  const c = { turno: "12-1" };
+  assert.equal(D.cupomRepetido(salvos, c, "caixa1", "2027-01-15", null).id, "a");
+  assert.equal(D.cupomRepetido(salvos, c, "caixa1", "2027-01-15", "a"), null, "editando o próprio registro não conta");
+  assert.equal(D.cupomRepetido(salvos, { turno: "13-1" }, "caixa1", "2027-01-15", null), null, "outro turno pode");
+  assert.equal(D.cupomRepetido(salvos, c, "caixa2", "2027-01-15", null), null);
+  assert.equal(D.cupomRepetido(salvos, null, "caixa1", "2027-01-15", null), null);
+});

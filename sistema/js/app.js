@@ -252,6 +252,7 @@
     fundoManual: false,
     movimentos: { sangrias: 0, suprimentos: 0 },
     cupom: null,
+    confsDoDia: [],
     pedido: 0
   };
 
@@ -396,6 +397,7 @@
     var barraDif = $("barra-diferenca");
     if (fechamento) {
       aplicarCupomNosCampos();
+      desenharConferenciaCupom();
       var fundo = lerDinheiro($("conf-fundo"), C.FUNDO_PADRAO);
       var vendas = lerDinheiro($("conf-vendas"));
       var receb = lerDinheiro($("conf-recebimentos"));
@@ -463,6 +465,7 @@
       $("movimentos-estado").textContent = qtd
         ? qtd + (qtd === 1 ? " lançamento" : " lançamentos") + " de sangria/suprimento neste dia e caixa."
         : "Nenhuma sangria ou suprimento neste dia e caixa.";
+      conf.confsDoDia = confs;
       var aberturas = confs.filter(function (c) { return c.tipo === "abertura"; });
       if (!conf.fundoManual) {
         $("conf-fundo").value = dinheiroCampo(C.fundoDoDia(confs, data, caixa));
@@ -490,6 +493,8 @@
     if (!f.hora) return "Preencha a hora.";
     if (f.tipo === "fechamento" && conf.cupom) {
       if (document.querySelector("#bloco-cupom [aria-invalid=true]")) return "Há um valor inválido no cupom do Diamante.";
+      var probCaixa = Dm.problemaCaixaDoCupom(CAIXAS, conf.cupom, f.caixa);
+      if (probCaixa) return probCaixa;
       if (conf.cupom.data && conf.cupom.data !== f.data) {
         return "O cupom é do dia " + C.dataBR(conf.cupom.data) + ", mas o fechamento está em " + C.dataBR(f.data) + ".";
       }
@@ -539,6 +544,8 @@
     var erro = validarConferencia();
     if (erro) { mostrarErro({ message: erro }); return; }
     var d = dadosConferencia();
+    if (d.cupom && Dm.cupomRepetido(conf.confsDoDia, d.cupom, d.caixa, d.data, conf.editId) &&
+        !confirm("Já existe um fechamento salvo com o cupom deste caixa, dia e turno. Salvar outro mesmo assim?")) return;
     if (d.cupom && Dm.conferirCupom(d.cupom).some(function (x) { return x.nivel === "erro"; }) &&
         !confirm("As somas do cupom do Diamante não batem (veja os avisos em vermelho). Salvar assim mesmo?")) return;
     if (C.calcularContagem(d.contagem).total === 0 &&
@@ -668,7 +675,13 @@
   function desenharConferenciaCupom() {
     var c = conf.cupom;
     if (!c) return;
-    var r = Dm.conferirCupom(c);
+    var r = [];
+    var probCaixa = Dm.problemaCaixaDoCupom(CAIXAS, c, $("conf-caixa").dataset.valor);
+    if (probCaixa) r.push({ nivel: "erro", texto: probCaixa });
+    var rep = Dm.cupomRepetido(conf.confsDoDia, c, $("conf-caixa").dataset.valor, $("conf-data").value, conf.editId);
+    if (rep) r.push({ nivel: "aviso", texto: "Já existe um fechamento salvo com o cupom deste caixa, dia e turno (" +
+      C.horaCurta(rep.hora) + "). Para corrigir, edite aquele no Histórico." });
+    r = r.concat(Dm.conferirCupom(c));
     $("cupom-conferencia").innerHTML = r.length ? '<ul class="cupom-avisos">' + r.map(function (x) {
       return '<li class="' + (x.nivel === "erro" ? "msg-erro" : "msg-aviso") + '">' + escapar(x.texto) + "</li>";
     }).join("") + "</ul>" : '<p class="msg-ok">As somas do cupom batem.</p>';
@@ -738,6 +751,14 @@
   function usarCupom(c) {
     var notas = [];
     var cx = Dm.caixaDoTerminal(CAIXAS, c.terminal);
+    if (conf.editId && cx && cx.id !== $("conf-caixa").dataset.valor) {
+      throw new Error("Este cupom é do Terminal " + c.terminal + " (" + cx.curto + "), mas o registro que você está editando é do " +
+        nomeCaixa($("conf-caixa").dataset.valor) + ". Nada foi mudado.");
+    }
+    if (conf.editId && c.data && c.data !== $("conf-data").value) {
+      throw new Error("Este cupom é do dia " + C.dataBR(c.data) + ", mas o registro que você está editando é de " +
+        C.dataBR($("conf-data").value) + ". Nada foi mudado.");
+    }
     if (cx && cx.id !== $("conf-caixa").dataset.valor) {
       definirAlternador($("conf-caixa"), cx.id);
       notas.push("caixa trocado para " + cx.curto + " (terminal " + c.terminal + ")");
