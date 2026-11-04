@@ -138,8 +138,29 @@ update banco_lancamentos set caixa = 'caixa1' where valor_centavos = 95000;
 select pg_temp.ok((select caixa = 'caixa1' and pagador = 'JOANA T.' from banco_lancamentos where valor_centavos = 95000), 'atribuir PIX a um caixa');
 reset role;
 
+-- ===== Conciliação: taxas e recebíveis
+set role authenticated; set request.jwt.claims = '{"email":"dono@x.com"}';
+insert into cielo_taxas (modalidade, bandeira, parcelas, taxa, prazo_dias_uteis) values
+  ('debito', 'visa', 1, 87, 1), ('parcelado', 'mastercard', 3, 512, 1), ('pix', '*', 1, 59, 0);
+select pg_temp.ok((select taxa = 87 and criado_por = 'dono@x.com' from cielo_taxas where modalidade = 'debito'), 'taxa com autoria');
+select pg_temp.espera_erro($q$insert into cielo_taxas (modalidade, bandeira, parcelas, taxa) values ('debito', 'visa', 1, 100)$q$, 'cielo_taxas_unica');
+select pg_temp.espera_erro($q$insert into cielo_taxas (modalidade, bandeira, parcelas, taxa) values ('credito', 'visa', 3, 100)$q$, 'cielo_taxas_parcelas');
+select pg_temp.espera_erro($q$insert into cielo_taxas (modalidade, bandeira, parcelas, taxa) values ('debito', 'Visa X', 1, 100)$q$, 'check');
+select pg_temp.espera_erro($q$insert into cielo_taxas (modalidade, bandeira, parcelas, taxa) values ('credito', 'visa', 1, 10000)$q$, 'check');
+insert into cielo_recebiveis (chave, data_pagamento, data_venda, modalidade, bandeira, valor_bruto, taxa, valor_liquido, nsu, autorizacao)
+values ('rec|2027-01-18|Venda débito|900002|654321|0|100000', '2027-01-18', '2027-01-15', 'debito', 'Visa', 100000, 940, 99060, '900002', '654321'),
+       ('rec|2027-01-18|Aluguel|||0|-8990', '2027-01-18', null, 'outro', '', -8990, 0, -8990, '', '');
+insert into cielo_recebiveis (chave, data_pagamento, modalidade, valor_bruto, valor_liquido)
+values ('rec|2027-01-18|Venda débito|900002|654321|0|100000', '2027-01-18', 'debito', 100000, 99060) on conflict (chave) do nothing;
+select pg_temp.ok((select count(*) from cielo_recebiveis) = 2 and (select importado_por from cielo_recebiveis limit 1) = 'dono@x.com',
+  'recebíveis: reimportar não duplica; cobrança negativa aceita; autoria');
+select pg_temp.espera_erro($q$insert into cielo_recebiveis (chave, data_pagamento, modalidade, valor_bruto, valor_liquido) values ('rec|x|1', '2027-01-18', 'cheque', 1, 1)$q$, 'check');
+reset role;
+
 -- ===== segurança
 set role anon; set request.jwt.claims = '{}';
+select pg_temp.espera_erro('select * from cielo_taxas', 'permission denied');
+select pg_temp.espera_erro('select * from cielo_recebiveis', 'permission denied');
 select pg_temp.espera_erro('select * from banco_lancamentos', 'permission denied');
 select pg_temp.espera_erro('select * from configuracoes', 'permission denied');
 select pg_temp.espera_erro('select cupom from conferencias', 'permission denied');
@@ -151,6 +172,7 @@ set role authenticated; set request.jwt.claims = '{"email":"intruso@x.com"}';
 select pg_temp.ok((select count(*) from conferencias) = 0, 'logado mas não autorizado não vê conferências');
 select pg_temp.ok((select count(*) from cielo_vendas) = 0 and (select count(*) from maquinas) = 0, 'não autorizado não vê Cielo nem máquinas');
 select pg_temp.ok((select count(*) from banco_lancamentos) = 0 and (select count(*) from configuracoes) = 0, 'não autorizado não vê BB nem configurações');
+select pg_temp.ok((select count(*) from cielo_taxas) = 0 and (select count(*) from cielo_recebiveis) = 0, 'não autorizado não vê taxas nem recebíveis');
 select pg_temp.espera_erro($q$insert into maquinas (numero) values ('123')$q$, 'row-level security');
 select pg_temp.espera_erro($q$insert into conferencias (tipo, caixa, data, hora) values ('abertura', 'caixa9', '2027-01-15', '07:00')$q$, 'row-level security');
 reset role;

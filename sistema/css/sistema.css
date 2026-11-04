@@ -481,7 +481,8 @@ th { font-weight: 700; color: var(--suave); font-size: .8rem; }
 /* ======================= Áreas do sistema ======================= */
 .modulos {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 4px;
   max-width: 720px;
   margin: 0 auto;
@@ -613,3 +614,13 @@ label.botao.ocupado { opacity: .6; pointer-events: none; }
 .tabela-inv select { min-height: 40px; width: 100%; max-width: 8.5rem; min-width: 6.5rem; }
 .diferenca-texto.sobra { color: var(--sobra); font-weight: 700; }
 .diferenca-texto.falta { color: var(--falta); font-weight: 700; }
+
+/* ---------- Cartões ---------- */
+.tabela-taxas input { min-height: 40px; width: 5.4rem; text-align: right; padding-left: 6px; padding-right: 6px; }
+.tabela-taxas input.prazo-campo { width: 3.4rem; }
+.tabela-numeros td:not(:first-child), .tabela-numeros th:not(:first-child) { text-align: right; white-space: nowrap; }
+.tabela-taxas td { vertical-align: middle; }
+.tabela-taxas .botao.pequeno { min-width: 40px; min-height: 40px; font-size: 1.1rem; }
+#aba-cartoes .cartoes .bloco { margin: 0; }
+#aba-cartoes .cartoes .total-linha { font-size: 1.05rem; }
+.tabela-numeros td:last-child { white-space: normal; }

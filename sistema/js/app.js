@@ -213,12 +213,13 @@
 
   var ABAS_CAIXA = ["caixa", "historico", "movimentos", "relatorio", "importar"];
   var ABAS_ESCUTA = ["escuta", "escuta-mensagens", "escuta-plaquinhas", "escuta-catalogo"];
-  var ABAS = ABAS_CAIXA.concat(ABAS_ESCUTA);
+  var ABAS_CARTOES = ["cartoes", "cartoes-taxas"];
+  var ABAS = ABAS_CAIXA.concat(ABAS_ESCUTA, ABAS_CARTOES);
   var abaAtual = null;
   function mostrarAba() {
     var aba = location.hash.replace("#", "");
     if (ABAS.indexOf(aba) < 0) aba = "caixa";
-    var modulo = ABAS_ESCUTA.indexOf(aba) >= 0 ? "escuta" : "caixa";
+    var modulo = ABAS_ESCUTA.indexOf(aba) >= 0 ? "escuta" : ABAS_CARTOES.indexOf(aba) >= 0 ? "cartoes" : "caixa";
     ABAS.forEach(function (a) { $("aba-" + a).hidden = a !== aba; });
     Array.prototype.forEach.call(document.querySelectorAll(".abas a"), function (a) {
       a.classList.toggle("ativa", a.dataset.aba === aba);
@@ -238,6 +239,7 @@
     abaAtual = aba;
     if (!mudou) return;
     if (modulo === "escuta") { window.EscutaAdmin.mostrar(aba); return; }
+    if (modulo === "cartoes") { window.Cartoes.mostrar(aba); return; }
     if (aba === "caixa") atualizarContexto();
     if (aba === "historico") buscarHistorico();
     if (aba === "movimentos") listarMovimentosDoDia();
@@ -1612,6 +1614,10 @@
     iniciarHistorico();
     iniciarMovimentos();
     iniciarRelatorio();
+    window.Cartoes.iniciar({
+      db: db, toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, ocupado: ocupado, escapar: escapar,
+      brl: brl, dataBR: C.dataBR, horaCurta: C.horaCurta, hojeISO: hojeISO
+    });
     window.ImportarCielo.iniciar({
       db: db, toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, ocupado: ocupado, escapar: escapar,
       brl: brl, caixas: CAIXAS, nomeCaixa: nomeCaixa, dataBR: C.dataBR, horaCurta: C.horaCurta, hojeISO: hojeISO

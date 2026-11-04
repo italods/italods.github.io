@@ -15,6 +15,10 @@
   var CAMPOS_TROCA = ["data", "maquina", "caixa", "hora_de", "hora_ate", "observacao"];
   var CAMPOS_BANCO = ["chave", "data", "hora", "data_lancamento", "tipo", "categoria", "pagador_tipo", "pagador",
     "documento", "valor_centavos"];
+  var CAMPOS_TAXA = ["modalidade", "bandeira", "parcelas", "taxa", "prazo_dias_uteis"];
+  var CAMPOS_RECEBIVEL = ["chave", "data_pagamento", "data_prevista", "data_venda", "hora_venda", "tipo", "forma_original",
+    "modalidade", "parcela", "parcelas", "bandeira", "valor_bruto", "taxa", "valor_liquido", "status", "nsu", "autorizacao",
+    "txid", "maquina", "descricao"];
   var CAMPOS_CIELO = ["chave", "data", "hora", "forma", "forma_original", "parcelas", "bandeira", "valor_centavos",
     "aprovada", "status", "maquina", "nsu", "autorizacao", "id_pix", "txid", "pagador"];
 
@@ -191,6 +195,19 @@
         return cliente.from("banco_lancamentos").update({ caixa: caixa || null }).eq("id", id)
           .then(resultado("marcar o PIX"), falhaRede("marcar o PIX"));
       },
+      listarTaxas: function () {
+        return cliente.from("cielo_taxas").select("*").order("modalidade").order("bandeira").order("parcelas")
+          .then(resultado("carregar as taxas"), falhaRede("carregar as taxas"));
+      },
+      salvarTaxas: function (linhas) {
+        return cliente.from("cielo_taxas").upsert(linhas.map(function (t) { return filtrarCampos(t, CAMPOS_TAXA); }),
+          { onConflict: "modalidade,bandeira,parcelas" }).then(resultado("salvar as taxas"), falhaRede("salvar as taxas"));
+      },
+      apagarTaxa: function (id) {
+        return cliente.from("cielo_taxas").delete().eq("id", id).then(resultado("apagar a taxa"), falhaRede("apagar a taxa"));
+      },
+      importarRecebiveis: function (l) { return importarSemDuplicar("cielo_recebiveis", CAMPOS_RECEBIVEL, l, "gravar os recebíveis"); },
+      listarRecebiveis: function (f) { return listarTudo("cielo_recebiveis", CAMPOS_RECEBIVEL, f, "carregar os recebíveis", "data_pagamento", "hora_venda"); },
       obterConfiguracao: function (chave) {
         return cliente.from("configuracoes").select("valor").eq("chave", chave).maybeSingle()
           .then(resultado("carregar a configuração"), falhaRede("carregar a configuração"))
@@ -218,14 +235,15 @@
     }
 
     // Linhas de um período (o Supabase devolve no máximo 1000 por vez: busca em páginas)
-    function listarTudo(tabela, campos, f, acao) {
+    function listarTudo(tabela, campos, f, acao, campoData, campoHora) {
       f = f || {};
+      campoData = campoData || "data";
       var todas = [];
       function pagina(n) {
         var q = cliente.from(tabela).select(campos.join(",") + ",id");
-        if (f.de) q = q.gte("data", f.de);
-        if (f.ate) q = q.lte("data", f.ate);
-        return q.order("data").order("hora").order("id").range(n * 1000, n * 1000 + 999)
+        if (f.de) q = q.gte(campoData, f.de);
+        if (f.ate) q = q.lte(campoData, f.ate);
+        return q.order(campoData).order(campoHora || "hora").order("id").range(n * 1000, n * 1000 + 999)
           .then(resultado(acao), falhaRede(acao))
           .then(function (r) {
             todas = todas.concat(r || []);
@@ -366,6 +384,25 @@
         var c = ler("config")[0] || {}; c[chave] = valor; gravar("config", [c]); return Promise.resolve(null);
       },
       importarCielo: function (vendas) { return importarDemo("cielo", CAMPOS_CIELO, vendas); },
+      listarTaxas: function () { return Promise.resolve(ler("taxas")); },
+      salvarTaxas: function (linhas) {
+        var lista = ler("taxas");
+        linhas.forEach(function (t) {
+          var d = filtrarCampos(t, CAMPOS_TAXA);
+          var reg = lista.filter(function (x) { return x.modalidade === d.modalidade && x.bandeira === d.bandeira && +x.parcelas === +d.parcelas; })[0];
+          if (reg) Object.assign(reg, d); else lista.push(Object.assign({ id: id() }, d));
+        });
+        gravar("taxas", lista);
+        return Promise.resolve(null);
+      },
+      apagarTaxa: function (i) { gravar("taxas", ler("taxas").filter(function (x) { return x.id !== i; })); return Promise.resolve(null); },
+      importarRecebiveis: function (l) { return importarDemo("recebiveis", CAMPOS_RECEBIVEL, l); },
+      listarRecebiveis: function (f) {
+        f = f || {};
+        return Promise.resolve(ler("recebiveis").filter(function (v) {
+          return (!f.de || v.data_pagamento >= f.de) && (!f.ate || v.data_pagamento <= f.ate);
+        }));
+      },
       listarCielo: function (f) { return listarDemo("cielo", f); }
     };
     function importarDemo(nome, campos, vendas) {

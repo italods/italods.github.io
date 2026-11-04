@@ -104,6 +104,7 @@
       <nav class="modulos" aria-label="Áreas do sistema">
         <a href="#caixa" data-modulo="caixa">Conferência de caixa</a>
         <a href="#escuta" data-modulo="escuta">Veneza Escuta</a>
+        <a href="#cartoes" data-modulo="cartoes">Cartões</a>
       </nav>
       <nav class="abas" data-modulo="caixa" aria-label="Conferência de caixa">
         <a href="#caixa" data-aba="caixa">Caixa</a>
@@ -111,6 +112,10 @@
         <a href="#movimentos" data-aba="movimentos">Sangrias</a>
         <a href="#relatorio" data-aba="relatorio">Relatório</a>
         <a href="#importar" data-aba="importar">Importar</a>
+      </nav>
+      <nav class="abas" data-modulo="cartoes" aria-label="Cartões" hidden>
+        <a href="#cartoes" data-aba="cartoes">Conciliação</a>
+        <a href="#cartoes-taxas" data-aba="cartoes-taxas">Taxas</a>
       </nav>
       <nav class="abas" data-modulo="escuta" aria-label="Veneza Escuta" hidden>
         <a href="#escuta" data-aba="escuta">Visão geral</a>
@@ -405,6 +410,52 @@
         </div>
       </section>
       <!-- ===================== VENEZA ESCUTA: VISÃO GERAL ===================== -->
+      <!-- ======================= CARTÕES: CONCILIAÇÃO ======================= -->
+      <section id="aba-cartoes" class="aba" hidden>
+        <div class="bloco">
+          <h2>A Cielo pagou certo?</h2>
+          <p class="suave mini">No app da Cielo, exporte <strong>Recebíveis detalhado (CSV)</strong>. Lido neste aparelho: não são
+            guardados número do cartão, banco, agência, conta nem documentos. Importar de novo não duplica.</p>
+          <div class="acoes">
+            <label class="botao primario" for="rec-arquivo" id="rec-importar" role="button" tabindex="0">Importar recebíveis (CSV)</label>
+            <input type="file" id="rec-arquivo" accept=".csv,text/csv,text/plain" hidden />
+          </div>
+          <div id="rec-previa" hidden></div>
+        </div>
+        <div class="bloco">
+          <div class="dupla">
+            <label class="campo"><span>Pagamentos de</span><input type="date" id="rec-de" /></label>
+            <label class="campo"><span>até</span><input type="date" id="rec-ate" /></label>
+          </div>
+          <div id="rec-conteudo"></div>
+        </div>
+      </section>
+
+      <!-- ======================= CARTÕES: TAXAS ======================= -->
+      <section id="aba-cartoes-taxas" class="aba" hidden>
+        <div class="bloco">
+          <h2>Taxas do contrato com a Cielo</h2>
+          <p class="suave mini">Ficam só no banco do sistema. Para mudar uma taxa, edite o valor (ex.: 1,23%) e saia do campo.
+            Prazo: dias úteis entre a venda e o pagamento (PIX = 0, mesmo dia).</p>
+          <div id="taxas-lista"><p class="vazio">Carregando…</p></div>
+        </div>
+        <div class="bloco">
+          <h2>Incluir taxa</h2>
+          <div class="dupla">
+            <label class="campo"><span>Forma</span><select id="taxa-modalidade">
+              <option value="debito">Débito</option><option value="credito">Crédito à vista</option>
+              <option value="parcelado">Crédito parcelado</option><option value="pix">PIX</option></select></label>
+            <label class="campo" id="taxa-bandeira-campo"><span>Bandeira</span><select id="taxa-bandeira"></select></label>
+          </div>
+          <div class="dupla">
+            <label class="campo" id="taxa-parcelas-campo"><span>Parcelas</span><input type="number" id="taxa-parcelas" min="2" max="24" value="2" /></label>
+            <label class="campo"><span>Taxa</span><input type="text" inputmode="decimal" id="taxa-valor" placeholder="1,23%" /></label>
+          </div>
+          <label class="campo"><span>Prazo (dias úteis)</span><input type="number" id="taxa-prazo" min="0" max="60" value="1" /></label>
+          <div class="acoes"><button type="button" class="botao primario" id="taxa-incluir">Incluir taxa</button></div>
+        </div>
+      </section>
+
       <section id="aba-escuta" class="aba" hidden>
         <div id="esc-geral"></div>
       </section>
@@ -574,10 +625,13 @@
   <script src="js/cielo.js"></script>
   <script src="js/banco.js"></script>
   <script src="js/investigar.js"></script>
+  <script src="js/feriados.js"></script>
+  <script src="js/recebiveis.js"></script>
   <script src="js/db.js"></script>
   <script src="js/escuta-db.js"></script>
   <script src="js/escuta-admin.js"></script>
   <script src="js/importar.js"></script>
+  <script src="js/cartoes.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

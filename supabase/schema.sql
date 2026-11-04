@@ -573,6 +573,93 @@ create policy "autorizados podem tudo" on public.banco_lancamentos
   for all to authenticated using (public.autorizado()) with check (public.autorizado());
 
 -- ---------------------------------------------------------------------
+-- 9. Conciliação de cartões: taxas do contrato da Cielo e recebíveis (pagamentos) importados
+--    Taxa em CENTÉSIMOS de ponto percentual (1,23% = 123); na tela sempre "1,23%".
+--    Do CSV de recebíveis não ficam número do cartão, banco, agência, conta nem documentos.
+-- ---------------------------------------------------------------------
+create table if not exists public.cielo_taxas (
+  id               uuid primary key default gen_random_uuid(),
+  modalidade       text not null check (modalidade in ('debito', 'credito', 'parcelado', 'pix')),
+  bandeira         text not null default '*' check (bandeira ~ '^(\*|[a-z]{2,20})$'),   -- "*" = todas
+  parcelas         smallint not null default 1 check (parcelas between 1 and 24),
+  taxa             integer not null check (taxa between 0 and 9999),
+  prazo_dias_uteis smallint not null default 1 check (prazo_dias_uteis between 0 and 60),
+  criado_por       text not null default public.email_atual(),
+  criado_em        timestamptz not null default now(),
+  editado_por      text,
+  editado_em       timestamptz,
+  constraint cielo_taxas_unica unique (modalidade, bandeira, parcelas),
+  constraint cielo_taxas_parcelas check ((modalidade = 'parcelado') = (parcelas > 1))
+);
+
+create table if not exists public.cielo_recebiveis (
+  id             uuid primary key default gen_random_uuid(),
+  chave          text not null unique check (length(chave) between 5 and 250),  -- não duplica ao reimportar
+  data_pagamento date not null,
+  data_prevista  date,
+  data_venda     date,
+  hora_venda     time,
+  tipo           text not null default '' check (length(tipo) <= 60),
+  forma_original text not null default '' check (length(forma_original) <= 60),
+  modalidade     text not null check (modalidade in ('debito', 'credito', 'parcelado', 'pix', 'outro')),
+  parcela        smallint not null default 0 check (parcela between 0 and 99),
+  parcelas       smallint not null default 1 check (parcelas between 1 and 99),
+  bandeira       text not null default '' check (length(bandeira) <= 40),
+  valor_bruto    bigint not null,           -- negativo em cobranças (aluguel, ajuste)
+  taxa           bigint not null default 0, -- positiva = cobrada
+  valor_liquido  bigint not null,
+  status         text not null default '' check (length(status) <= 40),
+  nsu            text not null default '' check (length(nsu) <= 30),
+  autorizacao    text not null default '' check (length(autorizacao) <= 20),
+  txid           text not null default '' check (length(txid) <= 60),
+  maquina        text not null default '' check (maquina ~ '^[0-9]{0,20}$'),
+  descricao      text not null default '' check (length(descricao) <= 120),
+  importado_por  text not null default public.email_atual(),
+  importado_em   timestamptz not null default now()
+);
+create index if not exists cielo_recebiveis_pagamento_idx on public.cielo_recebiveis (data_pagamento);
+create index if not exists cielo_recebiveis_venda_idx on public.cielo_recebiveis (data_venda);
+
+-- Autoria da importação (quem importou e quando; não muda depois)
+create or replace function public.importacao_autoria()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    new.importado_por := public.email_atual();
+    new.importado_em  := now();
+  else
+    new.importado_por := old.importado_por;
+    new.importado_em  := old.importado_em;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists cielo_recebiveis_autoria on public.cielo_recebiveis;
+create trigger cielo_recebiveis_autoria
+  before insert or update on public.cielo_recebiveis
+  for each row execute function public.importacao_autoria();
+
+drop trigger if exists cielo_taxas_autoria on public.cielo_taxas;
+create trigger cielo_taxas_autoria
+  before insert or update on public.cielo_taxas
+  for each row execute function public.marcar_autoria();
+
+alter table public.cielo_taxas      enable row level security;
+alter table public.cielo_recebiveis enable row level security;
+revoke all on public.cielo_taxas, public.cielo_recebiveis from anon;
+
+drop policy if exists "autorizados podem tudo" on public.cielo_taxas;
+create policy "autorizados podem tudo" on public.cielo_taxas
+  for all to authenticated using (public.autorizado()) with check (public.autorizado());
+drop policy if exists "autorizados podem tudo" on public.cielo_recebiveis;
+create policy "autorizados podem tudo" on public.cielo_recebiveis
+  for all to authenticated using (public.autorizado()) with check (public.autorizado());
+
+-- ---------------------------------------------------------------------
 -- 6. Coloque aqui os e-mails de quem pode usar (troque pelos e-mails reais)
 -- ---------------------------------------------------------------------
 -- insert into public.usuarios_autorizados (email, nome) values

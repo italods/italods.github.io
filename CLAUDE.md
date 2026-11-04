@@ -5,8 +5,9 @@ branch `main` vai para produção e as outras branches geram uma prévia). A Ver
 estáticos da raiz como estão; o `vercel.json` só tem a regra `/q/:token` → `/escuta/index.html`
 (QR codes) e cabeçalhos noindex. Domínio: https://italods.com.br/ (sistema em https://italods.com.br/sistema/). Dentro dele fica o **Sistema Veneza**, o sistema gerencial do
 Supermercado Veneza (Paes Landim - PI), usado só pelo Italo e pela irmã (sócia). O sistema tem duas
-áreas: **Conferência de caixa** e **Veneza Escuta** (sugestões, reclamações, elogios e produtos em
-falta enviados pelos clientes por QR codes nas plaquinhas da loja).
+áreas: **Conferência de caixa**, **Veneza Escuta** (sugestões, reclamações, elogios e produtos em
+falta enviados pelos clientes por QR codes nas plaquinhas da loja) e **Cartões** (conciliação dos
+pagamentos da Cielo e taxas do contrato).
 
 Tudo é HTML/CSS/JS puro, sem framework e sem etapa de build. O que estiver no `main` vai ao ar.
 
@@ -43,6 +44,10 @@ sistema/
   js/investigar.js  ← "Investigar diferença": explica a diferença de uma forma (venda exata, forma
                       trocada, outro caixa, não aprovada, PIX na chave, combinação, repetida), casa
                       PIX da maquininha × BB (taxa/atraso) e recebimentos PIX Delivery × BB
+  js/feriados.js    ← feriados nacionais (com Carnaval, dia sem banco) e dias úteis (prazo; depois RH)
+  js/recebiveis.js  ← conciliação: CSV de Recebíveis da Cielo, taxa do contrato × cobrada (1 centavo
+                      de tolerância), prazo em dias úteis, vendas sem pagamento, repasse no BB
+  js/cartoes.js     ← área "Cartões": abas Conciliação (#cartoes) e Taxas (#cartoes-taxas)
   js/importar.js    ← aba "Importar" (Conferência de caixa): prévias do CSV da Cielo e do extrato do
                       BB, CNPJ da loja, máquinas, trocas
   js/db.js          ← acesso ao Supabase + modo demonstração (?demo=1, guarda no localStorage)
@@ -104,6 +109,12 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   Só sugere (não muda nada sozinho) e, sem explicação, diz que não achou. No PIX Delivery, o Italo
   marca cada PIX de cliente que sobrou como de um caixa ou "Não é venda" (`banco_lancamentos.caixa`
   = id do caixa ou `fora`; `fora` sai da conta do PIX Delivery).
+- **Cartões (conciliação)**: taxas do contrato só no banco (`cielo_taxas`; nunca no código nem nos
+  testes, que usam taxas inventadas), em centésimos de % (1,23% = 123) e sempre mostradas/digitadas como
+  "1,23%". Recebíveis em `cielo_recebiveis` (sem cartão, banco, agência, conta, estabelecimento). Taxa
+  esperada = arredondar(bruto × taxa) por lançamento. O repasse "CIELO S.A" no BB é só de cartões (o
+  PIX da maquininha cai um por venda). "Vendas sem pagamento" só olha o período coberto pelos
+  recebíveis importados. Parcelado (contrato atual): todas as parcelas pagas no dia útil seguinte.
 - **Celular primeiro**: botões de no mínimo 48px, sem rolagem lateral em 360–390px de largura.
 - Tudo em **português do Brasil**, visual limpo, sem gradientes.
 - Páginas do sistema com `<meta name="robots" content="noindex">`.
