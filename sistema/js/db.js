@@ -9,7 +9,7 @@
 
   var CAMPOS_CONFERENCIA = ["tipo", "caixa", "operador", "data", "hora", "contagem", "fundo_centavos",
     "vendas_dinheiro_centavos", "recebimentos_dinheiro_centavos", "pix_centavos", "debito_centavos",
-    "credito_centavos", "carteira_centavos", "troco_amanha_centavos", "observacao"];
+    "credito_centavos", "carteira_centavos", "troco_amanha_centavos", "observacao", "cupom"];
   var CAMPOS_MOVIMENTO = ["tipo", "caixa", "data", "hora", "valor_centavos", "motivo", "responsavel"];
 
   function filtrarCampos(obj, campos) {
@@ -171,18 +171,34 @@
       c.total_centavos = cont.total;
       if (c.tipo === "fechamento") {
         var m = C.somarMovimentos(movs, c.data, c.caixa);
+        var sangrias = m.sangrias;
+        c.sangrias_lancadas_centavos = m.sangrias;
+        // Igual ao gatilho do banco: com cupom, fundo, dinheiro e sangrias vêm dele
+        var cp = c.cupom;
+        if (cp && cp.formas) {
+          var vr = function (f) { return ((cp.formas[f] || {}).vendas || 0) + ((cp.formas[f] || {}).receb || 0); };
+          c.fundo_centavos = cp.fundo || 0;
+          c.vendas_dinheiro_centavos = (cp.formas.dinheiro || {}).vendas || 0;
+          c.recebimentos_dinheiro_centavos = (cp.formas.dinheiro || {}).receb || 0;
+          c.pix_centavos = vr("pix"); c.debito_centavos = vr("debito"); c.credito_centavos = vr("credito");
+          c.carteira_centavos = (cp.formas.carteira || {}).vendas || 0;
+          sangrias = cp.sangria || 0;
+        } else {
+          c.cupom = null;
+        }
         c.fundo_centavos = c.fundo_centavos || 0;
         c.vendas_dinheiro_centavos = c.vendas_dinheiro_centavos || 0;
         c.recebimentos_dinheiro_centavos = c.recebimentos_dinheiro_centavos || 0;
-        c.sangrias_centavos = m.sangrias;
+        c.sangrias_centavos = sangrias;
         c.suprimentos_centavos = m.suprimentos;
         c.esperado_centavos = C.calcularEsperado({
           fundo: c.fundo_centavos, vendas: c.vendas_dinheiro_centavos,
-          recebimentos: c.recebimentos_dinheiro_centavos, sangrias: m.sangrias, suprimentos: m.suprimentos
+          recebimentos: c.recebimentos_dinheiro_centavos, sangrias: sangrias, suprimentos: m.suprimentos
         });
         c.diferenca_centavos = c.total_centavos - c.esperado_centavos;
       } else {
         c.sangrias_centavos = c.suprimentos_centavos = c.esperado_centavos = c.diferenca_centavos = null;
+        c.cupom = c.sangrias_lancadas_centavos = null;
       }
       return c;
     }

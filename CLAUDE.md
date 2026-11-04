@@ -34,6 +34,8 @@ sistema/
   css/sistema.css   ← visual (celular primeiro, claro/escuro por prefers-color-scheme)
   js/calculos.js    ← contas puras em centavos (navegador + Node)
   js/formatos.js    ← texto do WhatsApp e CSV (puras, navegador + Node)
+  js/diamante.js    ← cupom "Fechamento de turno" do ERP Diamante: lê o texto do PDF (pdf.js) ou
+                      colado, confere as somas, esperado por forma, nome abreviado (puras + testes)
   js/db.js          ← acesso ao Supabase + modo demonstração (?demo=1, guarda no localStorage)
   js/app.js         ← telas e eventos do caixa, login e troca de áreas
   js/escuta-db.js   ← Veneza Escuta: chamadas às funções do banco + demonstração (?demo=1)
@@ -46,7 +48,8 @@ assets/logo-veneza.png ← logo oficial (preta, fundo transparente, versão sem 
 supabase/schema.sql ← caixa: tabelas, gatilhos e RLS (colar no SQL Editor; pode rodar de novo)
 supabase/escuta.sql ← Veneza Escuta: tabelas, funções, RLS e pasta privada de fotos (rodar
                       depois do schema.sql; pode rodar de novo)
-supabase/testes/    ← Supabase simulado + testes SQL (só para Postgres local, nunca no Supabase)
+supabase/testes/    ← Supabase simulado + testes SQL (caixa.test.sql, escuta.test.sql; só para
+                      Postgres local, nunca no Supabase)
 tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
 ```
 
@@ -64,12 +67,21 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   O banco recalcula totais/esperado/diferença por gatilho (`conferencia_calcular`) e refaz os
   fechamentos quando uma sangria/suprimento muda. Se mudar uma fórmula, mude em `calculos.js`,
   no `schema.sql` e nos testes.
-- Contas novas vão em `calculos.js`/`formatos.js` (funções puras) com teste, não em `app.js`.
+- Contas novas vão em `calculos.js`/`formatos.js`/`diamante.js` (funções puras) com teste, não em `app.js`.
+- **Cupom do Diamante** (Conferência 2.0, nov/2026): no Fechamento, "Importar PDF do cupom" lê o PDF
+  no aparelho (pdf.js; o arquivo não é enviado) ou "Digitar o cupom". O cupom vai na coluna
+  `conferencias.cupom` (jsonb, centavos). Com cupom, o gatilho tira dele fundo, vendas/recebimentos
+  em dinheiro, PIX/débito/crédito/carteira e as **sangrias** (decisão do Italo: valem as do cupom);
+  as lançadas no sistema ficam em `sangrias_lancadas_centavos` só para comparar. O banco
+  (`cupom_normalizar`) aceita só os campos conhecidos e **abrevia o nome** dos clientes dos
+  recebimentos ("MARIA A."). O terminal do cupom escolhe o caixa (`CAIXAS[].terminal` no config.js).
+  Nunca colocar cupons, CSVs ou extratos reais no repositório: amostras ficam em `privado/`.
 - **Celular primeiro**: botões de no mínimo 48px, sem rolagem lateral em 360–390px de largura.
 - Tudo em **português do Brasil**, visual limpo, sem gradientes.
 - Páginas do sistema com `<meta name="robots" content="noindex">`.
 - Bibliotecas só por CDN com versão exata (jsDelivr/cdnjs): supabase-js 2.109.0, jsPDF 2.5.2,
-  Chart.js 4.5.1. jsPDF e Chart.js são carregados só quando usados.
+  Chart.js 4.5.1, pdf.js (pdfjs-dist) 4.10.38 (build "legacy", módulo carregado com `import()`).
+  jsPDF, Chart.js e pdf.js são carregados só quando usados.
 - Não apagar nem renomear as páginas antigas. Para incluir um caixa, editar `CAIXAS` em
   `sistema/config.js` (não mudar o `id` de um caixa já usado).
 - Erros devem ser claros (sem internet, sessão expirada, sem permissão) e nunca apagar o que foi
@@ -132,6 +144,7 @@ psql -d teste -f supabase/testes/supabase-simulado.sql
 psql -d teste -f supabase/schema.sql
 psql -d teste -f supabase/escuta.sql
 psql -d teste -f supabase/testes/escuta.test.sql   # termina com TODOS_OS_TESTES_PASSARAM
+psql -d teste -f supabase/testes/caixa.test.sql    # idem (cupom do Diamante)
 ```
 
 ## Publicar

@@ -77,6 +77,12 @@ create table if not exists public.conferencias (
   editado_em                     timestamptz
 );
 
+-- Conferência 2.0 (nov/2026): cupom "Fechamento de turno" do Diamante, lido do PDF ou digitado.
+-- Quando existe, o banco tira dele o fundo, as vendas/recebimentos em dinheiro e as SANGRIAS.
+alter table public.conferencias add column if not exists cupom jsonb;
+-- Soma das sangrias lançadas no sistema (para comparar com as do cupom)
+alter table public.conferencias add column if not exists sangrias_lancadas_centavos bigint;
+
 create index if not exists conferencias_data_caixa_idx on public.conferencias (data desc, caixa);
 create index if not exists conferencias_fechamento_idx on public.conferencias (caixa, data) where tipo = 'fechamento';
 
@@ -103,6 +109,116 @@ create index if not exists movimentos_data_caixa_idx on public.movimentos (data 
 -- ---------------------------------------------------------------------
 -- 4. Gatilhos: o banco confere as contas e marca quem criou/editou
 -- ---------------------------------------------------------------------
+
+-- Nome do cliente abreviado: "MARIA APARECIDA DE CARVALHO" -> "MARIA A." (igual ao diamante.js)
+create or replace function public.abreviar_nome(t text)
+returns text
+language plpgsql immutable
+set search_path = public
+as $$
+declare
+  a text[];
+  i int;
+begin
+  a := regexp_split_to_array(btrim(regexp_replace(regexp_replace(upper(coalesce(t, '')), '\(.*?\)', ' ', 'g'),
+         '[^[:alnum:][:space:]-]', ' ', 'g')), '\s+');
+  if a is null or array_length(a, 1) is null or a[1] = '' then
+    return '';
+  end if;
+  for i in 2 .. array_length(a, 1) loop
+    if a[i] not in ('DA', 'DE', 'DI', 'DO', 'DU', 'DAS', 'DOS', 'E') then
+      return left(a[1], 20) || ' ' || left(a[i], 1) || '.';
+    end if;
+  end loop;
+  return left(a[1], 20);
+end;
+$$;
+
+-- Valor em centavos dentro do cupom: número inteiro (null vira 0)
+create or replace function public.cupom_centavos(v jsonb, nome text, pode_negativo boolean default false)
+returns bigint
+language plpgsql immutable
+set search_path = public
+as $$
+declare r bigint;
+begin
+  if v is null or v = 'null'::jsonb then return 0; end if;
+  if jsonb_typeof(v) <> 'number' or (v #>> '{}') !~ '^-?[0-9]{1,13}$' then
+    raise exception 'cupom inválido: % não é um valor em centavos', nome;
+  end if;
+  r := (v #>> '{}')::bigint;
+  if r < 0 and not pode_negativo then
+    raise exception 'cupom inválido: % negativo', nome;
+  end if;
+  return r;
+end;
+$$;
+
+-- Confere o cupom e guarda só os campos conhecidos (nome do cliente sempre abreviado)
+create or replace function public.cupom_normalizar(p jsonb)
+returns jsonb
+language plpgsql immutable
+set search_path = public
+as $$
+declare
+  formas jsonb := '{}'::jsonb;
+  f text;
+  receb jsonb := '[]'::jsonb;
+  sang jsonb := '[]'::jsonb;
+  x jsonb;
+  t text;
+begin
+  if p is null or p = 'null'::jsonb then return null; end if;
+  if jsonb_typeof(p) <> 'object' then raise exception 'cupom inválido'; end if;
+  foreach f in array array['dinheiro', 'carteira', 'credito', 'debito', 'pix', 'pix_delivery'] loop
+    formas := formas || jsonb_build_object(f, jsonb_build_object(
+      'vendas', public.cupom_centavos(p #> array['formas', f, 'vendas'], f || ' vendas'),
+      'receb',  public.cupom_centavos(p #> array['formas', f, 'receb'], f || ' recebimentos')));
+  end loop;
+  if jsonb_typeof(coalesce(p -> 'recebimentos', '[]')) <> 'array'
+     or jsonb_array_length(coalesce(p -> 'recebimentos', '[]')) > 300 then
+    raise exception 'cupom inválido: lista de recebimentos';
+  end if;
+  for x in select * from jsonb_array_elements(coalesce(p -> 'recebimentos', '[]')) loop
+    if coalesce(x ->> 'forma', '') not in ('dinheiro', 'carteira', 'credito', 'debito', 'pix', 'pix_delivery') then
+      raise exception 'cupom inválido: forma de recebimento';
+    end if;
+    receb := receb || jsonb_build_array(jsonb_build_object(
+      'forma', x ->> 'forma',
+      'valor', public.cupom_centavos(x -> 'valor', 'recebimento'),
+      'codigo', left(regexp_replace(coalesce(x ->> 'codigo', ''), '\D', '', 'g'), 10),
+      'nome', public.abreviar_nome(x ->> 'nome')));
+  end loop;
+  if jsonb_typeof(coalesce(p -> 'sangrias', '[]')) <> 'array'
+     or jsonb_array_length(coalesce(p -> 'sangrias', '[]')) > 100 then
+    raise exception 'cupom inválido: lista de sangrias';
+  end if;
+  for x in select * from jsonb_array_elements(coalesce(p -> 'sangrias', '[]')) loop
+    sang := sang || to_jsonb(public.cupom_centavos(x, 'sangria'));
+  end loop;
+  t := coalesce(p ->> 'data', '');
+  if t <> '' and t !~ '^\d{4}-\d{2}-\d{2}$' then raise exception 'cupom inválido: data'; end if;
+  return jsonb_build_object(
+    'terminal', left(regexp_replace(coalesce(p ->> 'terminal', ''), '\D', '', 'g'), 10),
+    'data', t,
+    'turno', left(coalesce(p ->> 'turno', ''), 20),
+    'operador', left(coalesce(p ->> 'operador', ''), 80),
+    'abertura', left(coalesce(p ->> 'abertura', ''), 8),
+    'encerramento', left(coalesce(p ->> 'encerramento', ''), 8),
+    'origem', case when p ->> 'origem' in ('pdf', 'texto') then p ->> 'origem' else 'digitado' end,
+    'formas', formas,
+    'venda_bruta', public.cupom_centavos(p -> 'venda_bruta', 'venda bruta'),
+    'fundo', public.cupom_centavos(p -> 'fundo', 'fundo'),
+    'sangria', public.cupom_centavos(p -> 'sangria', 'sangria'),
+    'recebimento', public.cupom_centavos(p -> 'recebimento', 'recebimento'),
+    'total_liquido', public.cupom_centavos(p -> 'total_liquido', 'total líquido', true),
+    'cancelamentos', public.cupom_centavos(p -> 'cancelamentos', 'cancelamentos'),
+    'desconto', public.cupom_centavos(p -> 'desconto', 'desconto'),
+    'acrescimos', public.cupom_centavos(p -> 'acrescimos', 'acréscimos'),
+    'recebimentos', receb,
+    'sangrias', sang);
+end;
+$$;
 
 -- Recalcula totais, esperado e diferença de uma conferência.
 -- Esperado = Fundo + Vendas dinheiro + Recebimentos dinheiro + Suprimentos − Sangrias
@@ -140,6 +256,26 @@ begin
     from public.movimentos m
     where m.data = new.data and m.caixa = new.caixa;
 
+    new.sangrias_lancadas_centavos := v_san;
+    -- Com o cupom do Diamante: fundo, dinheiro, outras formas e SANGRIAS vêm dele
+    if new.cupom is not null and new.cupom <> 'null'::jsonb then
+      new.cupom := public.cupom_normalizar(new.cupom);
+      if new.cupom ->> 'data' <> '' and (new.cupom ->> 'data')::date <> new.data then
+        raise exception 'A data do cupom (%) é diferente da data do fechamento (%).',
+          to_char((new.cupom ->> 'data')::date, 'DD/MM/YYYY'), to_char(new.data, 'DD/MM/YYYY');
+      end if;
+      new.fundo_centavos                 := (new.cupom ->> 'fundo')::bigint;
+      new.vendas_dinheiro_centavos       := (new.cupom #>> '{formas,dinheiro,vendas}')::bigint;
+      new.recebimentos_dinheiro_centavos := (new.cupom #>> '{formas,dinheiro,receb}')::bigint;
+      new.pix_centavos      := (new.cupom #>> '{formas,pix,vendas}')::bigint + (new.cupom #>> '{formas,pix,receb}')::bigint;
+      new.debito_centavos   := (new.cupom #>> '{formas,debito,vendas}')::bigint + (new.cupom #>> '{formas,debito,receb}')::bigint;
+      new.credito_centavos  := (new.cupom #>> '{formas,credito,vendas}')::bigint + (new.cupom #>> '{formas,credito,receb}')::bigint;
+      new.carteira_centavos := (new.cupom #>> '{formas,carteira,vendas}')::bigint;
+      v_san := (new.cupom ->> 'sangria')::bigint;
+    else
+      new.cupom := null;
+    end if;
+
     new.fundo_centavos                 := coalesce(new.fundo_centavos, 0);
     new.vendas_dinheiro_centavos       := coalesce(new.vendas_dinheiro_centavos, 0);
     new.recebimentos_dinheiro_centavos := coalesce(new.recebimentos_dinheiro_centavos, 0);
@@ -149,6 +285,8 @@ begin
                            + new.recebimentos_dinheiro_centavos + v_sup - v_san;
     new.diferenca_centavos := new.total_centavos - new.esperado_centavos;
   else
+    new.cupom                      := null;
+    new.sangrias_lancadas_centavos := null;
     new.sangrias_centavos    := null;
     new.suprimentos_centavos := null;
     new.esperado_centavos    := null;

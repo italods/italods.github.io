@@ -10,9 +10,10 @@ window.VENEZA_CONFIG = {
 
   // Caixas da loja. Para incluir um novo, copie uma linha e troque o id e os nomes.
   // O "id" fica gravado no banco: depois de usar, não mude o id de um caixa.
+  // "terminal" = número do terminal no cupom do Diamante (escolhe o caixa ao importar o PDF).
   CAIXAS: [
-    { id: "caixa1", nome: "Caixa 1 (Terminal 1)", curto: "Caixa 1" },
-    { id: "caixa2", nome: "Caixa 2 (Terminal 3)", curto: "Caixa 2" }
+    { id: "caixa1", nome: "Caixa 1 (Terminal 1)", curto: "Caixa 1", terminal: "1" },
+    { id: "caixa2", nome: "Caixa 2 (Terminal 3)", curto: "Caixa 2", terminal: "3" }
   ],
 
   // Sugestões no campo Operador / Responsável (pode digitar outro nome)

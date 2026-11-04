@@ -7,13 +7,16 @@
 
   var C = window.Calculos;
   var F = window.Formatos;
+  var Dm = window.Diamante;
   var CFG = window.VENEZA_CONFIG || {};
   var CAIXAS = CFG.CAIXAS || [];
   var DEMO = new URLSearchParams(location.search).get("demo") === "1";
 
   var LIBS = {
     jspdf: "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js",
-    chart: "https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"
+    chart: "https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js",
+    pdfjs: "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/pdf.min.mjs",
+    pdfjsWorker: "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/pdf.worker.min.mjs"
   };
   var RASCUNHO_CONF = "veneza.rascunho.conferencia";
   var RASCUNHO_MOV = "veneza.rascunho.movimento";
@@ -248,6 +251,7 @@
     editRotulo: "",
     fundoManual: false,
     movimentos: { sangrias: 0, suprimentos: 0 },
+    cupom: null,
     pedido: 0
   };
 
@@ -324,6 +328,7 @@
       editId: conf.editId,
       editRotulo: conf.editRotulo,
       fundoManual: conf.fundoManual,
+      cupom: conf.cupom,
       textos: {}
     };
     Object.keys(CAMPOS_DINHEIRO).forEach(function (k) { f.textos[k] = $(CAMPOS_DINHEIRO[k]).value; });
@@ -352,6 +357,8 @@
     conf.editId = f.editId || null;
     conf.editRotulo = f.editRotulo || "";
     conf.fundoManual = !!f.fundoManual;
+    conf.cupom = f.cupom && f.cupom.formas ? f.cupom : null;
+    desenharCupom();
     $("editando").hidden = !conf.editId;
     $("editando-texto").textContent = conf.editRotulo || "Editando registro";
   }
@@ -388,12 +395,21 @@
     $("bloco-fechamento").hidden = !fechamento;
     var barraDif = $("barra-diferenca");
     if (fechamento) {
+      aplicarCupomNosCampos();
       var fundo = lerDinheiro($("conf-fundo"), C.FUNDO_PADRAO);
       var vendas = lerDinheiro($("conf-vendas"));
       var receb = lerDinheiro($("conf-recebimentos"));
       var troco = lerDinheiro($("conf-troco"), C.TROCO_PADRAO);
       ["conf-pix", "conf-debito", "conf-credito", "conf-carteira"].forEach(function (id) { lerDinheiro($(id)); });
-      $("conf-sangrias").textContent = brl(conf.movimentos.sangrias);
+      var sangrias = conf.cupom ? conf.cupom.sangria : conf.movimentos.sangrias;
+      $("conf-sangrias").textContent = brl(sangrias);
+      if (conf.cupom) {
+        var lanc = conf.movimentos.sangrias;
+        $("movimentos-estado").textContent = "Sangrias do cupom do Diamante." + (lanc
+          ? (lanc === sangrias ? " As lançadas no sistema (" + brl(lanc) + ") batem." :
+            " Atenção: lançadas no sistema somam " + brl(lanc) + " (diferença " + brl(lanc - sangrias) + ").")
+          : "");
+      }
       $("conf-suprimentos").textContent = brl(conf.movimentos.suprimentos);
       var invalido = fundo == null || vendas == null || receb == null;
       if (invalido) {
@@ -404,7 +420,7 @@
       } else {
         var r = C.calcularFechamento({
           contagem: lerContagem(), fundo: fundo, vendas: vendas, recebimentos: receb,
-          sangrias: conf.movimentos.sangrias, suprimentos: conf.movimentos.suprimentos,
+          sangrias: sangrias, suprimentos: conf.movimentos.suprimentos,
           trocoAmanha: troco == null ? C.TROCO_PADRAO : troco
         });
         $("conf-esperado").textContent = brl(r.esperado);
@@ -472,6 +488,12 @@
     if (!f.caixa) return "Escolha o caixa.";
     if (!f.data) return "Preencha a data.";
     if (!f.hora) return "Preencha a hora.";
+    if (f.tipo === "fechamento" && conf.cupom) {
+      if (document.querySelector("#bloco-cupom [aria-invalid=true]")) return "Há um valor inválido no cupom do Diamante.";
+      if (conf.cupom.data && conf.cupom.data !== f.data) {
+        return "O cupom é do dia " + C.dataBR(conf.cupom.data) + ", mas o fechamento está em " + C.dataBR(f.data) + ".";
+      }
+    }
     if (f.tipo === "fechamento") {
       var nomes = { fundo: "Fundo de caixa", vendas: "Vendas em dinheiro", recebimentos: "Recebimentos em dinheiro",
         pix: "PIX", debito: "Cartão débito", credito: "Cartão crédito", carteira: "Carteira", troco: "Troco para amanhã" };
@@ -508,6 +530,7 @@
     d.debito_centavos = opcional("conf-debito");
     d.credito_centavos = opcional("conf-credito");
     d.carteira_centavos = opcional("conf-carteira");
+    d.cupom = fech ? conf.cupom : null;
     return d;
   }
 
@@ -516,6 +539,8 @@
     var erro = validarConferencia();
     if (erro) { mostrarErro({ message: erro }); return; }
     var d = dadosConferencia();
+    if (d.cupom && Dm.conferirCupom(d.cupom).some(function (x) { return x.nivel === "erro"; }) &&
+        !confirm("As somas do cupom do Diamante não batem (veja os avisos em vermelho). Salvar assim mesmo?")) return;
     if (C.calcularContagem(d.contagem).total === 0 &&
         !confirm("O total contado está em R$ 0,00. Salvar assim mesmo?")) return;
     var botao = $("conf-salvar");
@@ -560,7 +585,7 @@
     Object.keys(campos).forEach(function (k) { textos[k] = dinheiroCampo(r[campos[k]]); });
     preencherFormularioConf({
       tipo: r.tipo, caixa: r.caixa, operador: r.operador, data: r.data, hora: C.horaCurta(r.hora),
-      contagem: r.contagem, observacao: r.observacao, textos: textos, editId: r.id, fundoManual: true,
+      contagem: r.contagem, observacao: r.observacao, textos: textos, editId: r.id, fundoManual: true, cupom: r.cupom,
       editRotulo: "Editando: " + F.nomeTipo(r.tipo) + " · " + nomeCaixa(r.caixa) + " · " + C.dataBR(r.data) + " " + C.horaCurta(r.hora)
     });
     atualizarConferencia();
@@ -576,7 +601,231 @@
     atualizarContexto();
   }
 
+  /* ========================== Cupom do Diamante ========================== */
+
+  // Campos do resumo do caixa, na ordem do cupom
+  var CUPOM_RESUMO = [
+    ["venda_bruta", "Venda bruta"], ["fundo", "Fundo de caixa"], ["sangria", "Sangria"],
+    ["recebimento", "Recebimento"], ["total_liquido", "Total líquido"],
+    ["cancelamentos", "Cancelamentos"], ["desconto", "Desconto"]
+  ];
+
+  function campoCupom(rotulo, extra, modo) {
+    return '<input type="text" inputmode="' + (modo || "decimal") + '" class="dinheiro" autocomplete="off" placeholder="0,00" ' +
+      extra + ' aria-label="' + escapar(rotulo) + '" />';
+  }
+
+  function montarCamposCupom() {
+    $("cupom-formas").innerHTML = Dm.FORMAS.map(function (f) {
+      return '<span class="cupom-forma" title="' + escapar(f.nome) + '">' + escapar(f.curto) + "</span>" +
+        campoCupom(f.nome + " vendas", 'data-forma="' + f.chave + '" data-campo="vendas"') +
+        campoCupom(f.nome + " recebimentos", 'data-forma="' + f.chave + '" data-campo="receb"');
+    }).join("");
+    $("cupom-resumo").innerHTML = CUPOM_RESUMO.map(function (r) {
+      return '<label class="campo"><span>' + escapar(r[1]) + "</span>" +
+        campoCupom(r[1], 'data-resumo="' + r[0] + '"', r[0] === "total_liquido" ? "text" : "decimal") + "</label>";
+    }).join("");
+  }
+
+  // Texto do campo -> centavos (aceita negativo só no total líquido). Inválido = null
+  function lerCampoCupom(el) {
+    var t = el.value.trim();
+    var neg = el.dataset.resumo === "total_liquido" && /^-/.test(t);
+    if (neg) t = t.replace(/^-\s*/, "");
+    var c = t === "" ? 0 : C.reaisParaCentavos(t);
+    if (c == null) { el.setAttribute("aria-invalid", "true"); return null; }
+    el.removeAttribute("aria-invalid");
+    return neg ? -c : c;
+  }
+  function textoCampoCupom(c) {
+    return c < 0 ? "-" + dinheiroCampo(-c) : dinheiroCampo(c || 0);
+  }
+
+  function preencherCamposCupom(c) {
+    Array.prototype.forEach.call(document.querySelectorAll("#cupom-formas input"), function (el) {
+      el.value = textoCampoCupom((c.formas[el.dataset.forma] || {})[el.dataset.campo]);
+      el.removeAttribute("aria-invalid");
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#cupom-resumo input"), function (el) {
+      el.value = textoCampoCupom(c[el.dataset.resumo]);
+      el.removeAttribute("aria-invalid");
+    });
+  }
+
+  function lerCamposCupom() {
+    var c = conf.cupom;
+    if (!c) return;
+    Array.prototype.forEach.call(document.querySelectorAll("#cupom-formas input"), function (el) {
+      var v = lerCampoCupom(el);
+      if (v != null) c.formas[el.dataset.forma][el.dataset.campo] = v;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#cupom-resumo input"), function (el) {
+      var v = lerCampoCupom(el);
+      if (v != null) c[el.dataset.resumo] = v;
+    });
+  }
+
+  function desenharConferenciaCupom() {
+    var c = conf.cupom;
+    if (!c) return;
+    var r = Dm.conferirCupom(c);
+    $("cupom-conferencia").innerHTML = r.length ? '<ul class="cupom-avisos">' + r.map(function (x) {
+      return '<li class="' + (x.nivel === "erro" ? "msg-erro" : "msg-aviso") + '">' + escapar(x.texto) + "</li>";
+    }).join("") + "</ul>" : '<p class="msg-ok">As somas do cupom batem.</p>';
+  }
+
+  function desenharCupom() {
+    var c = conf.cupom;
+    $("cupom-detalhe").hidden = !c;
+    $("cupom-digitar").hidden = !!c;
+    $("conf-outros").hidden = !!c;
+    $("cupom-importar").textContent = c ? "Importar outro PDF" : "Importar PDF do cupom";
+    ["conf-fundo", "conf-vendas", "conf-recebimentos"].forEach(function (id) { $(id).readOnly = !!c; });
+    if (!c) {
+      $("cupom-estado").textContent = "Importe o PDF do \"Fechamento de turno\" (ou digite os valores do cupom). O PDF é lido neste aparelho e não é enviado.";
+      return;
+    }
+    var partes = [];
+    if (c.terminal) partes.push("Terminal " + c.terminal);
+    if (c.turno) partes.push("Turno " + c.turno);
+    if (c.data) partes.push(C.dataBR(c.data));
+    if (c.abertura || c.encerramento) partes.push((C.horaCurta(c.abertura) || "?") + " às " + (C.horaCurta(c.encerramento) || "?"));
+    if (c.operador) partes.push("Operador: " + c.operador);
+    $("cupom-cabecalho").textContent = partes.join(" · ");
+    $("cupom-estado").textContent = c.origem === "pdf" ? "Lido do PDF. Confira e, se precisar, corrija um valor." : "Digitado. Siga a ordem do cupom.";
+    var nr = (c.recebimentos || []).length, ns = (c.sangrias || []).length;
+    $("cupom-listas").textContent = c.origem === "pdf"
+      ? nr + (nr === 1 ? " recebimento" : " recebimentos") + " (nome do cliente abreviado) e " + ns + (ns === 1 ? " sangria" : " sangrias") + " lidos do cupom."
+      : "Cupom digitado: sem a lista de recebimentos um a um.";
+    preencherCamposCupom(c);
+    desenharConferenciaCupom();
+  }
+
+  // Com cupom, o fundo e o dinheiro do fechamento vêm dele
+  function aplicarCupomNosCampos() {
+    var c = conf.cupom;
+    if (!c) return;
+    $("conf-fundo").value = dinheiroCampo(c.fundo);
+    $("conf-vendas").value = dinheiroCampo(c.formas.dinheiro.vendas);
+    $("conf-recebimentos").value = dinheiroCampo(c.formas.dinheiro.receb);
+    $("fundo-origem").textContent = "Do cupom do Diamante.";
+  }
+
+  // Lê o texto de todas as páginas do PDF (no aparelho; o arquivo não é enviado)
+  var importarModulo = null;
+  function lerTextoPdf(arquivo) {
+    if (!importarModulo) {
+      try { importarModulo = new Function("u", "return import(u)"); } catch (e) { importarModulo = null; }
+    }
+    if (!importarModulo) return Promise.reject(new Error("Este navegador não consegue ler PDF. Atualize o navegador ou digite o cupom."));
+    return importarModulo(LIBS.pdfjs).catch(function () {
+      throw new Error("Não foi possível carregar o leitor de PDF. Confira a internet e tente de novo.");
+    }).then(function (pdfjs) {
+      pdfjs.GlobalWorkerOptions.workerSrc = LIBS.pdfjsWorker;
+      return arquivo.arrayBuffer().then(function (buf) {
+        return pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
+      }).catch(function () { throw new Error("Não consegui abrir este PDF. Confira se é o PDF do cupom."); });
+    }).then(function (doc) {
+      var paginas = [];
+      for (var i = 1; i <= Math.min(doc.numPages, 6); i++) {
+        paginas.push(doc.getPage(i).then(function (pg) { return pg.getTextContent(); })
+          .then(function (tc) { return Dm.textoDeItensPdf(tc.items); }));
+      }
+      return Promise.all(paginas).then(function (t) { return t.join("\n"); });
+    });
+  }
+
+  function usarCupom(c) {
+    var notas = [];
+    var cx = Dm.caixaDoTerminal(CAIXAS, c.terminal);
+    if (cx && cx.id !== $("conf-caixa").dataset.valor) {
+      definirAlternador($("conf-caixa"), cx.id);
+      notas.push("caixa trocado para " + cx.curto + " (terminal " + c.terminal + ")");
+    } else if (!cx && c.terminal) {
+      notas.push("o terminal " + c.terminal + " não está ligado a nenhum caixa (confira o caixa escolhido)");
+    }
+    if (c.data && c.data !== $("conf-data").value) {
+      $("conf-data").value = c.data;
+      notas.push("data trocada para " + C.dataBR(c.data));
+    }
+    if (!$("conf-operador").value.trim() && c.operador) $("conf-operador").value = c.operador;
+    conf.cupom = c;
+    desenharCupom();
+    atualizarConferencia();
+    atualizarContexto();
+    return notas;
+  }
+
+  function importarCupom(arquivo) {
+    limparErro();
+    if (!arquivo) return;
+    if (!/\.pdf$/i.test(arquivo.name || "") && arquivo.type !== "application/pdf") {
+      mostrarErro({ message: "Escolha o arquivo PDF do cupom de \"Fechamento de turno\"." });
+      return;
+    }
+    if (arquivo.size > 10 * 1024 * 1024) { mostrarErro({ message: "Arquivo grande demais para um cupom (mais de 10 MB)." }); return; }
+    var rotulo = $("cupom-importar");
+    rotulo.classList.add("ocupado");
+    $("cupom-estado").textContent = "Lendo o PDF…";
+    lerTextoPdf(arquivo).then(function (texto) {
+      var r = Dm.lerCupom(texto);
+      if (!r.cupom || r.erros.some(function (e) { return /resumo das formas|Fechamento de turno/.test(e); })) {
+        throw new Error(r.erros[0] || "Não consegui ler o cupom.");
+      }
+      var notas = usarCupom(r.cupom);
+      if (r.erros.length) mostrarErro({ message: "Cupom lido, mas: " + r.erros.join(" ") + " Confira os valores." });
+      toast("Cupom lido" + (notas.length ? ": " + notas.join("; ") : "") + ".");
+    }).catch(function (e) {
+      desenharCupom();
+      mostrarErro({ message: e.message || "Não consegui ler o PDF." });
+    }).then(function () { rotulo.classList.remove("ocupado"); });
+  }
+
+  function iniciarCupom() {
+    montarCamposCupom();
+    $("cupom-arquivo").addEventListener("change", function (ev) {
+      var arq = ev.target.files && ev.target.files[0];
+      ev.target.value = "";
+      importarCupom(arq);
+    });
+    $("cupom-importar").addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); $("cupom-arquivo").click(); }
+    });
+    $("cupom-digitar").addEventListener("click", function () {
+      var c = Dm.cupomVazio();
+      var cx = CAIXAS.filter(function (x) { return x.id === $("conf-caixa").dataset.valor; })[0];
+      c.terminal = (cx && cx.terminal) || "";
+      c.data = $("conf-data").value;
+      c.fundo = lerDinheiro($("conf-fundo"), C.FUNDO_PADRAO) || 0;
+      conf.cupom = c;
+      desenharCupom();
+      atualizarConferencia();
+      var primeiro = document.querySelector("#cupom-formas input");
+      if (primeiro) primeiro.focus();
+    });
+    $("cupom-remover").addEventListener("click", function () {
+      if (!confirm("Remover o cupom deste fechamento? Fundo, vendas e sangrias voltam a ser digitados/lançados.")) return;
+      conf.cupom = null;
+      conf.fundoManual = false;
+      desenharCupom();
+      atualizarConferencia();
+      atualizarContexto();
+    });
+    $("bloco-cupom").addEventListener("input", function (ev) {
+      if (!ev.target.matches("#cupom-formas input, #cupom-resumo input")) return;
+      lerCamposCupom();
+      desenharConferenciaCupom();
+      atualizarConferencia();
+    });
+    $("bloco-cupom").addEventListener("focusout", function (ev) {
+      if (!ev.target.matches("#cupom-formas input, #cupom-resumo input")) return;
+      var v = lerCampoCupom(ev.target);
+      if (v != null) ev.target.value = textoCampoCupom(v);
+    });
+  }
+
   function iniciarConferencia() {
+    iniciarCupom();
     botoesCaixa($("conf-caixa"));
     montarLinhasContagem();
     alternador($("conf-tipo"), function () { atualizarConferencia(); atualizarContexto(); });

@@ -566,3 +566,19 @@ label.cat-item { grid-template-columns: 22px 48px minmax(0, 1fr); cursor: pointe
   .cat-botoes { grid-column: 1 / -1; }
   .cat-botoes .botao { flex: 1; }
 }
+
+/* ---------- Cupom do Diamante (fechamento) ---------- */
+label.botao { display: inline-flex; align-items: center; justify-content: center; text-align: center; }
+label.botao.ocupado { opacity: .6; pointer-events: none; }
+.cupom-grade { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 6.2rem) minmax(0, 6.2rem); gap: 6px 6px; align-items: center; margin: 10px 0 14px; }
+.cupom-linhas { display: contents; }
+.cupom-cab { font-size: .82rem; color: var(--suave); font-weight: 600; }
+.cupom-cab:not(:first-child) { text-align: right; }
+.cupom-forma { font-size: .92rem; line-height: 1.2; }
+.cupom-grade input { width: 100%; min-width: 0; text-align: right; }
+.cupom-resumo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 10px; }
+.cupom-resumo input { text-align: right; }
+.cupom-avisos { margin: 4px 0 8px; padding-left: 18px; }
+.cupom-avisos li { margin-bottom: 4px; }
+.msg-aviso { color: #8a5a00; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .msg-aviso { color: #f0c060; } }

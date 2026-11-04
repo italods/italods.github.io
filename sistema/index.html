@@ -172,6 +172,29 @@
         </div>
 
         <div id="bloco-fechamento" hidden>
+          <div class="bloco" id="bloco-cupom">
+            <h2>Cupom do Diamante</h2>
+            <p class="suave mini" id="cupom-estado">Importe o PDF do "Fechamento de turno" (ou digite os valores do cupom). O PDF é lido neste aparelho e não é enviado.</p>
+            <div class="acoes" id="cupom-acoes">
+              <label class="botao primario" for="cupom-arquivo" id="cupom-importar" tabindex="0" role="button">Importar PDF do cupom</label>
+              <input type="file" id="cupom-arquivo" accept="application/pdf,.pdf" hidden />
+              <button type="button" class="botao" id="cupom-digitar">Digitar o cupom</button>
+            </div>
+            <div id="cupom-detalhe" hidden>
+              <p class="mini" id="cupom-cabecalho"></p>
+              <div class="cupom-grade" role="group" aria-label="Resumo de formas de pagamento">
+                <span class="cupom-cab">Forma</span><span class="cupom-cab">Vendas</span><span class="cupom-cab">Receb.</span>
+                <div id="cupom-formas" class="cupom-linhas"></div>
+              </div>
+              <div class="cupom-resumo" id="cupom-resumo"></div>
+              <div id="cupom-conferencia" role="status"></div>
+              <p class="suave mini" id="cupom-listas"></p>
+              <div class="acoes">
+                <button type="button" class="botao perigo pequeno" id="cupom-remover">Remover cupom</button>
+              </div>
+            </div>
+          </div>
+
           <div class="bloco">
             <h2>Comparação com o sistema (Diamante)</h2>
             <label class="campo">
@@ -200,7 +223,7 @@
             <div id="conf-diferenca" class="diferenca bateu">Caixa bateu</div>
           </div>
 
-          <details class="bloco">
+          <details class="bloco" id="conf-outros">
             <summary>Outros valores do sistema (só registro)</summary>
             <div class="dupla">
               <label class="campo"><span>PIX</span>
@@ -478,6 +501,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
   <script src="js/calculos.js"></script>
   <script src="js/formatos.js"></script>
+  <script src="js/diamante.js"></script>
   <script src="js/db.js"></script>
   <script src="js/escuta-db.js"></script>
   <script src="js/escuta-admin.js"></script>
