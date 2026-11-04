@@ -73,6 +73,16 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   `sistema/config.js` (não mudar o `id` de um caixa já usado).
 - Erros devem ser claros (sem internet, sessão expirada, sem permissão) e nunca apagar o que foi
   digitado: a contagem fica em rascunho no `localStorage` até salvar.
+- **Login e senha** (Supabase Auth, e-mail + senha): o login tem "Esqueci minha senha"
+  (`resetPasswordForEmail`, o link volta para `/sistema/`) e o topo tem "Trocar senha"
+  (`updateUser`). O link do e-mail chega como `#access_token=...&type=recovery`; o `app.js` lê com
+  `Formatos.lerRetornoSenha`, chama `setSession`, limpa o endereço e mostra "Criar senha nova"
+  (o cliente usa `detectSessionInUrl: false` porque as abas usam o `#`). Se o link cair na página
+  inicial, o `index.html` da raiz repassa para `/sistema/`. No Supabase: Authentication > URL
+  Configuration com Site URL `https://italods.com.br` e `https://italods.com.br/sistema/` nas
+  Redirect URLs. Limite do plano gratuito: o e-mail padrão do Supabase só chega a membros da equipe
+  do projeto e a poucos envios por hora; para outra pessoa, criar o usuário em Authentication >
+  Users > Add user (senha provisória, "Auto Confirm") e ela troca em "Trocar senha".
 
 ### Veneza Escuta
 - Cliente (papel `anon`) não lê nenhuma tabela. Só chama `escuta_plaquinha`, `escuta_buscar_produtos`
@@ -100,7 +110,7 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
 node --test tests/*.test.js
 ```
 
-Inclui o texto por extenso (tests/extenso.test.js) e os números reais de 23/10/2026 (Caixa 1: falta R$ 54,38; Caixa 2: sobra R$ 863,92).
+Inclui o "Esqueci minha senha" (tests/senha.test.js), o texto por extenso (tests/extenso.test.js) e os números reais de 23/10/2026 (Caixa 1: falta R$ 54,38; Caixa 2: sobra R$ 863,92).
 
 Para ver as telas localmente:
 

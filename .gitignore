@@ -1,2 +1,5 @@
 # Documentos de trabalho locais (plano, anotacoes): nao vao para o GitHub
 privado/
+
+# Permissoes locais do Claude Code (so neste computador)
+.claude/settings.local.json

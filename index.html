@@ -9,6 +9,10 @@
   <meta name="theme-color" content="#16171a" media="(prefers-color-scheme: dark)" />
   <title>Supermercado Veneza</title>
   <link rel="stylesheet" href="/styles/veneza.css" />
+  <script>
+    // Link de "Esqueci minha senha" do Sistema que caiu na página inicial: repassa para o sistema
+    if (/(^#|&)(access_token|error_description)=/.test(location.hash)) location.replace("/sistema/" + location.hash);
+  </script>
 </head>
 <body>
   <div class="pagina">

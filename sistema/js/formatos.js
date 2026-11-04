@@ -167,6 +167,43 @@
     }));
   }
 
+  /* ------------------------------- Senha ------------------------------- */
+
+  // Lê o endereço de volta do e-mail "Esqueci minha senha" (parte depois do #).
+  // Devolve null (não é retorno de e-mail), { erro } ou { access_token, refresh_token }.
+  function lerRetornoSenha(hash) {
+    var h = String(hash || "").replace(/^#/, "");
+    if (!/(^|&)(access_token|error|error_description)=/.test(h)) return null;
+    var p = {};
+    h.split("&").forEach(function (par) {
+      var i = par.indexOf("=");
+      if (i < 0) return;
+      try { p[decodeURIComponent(par.slice(0, i))] = decodeURIComponent(par.slice(i + 1).replace(/\+/g, " ")); }
+      catch (e) { /* ignora pedaço inválido */ }
+    });
+    if (p.error || p.error_description) {
+      var expirado = p.error_code === "otp_expired" || /expired|invalid/i.test(p.error_description || "");
+      return { erro: expirado
+        ? "Este link já foi usado ou expirou. Peça um novo em \"Esqueci minha senha\"."
+        : "Não foi possível usar o link do e-mail. Peça um novo em \"Esqueci minha senha\"." };
+    }
+    if (!p.access_token || !p.refresh_token) return { erro: "Link incompleto. Peça um novo em \"Esqueci minha senha\"." };
+    if (p.type && p.type !== "recovery" && p.type !== "invite" && p.type !== "magiclink" && p.type !== "signup") {
+      return { erro: "Link de tipo desconhecido. Peça um novo em \"Esqueci minha senha\"." };
+    }
+    return { access_token: p.access_token, refresh_token: p.refresh_token, tipo: p.type || "" };
+  }
+
+  // Confere a senha nova. Devolve a mensagem de erro, ou null se estiver boa.
+  function validarNovaSenha(senha, repetir) {
+    senha = String(senha || "");
+    if (senha.length < 8) return "A senha precisa ter pelo menos 8 caracteres.";
+    if (senha.length > 72) return "A senha pode ter no máximo 72 caracteres.";
+    if (/^\s|\s$/.test(senha)) return "A senha não pode começar nem terminar com espaço.";
+    if (senha !== String(repetir || "")) return "As duas senhas não são iguais.";
+    return null;
+  }
+
   return {
     nomeTipo: nomeTipo,
     linhaDiferenca: linhaDiferenca,
@@ -178,6 +215,8 @@
     numeroCSV: numeroCSV,
     csvConferencias: csvConferencias,
     csvRelatorio: csvRelatorio,
-    csvMovimentos: csvMovimentos
+    csvMovimentos: csvMovimentos,
+    lerRetornoSenha: lerRetornoSenha,
+    validarNovaSenha: validarNovaSenha
   };
 });

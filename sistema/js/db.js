@@ -35,6 +35,18 @@
     } else if (codigo === "42501" || /row-level security|permission denied/i.test(msg)) {
       err.message = "Seu usuário não tem permissão. Confira se o seu e-mail está na lista de autorizados.";
       err.tipo = "permissao";
+    } else if (/rate limit|only request this after|too many/i.test(msg) || status === 429) {
+      err.message = "Muitos pedidos seguidos. Espere alguns minutos e tente de novo.";
+      err.tipo = "limite";
+    } else if (/should be different from the old/i.test(msg)) {
+      err.message = "A senha nova precisa ser diferente da atual.";
+      err.tipo = "senha";
+    } else if (/password should|weak password|password is known|pwned/i.test(msg)) {
+      err.message = "Senha fraca. Use pelo menos 8 caracteres, misturando letras e números.";
+      err.tipo = "senha";
+    } else if (/email address not authorized|not authorized/i.test(msg)) {
+      err.message = "O Supabase não envia e-mail para este endereço (limite do plano gratuito). Peça ao Italo para definir a senha pelo painel do Supabase.";
+      err.tipo = "email";
     } else if (/invalid login credentials/i.test(msg)) {
       err.message = "E-mail ou senha incorretos.";
       err.tipo = "login";
@@ -92,6 +104,21 @@
       },
       sair: function () {
         return cliente.auth.signOut().catch(function () {});
+      },
+      // Envia o e-mail "Esqueci minha senha". O link volta para esta mesma página.
+      pedirNovaSenha: function (email) {
+        var volta = location.origin + location.pathname;
+        return cliente.auth.resetPasswordForEmail(email.trim(), { redirectTo: volta })
+          .then(resultado("enviar o e-mail"), falhaRede("enviar o e-mail"));
+      },
+      // Entra com os dados que vieram no link do e-mail
+      usarLinkSenha: function (tokens) {
+        return cliente.auth.setSession({ access_token: tokens.access_token, refresh_token: tokens.refresh_token })
+          .then(resultado("usar o link do e-mail"), falhaRede("usar o link do e-mail"));
+      },
+      trocarSenha: function (senha) {
+        return cliente.auth.updateUser({ password: senha })
+          .then(resultado("trocar a senha"), falhaRede("trocar a senha"));
       },
       autorizado: function () {
         return cliente.rpc("autorizado").then(resultado("verificar seu acesso"), falhaRede("verificar seu acesso"));
@@ -201,6 +228,9 @@
       aoMudarSessao: function () {},
       entrar: function () { return Promise.resolve(sessao); },
       sair: function () { return Promise.resolve(); },
+      pedirNovaSenha: function () { return Promise.resolve({}); },
+      usarLinkSenha: function () { return Promise.resolve({ session: sessao }); },
+      trocarSenha: function () { return Promise.resolve({ user: sessao.user }); },
       autorizado: function () { return Promise.resolve(true); },
       listarConferencias: function (f) { return Promise.resolve(filtrar(ler("conferencias"), f)); },
       salvarConferencia: function (d, i) { return salvar("conferencias", CAMPOS_CONFERENCIA, d, i); },

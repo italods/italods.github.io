@@ -46,6 +46,45 @@
       </label>
       <p id="login-erro" class="msg-erro" role="alert" hidden></p>
       <button type="submit" class="botao primario largo" id="login-botao">Entrar</button>
+      <button type="button" class="botao fantasma largo" id="login-esqueci">Esqueci minha senha</button>
+    </form>
+  </section>
+
+  <!-- Esqueci minha senha -->
+  <section id="tela-esqueci" class="tela-centro" hidden>
+    <p class="marca">Supermercado Veneza</p>
+    <form id="form-esqueci" class="cartao" novalidate>
+      <h1>Esqueci minha senha</h1>
+      <p class="suave">Digite o seu e-mail. Vamos mandar um link para você criar uma senha nova.</p>
+      <label class="campo">
+        <span>E-mail</span>
+        <input type="email" id="esqueci-email" autocomplete="username" inputmode="email" required />
+      </label>
+      <p id="esqueci-erro" class="msg-erro" role="alert" hidden></p>
+      <p id="esqueci-ok" class="msg-ok" role="status" hidden></p>
+      <button type="submit" class="botao primario largo" id="esqueci-botao">Enviar link</button>
+      <button type="button" class="botao fantasma largo" id="esqueci-voltar">Voltar para o login</button>
+    </form>
+  </section>
+
+  <!-- Criar / trocar a senha -->
+  <section id="tela-nova-senha" class="tela-centro" hidden>
+    <p class="marca">Supermercado Veneza</p>
+    <form id="form-nova-senha" class="cartao" novalidate>
+      <h1 id="nova-senha-titulo">Criar senha nova</h1>
+      <p class="suave mini" id="nova-senha-email"></p>
+      <input type="email" id="nova-senha-usuario" autocomplete="username" hidden />
+      <label class="campo">
+        <span>Senha nova (mínimo 8 caracteres)</span>
+        <input type="password" id="nova-senha-1" autocomplete="new-password" minlength="8" maxlength="72" required />
+      </label>
+      <label class="campo">
+        <span>Repita a senha nova</span>
+        <input type="password" id="nova-senha-2" autocomplete="new-password" minlength="8" maxlength="72" required />
+      </label>
+      <p id="nova-senha-erro" class="msg-erro" role="alert" hidden></p>
+      <button type="submit" class="botao primario largo" id="nova-senha-botao">Salvar senha</button>
+      <button type="button" class="botao fantasma largo" id="nova-senha-cancelar" hidden>Cancelar</button>
     </form>
   </section>
 
@@ -57,7 +96,10 @@
           <p class="marca pequena">Supermercado Veneza</p>
           <p class="suave mini" id="usuario-email"></p>
         </div>
-        <button type="button" class="botao fantasma" id="botao-sair">Sair</button>
+        <div class="topo-botoes">
+          <button type="button" class="botao fantasma" id="botao-senha">Trocar senha</button>
+          <button type="button" class="botao fantasma" id="botao-sair">Sair</button>
+        </div>
       </div>
       <nav class="modulos" aria-label="Áreas do sistema">
         <a href="#caixa" data-modulo="caixa">Conferência de caixa</a>

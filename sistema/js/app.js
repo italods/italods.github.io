@@ -203,6 +203,8 @@
     $("tela-carregando").hidden = qual !== "carregando";
     $("tela-config").hidden = qual !== "config";
     $("tela-login").hidden = qual !== "login";
+    $("tela-esqueci").hidden = qual !== "esqueci";
+    $("tela-nova-senha").hidden = qual !== "nova-senha";
     $("app").hidden = qual !== "app";
   }
 
@@ -1196,6 +1198,109 @@
     });
   }
 
+  /* ========================= Esqueci / trocar senha ========================= */
+
+  function erroLogin(msg) {
+    mostrarTela("login");
+    $("login-erro").textContent = msg;
+    $("login-erro").hidden = false;
+  }
+
+  // modo "link": veio do e-mail (sem volta, depois entra no sistema); "trocar": já estava logado
+  var modoSenha = "trocar";
+  function abrirNovaSenha(modo, email) {
+    modoSenha = modo;
+    $("nova-senha-titulo").textContent = modo === "link" ? "Criar senha nova" : "Trocar senha";
+    $("nova-senha-email").textContent = email || "";
+    $("nova-senha-usuario").value = email || "";
+    $("nova-senha-1").value = "";
+    $("nova-senha-2").value = "";
+    $("nova-senha-erro").hidden = true;
+    $("nova-senha-cancelar").hidden = modo === "link";
+    mostrarTela("nova-senha");
+    $("nova-senha-1").focus();
+  }
+
+  function iniciarSenha() {
+    $("login-esqueci").addEventListener("click", function () {
+      $("esqueci-email").value = $("login-email").value.trim();
+      $("esqueci-erro").hidden = true;
+      $("esqueci-ok").hidden = true;
+      mostrarTela("esqueci");
+      $("esqueci-email").focus();
+    });
+    $("esqueci-voltar").addEventListener("click", function () {
+      $("login-erro").hidden = true;
+      mostrarTela("login");
+    });
+    $("form-esqueci").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var email = $("esqueci-email").value.trim();
+      var erro = $("esqueci-erro"), ok = $("esqueci-ok"), botao = $("esqueci-botao");
+      erro.hidden = true; ok.hidden = true;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        erro.textContent = "Digite um e-mail válido.";
+        erro.hidden = false;
+        return;
+      }
+      ocupado(botao, true, "Enviando…");
+      db.pedirNovaSenha(email).then(function () {
+        ok.textContent = "Pronto. Se este e-mail tiver acesso ao sistema, o link chega em alguns minutos. " +
+          "Confira também a caixa de spam. Abra o link neste mesmo aparelho.";
+        ok.hidden = false;
+        ocupado(botao, false);
+        // Evita pedidos repetidos (o Supabase limita os envios)
+        botao.disabled = true;
+        setTimeout(function () { botao.disabled = false; }, 60000);
+      }, function (e) {
+        erro.textContent = e.message;
+        erro.hidden = false;
+        ocupado(botao, false);
+      });
+    });
+    $("botao-senha").addEventListener("click", function () { abrirNovaSenha("trocar", usuarioEmail); });
+    $("nova-senha-cancelar").addEventListener("click", function () { mostrarTela("app"); });
+    $("form-nova-senha").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var s1 = $("nova-senha-1").value, s2 = $("nova-senha-2").value;
+      var erro = $("nova-senha-erro"), botao = $("nova-senha-botao");
+      erro.hidden = true;
+      var problema = F.validarNovaSenha(s1, s2);
+      if (problema) { erro.textContent = problema; erro.hidden = false; return; }
+      ocupado(botao, true, "Salvando…");
+      db.trocarSenha(s1).then(function () {
+        $("nova-senha-1").value = "";
+        $("nova-senha-2").value = "";
+        ocupado(botao, false);
+        toast("Senha salva. Use a senha nova da próxima vez que entrar.");
+        if (modoSenha === "link") {
+          return db.sessao().then(function (s) { return s ? entrarNoApp(s) : erroLogin("Entre com a senha nova."); });
+        }
+        mostrarTela("app");
+      }, function (e) {
+        ocupado(botao, false);
+        if (e.tipo === "sessao") { erroLogin("O link do e-mail expirou. Peça um novo em \"Esqueci minha senha\"."); return; }
+        erro.textContent = e.message;
+        erro.hidden = false;
+      });
+    });
+  }
+
+  // Veio do link do e-mail? (#access_token=...&type=recovery ou #error=...)
+  function tratarRetornoSenha() {
+    var retorno = F.lerRetornoSenha(location.hash);
+    if (!retorno) return null;
+    // Tira os dados do link da barra de endereço (e do histórico)
+    history.replaceState(null, "", location.pathname + location.search);
+    if (retorno.erro) { erroLogin(retorno.erro); return Promise.resolve(); }
+    return db.usarLinkSenha(retorno).then(function (r) {
+      var email = (r && r.user && r.user.email) || (r && r.session && r.session.user && r.session.user.email) || "";
+      abrirNovaSenha("link", email);
+    }, function (e) {
+      erroLogin(e.tipo === "sessao" ? "Este link já foi usado ou expirou. Peça um novo em \"Esqueci minha senha\"." : e.message);
+    });
+  }
+
   function iniciar() {
     $("faixa-demo").hidden = !DEMO;
     try {
@@ -1208,9 +1313,11 @@
     }
     if (!db) { mostrarTela("config"); return; }
     iniciarLogin();
+    iniciarSenha();
     db.aoMudarSessao(function (evento) {
       if (evento === "SIGNED_OUT") mostrarTela("login");
     });
+    if (tratarRetornoSenha()) return;
     db.sessao().then(function (s) {
       if (s) return entrarNoApp(s);
       mostrarTela("login");

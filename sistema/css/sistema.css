@@ -349,6 +349,13 @@ input.grande { font-size: 1.3rem; font-weight: 600; }
   min-height: 32px;
 }
 .msg-erro { color: var(--falta); font-weight: 600; }
+.msg-ok { color: var(--sobra); font-weight: 600; }
+.cartao .botao.largo + .botao.largo { margin-top: 8px; }
+.topo-botoes { display: flex; gap: 2px; flex-shrink: 0; }
+.topo-linha > div:first-child { min-width: 0; }
+#usuario-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#nova-senha-email { margin-bottom: 12px; overflow-wrap: anywhere; }
+.topo-botoes .botao { padding-left: 10px; padding-right: 10px; }
 
 .toast {
   position: fixed;
