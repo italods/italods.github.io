@@ -21,10 +21,10 @@ window.VENEZA_CONFIG = {
   // Veneza Escuta (sugestões e reclamações dos clientes)
   ESCUTA: {
     // Endereço que vai dentro dos QR codes: URL_PUBLICA + "/q/" + token da plaquinha.
-    // Enquanto o domínio oficial não estiver configurado, deixe DOMINIO_DEFINITIVO: false.
-    // As plaquinhas saem marcadas como "TESTE" para não serem penduradas na loja.
+    // italods.com.br é o domínio definitivo (decisão do Italo, 03/11/2026). Os QR impressos dependem dele.
+    // Com DOMINIO_DEFINITIVO: false as plaquinhas saem marcadas "TESTE" (para não pendurar na loja).
     URL_PUBLICA: "https://italods.com.br",
-    DOMINIO_DEFINITIVO: false,
+    DOMINIO_DEFINITIVO: true,
     // Logo oficial (PNG com fundo transparente). Enquanto o arquivo não existir, aparece o nome em texto.
     LOGO: "/assets/logo-veneza.png",
     // Sugestões no cadastro de plaquinhas (pode digitar outro setor)

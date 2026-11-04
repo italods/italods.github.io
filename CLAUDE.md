@@ -101,7 +101,8 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
 - Open Food Facts: consultado só pelo administrador (aba Catálogo), nunca a cada letra do cliente;
   busca por nome no máximo a cada 7 s (limite da API: 10/min). O cliente busca no catálogo local.
   Mostrar a atribuição "Open Food Facts (ODbL / CC BY-SA)" onde aparecerem dados/fotos deles.
-- Enquanto `ESCUTA.DOMINIO_DEFINITIVO` for `false`, as plaquinhas saem marcadas "TESTE".
+- `ESCUTA.DOMINIO_DEFINITIVO` é `true` desde 03/11/2026 (italods.com.br é o domínio dos QR). Com `false`,
+  as plaquinhas saem marcadas "TESTE". Nunca mudar `URL_PUBLICA` depois de pendurar plaquinhas.
 - Fora do escopo por enquanto (pedido do Italo): integração com WhatsApp e premiação por sugestões.
 - Não mostrar indicadores inventados: sem dados, dizer que ainda não há dados.
 
