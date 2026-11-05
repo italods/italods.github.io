@@ -105,6 +105,7 @@
         <a href="#caixa" data-modulo="caixa">Conferência de caixa</a>
         <a href="#escuta" data-modulo="escuta">Veneza Escuta</a>
         <a href="#cartoes" data-modulo="cartoes">Cartões</a>
+        <a href="#rh" data-modulo="rh">RH</a>
       </nav>
       <nav class="abas" data-modulo="caixa" aria-label="Conferência de caixa">
         <a href="#caixa" data-aba="caixa">Caixa</a>
@@ -116,6 +117,12 @@
       <nav class="abas" data-modulo="cartoes" aria-label="Cartões" hidden>
         <a href="#cartoes" data-aba="cartoes">Conciliação</a>
         <a href="#cartoes-taxas" data-aba="cartoes-taxas">Taxas</a>
+      </nav>
+      <nav class="abas" data-modulo="rh" aria-label="RH" hidden>
+        <a href="#rh" data-aba="rh">Funcionários</a>
+        <a href="#rh-escala" data-aba="rh-escala">Escala</a>
+        <a href="#rh-ocorrencias" data-aba="rh-ocorrencias">Ocorrências</a>
+        <a href="#rh-resumo" data-aba="rh-resumo">Resumo</a>
       </nav>
       <nav class="abas" data-modulo="escuta" aria-label="Veneza Escuta" hidden>
         <a href="#escuta" data-aba="escuta">Visão geral</a>
@@ -531,6 +538,121 @@
         </div>
       </section>
 
+      <!-- ======================= RH: FUNCIONÁRIOS ======================= -->
+      <section id="aba-rh" class="aba" hidden>
+        <div class="bloco" id="rh-lista-bloco">
+          <h2>Funcionários</h2>
+          <div id="rh-lista"><p class="vazio">Carregando…</p></div>
+          <div class="acoes"><button type="button" class="botao primario" id="rh-novo">+ Novo funcionário</button></div>
+        </div>
+        <div class="bloco" id="rh-ficha" hidden>
+          <h2 id="rh-ficha-titulo">Novo funcionário</h2>
+          <label class="campo"><span>Nome</span><input type="text" id="rh-nome" maxlength="80" autocomplete="off" /></label>
+          <div class="dupla">
+            <label class="campo"><span>Função</span><input type="text" id="rh-funcao" maxlength="60" list="rh-funcoes" autocomplete="off" /></label>
+            <label class="campo"><span>Turma</span><select id="rh-turma"></select></label>
+          </div>
+          <datalist id="rh-funcoes"><option value="Caixa"></option><option value="Serviços gerais"></option></datalist>
+          <div class="dupla">
+            <label class="campo"><span>Admissão</span><input type="date" id="rh-admissao" /></label>
+            <label class="campo"><span>Telefone</span><input type="tel" id="rh-telefone" maxlength="20" autocomplete="off" /></label>
+          </div>
+          <div class="dupla">
+            <label class="campo"><span>Salário</span><input type="text" inputmode="decimal" class="dinheiro" id="rh-salario" placeholder="0,00" autocomplete="off" /></label>
+            <label class="campo"><span>Desligamento <small class="suave">(se saiu)</small></span><input type="date" id="rh-desligamento" /></label>
+          </div>
+          <label class="campo"><span>Observações</span><textarea id="rh-observacao" rows="2" maxlength="2000"></textarea></label>
+          <div id="rh-holerites" hidden></div>
+          <div class="acoes">
+            <button type="button" class="botao" id="rh-cancelar">Cancelar</button>
+            <button type="button" class="botao primario" id="rh-salvar">Salvar</button>
+          </div>
+          <div class="acoes"><button type="button" class="botao perigo pequeno" id="rh-apagar" hidden>Apagar funcionário</button></div>
+        </div>
+      </section>
+
+      <!-- ======================= RH: ESCALA ======================= -->
+      <section id="aba-rh-escala" class="aba" hidden>
+        <div class="bloco">
+          <div class="inicio-topo">
+            <button type="button" class="botao pequeno" id="esc-anterior" aria-label="Semana anterior">‹</button>
+            <h2 id="esc-titulo">Semana</h2>
+            <button type="button" class="botao pequeno" id="esc-proxima" aria-label="Próxima semana">›</button>
+          </div>
+          <div id="esc-semana"><p class="vazio">Carregando…</p></div>
+        </div>
+        <div class="bloco">
+          <h2>Mês de um funcionário</h2>
+          <div class="dupla">
+            <label class="campo"><span>Funcionário</span><select id="esc-func"></select></label>
+            <label class="campo"><span>Mês</span><input type="month" id="esc-mes" /></label>
+          </div>
+          <div id="esc-mes-lista"></div>
+        </div>
+        <div class="bloco">
+          <h2>Horários</h2>
+          <p class="suave mini">Entrada e saída de cada dia (vazio = não trabalha nesse dia). Domingo a loja é fechada.</p>
+          <div id="esc-horarios"></div>
+          <div class="acoes"><button type="button" class="botao" id="esc-novo-horario">+ Horário</button></div>
+        </div>
+        <div class="bloco">
+          <h2>Turmas e revezamento</h2>
+          <p class="suave mini">As turmas trocam de horário toda semana. Escolha o horário de cada turma <strong>nesta semana</strong>;
+            o sistema calcula as próximas. Quem é de cada turma se escolhe na ficha do funcionário.</p>
+          <div id="esc-turmas"></div>
+          <div class="acoes"><button type="button" class="botao" id="esc-nova-turma">+ Turma</button></div>
+        </div>
+      </section>
+
+      <!-- ======================= RH: OCORRÊNCIAS ======================= -->
+      <section id="aba-rh-ocorrencias" class="aba" hidden>
+        <div class="bloco">
+          <h2>Registrar</h2>
+          <label class="campo"><span>Funcionário</span><select id="oc-func"></select></label>
+          <div class="alternador oc-tipos" role="radiogroup" aria-label="Tipo" id="oc-tipo">
+            <button type="button" role="radio" data-valor="folga">Folga</button>
+            <button type="button" role="radio" data-valor="falta">Falta</button>
+            <button type="button" role="radio" data-valor="atestado">Atestado</button>
+            <button type="button" role="radio" data-valor="feriado_trabalhado">Feriado trab.</button>
+          </div>
+          <div class="dupla">
+            <label class="campo"><span id="oc-data-rotulo">Data</span><input type="date" id="oc-data" /></label>
+            <label class="campo" id="oc-dias-campo" hidden><span>Dias</span><input type="number" id="oc-dias" min="1" max="365" value="1" /></label>
+          </div>
+          <label class="marcar" id="oc-justificada-campo" hidden><input type="checkbox" id="oc-justificada" /> Falta justificada</label>
+          <p class="msg-aviso" id="oc-aviso" hidden></p>
+          <label class="campo"><span>Motivo / observação</span><input type="text" id="oc-motivo" maxlength="300" autocomplete="off" /></label>
+          <div class="acoes"><button type="button" class="botao primario" id="oc-incluir">Registrar</button></div>
+        </div>
+        <div class="bloco">
+          <label class="campo"><span>Mês</span><input type="month" id="oc-mes" /></label>
+          <div id="oc-lista"></div>
+        </div>
+        <div class="bloco">
+          <h2>Feriados</h2>
+          <p class="suave mini">Os nacionais o sistema já sabe. Inclua os municipais e estaduais. Carnaval e Corpus Christi são
+            ponto facultativo: contam como dia normal.</p>
+          <div id="fer-lista"></div>
+          <div class="dupla">
+            <label class="campo"><span>Data</span><input type="date" id="fer-data" /></label>
+            <label class="campo"><span>Nome</span><input type="text" id="fer-nome" maxlength="60" autocomplete="off" /></label>
+          </div>
+          <div class="acoes"><button type="button" class="botao" id="fer-incluir">Incluir feriado</button></div>
+        </div>
+      </section>
+
+      <!-- ======================= RH: RESUMO ======================= -->
+      <section id="aba-rh-resumo" class="aba" hidden>
+        <div class="bloco">
+          <label class="campo"><span>Mês</span><input type="month" id="res-mes" /></label>
+          <div class="acoes">
+            <button type="button" class="botao" id="res-pdf">PDF</button>
+            <button type="button" class="botao primario" id="res-copiar">Copiar para o WhatsApp</button>
+          </div>
+        </div>
+        <div id="res-conteudo"></div>
+      </section>
+
       <section id="aba-escuta" class="aba" hidden>
         <div id="esc-geral"></div>
       </section>
@@ -708,6 +830,8 @@
   <script src="js/importar.js"></script>
   <script src="js/cupons.js"></script>
   <script src="js/cartoes.js"></script>
+  <script src="js/rh.js"></script>
+  <script src="js/rh-admin.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

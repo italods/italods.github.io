@@ -22,6 +22,20 @@
   var CAMPOS_CIELO = ["chave", "data", "hora", "forma", "forma_original", "parcelas", "bandeira", "valor_centavos",
     "aprovada", "status", "maquina", "nsu", "autorizacao", "id_pix", "txid", "pagador"];
 
+  // RH: tabela rh_<nome> e campos que a tela pode gravar
+  var CAMPOS_RH = {
+    funcionarios: ["nome", "funcao", "admissao", "desligamento", "telefone", "salario_centavos", "turma", "observacao"],
+    turmas: ["nome", "ordem"],
+    horarios: ["nome", "ordem", "dias"],
+    ocorrencias: ["funcionario", "tipo", "data", "dias", "justificada", "motivo"],
+    feriados: ["data", "nome"],
+    holerites: ["funcionario", "referencia", "recebido_em", "observacao"]
+  };
+  function camposRH(nome) {
+    if (!CAMPOS_RH[nome]) throw new Error("tabela do RH desconhecida: " + nome);
+    return CAMPOS_RH[nome];
+  }
+
   function filtrarCampos(obj, campos) {
     var r = {};
     campos.forEach(function (c) { if (obj[c] !== undefined) r[c] = obj[c]; });
@@ -42,6 +56,12 @@
     } else if (status === 401 || codigo === "PGRST301" || codigo === "PGRST303" || /jwt|token|session/i.test(msg)) {
       err.message = "Sua sessão expirou. Entre de novo para " + acao + ". O que você digitou não foi perdido.";
       err.tipo = "sessao";
+    } else if (codigo === "23505" || /duplicate key/i.test(msg)) {
+      err.message = "Não foi possível " + acao + ": esse registro já existe (mesma data/tipo ou mesmo mês).";
+      err.tipo = "repetido";
+    } else if (codigo === "23503" || /foreign key/i.test(msg)) {
+      err.message = "Não foi possível " + acao + ": há outros registros ligados a este. Para um funcionário, preencha a data de desligamento em vez de apagar.";
+      err.tipo = "ligado";
     } else if (codigo === "42501" || /row-level security|permission denied/i.test(msg)) {
       err.message = "Seu usuário não tem permissão. Confira se o seu e-mail está na lista de autorizados.";
       err.tipo = "permissao";
@@ -162,6 +182,21 @@
         var t = cliente.from(v.tabela);
         var q = v.operacao === "apagado" ? t.insert(Object.assign({ id: v.registro }, d)) : t.update(d).eq("id", v.registro);
         return q.select().single().then(resultado("desfazer a alteração"), falhaRede("desfazer a alteração"));
+      },
+      /* ---- RH ---- */
+      listarRH: function (nome) {
+        camposRH(nome);
+        return cliente.from("rh_" + nome).select("*").limit(5000).then(resultado("carregar o RH"), falhaRede("carregar o RH"));
+      },
+      salvarRH: function (nome, dados, id) {
+        var d = filtrarCampos(dados, camposRH(nome));
+        var t = cliente.from("rh_" + nome);
+        var q = id ? t.update(d).eq("id", id) : t.insert(d);
+        return q.select().single().then(resultado("salvar no RH"), falhaRede("salvar no RH"));
+      },
+      apagarRH: function (nome, id) {
+        camposRH(nome);
+        return cliente.from("rh_" + nome).delete().eq("id", id).then(resultado("apagar"), falhaRede("apagar"));
       },
       listarMovimentos: function (f) {
         return consulta("movimentos", f || {}).then(resultado("carregar sangrias e suprimentos"), falhaRede("carregar sangrias e suprimentos"));
@@ -412,6 +447,28 @@
       listarConferencias: function (f) { return Promise.resolve(filtrar(ler("conferencias"), f)); },
       salvarConferencia: function (d, i) { return salvar("conferencias", CAMPOS_CONFERENCIA, d, i); },
       apagarConferencia: function (i) { return apagar("conferencias", i); },
+      listarRH: function (nome) { camposRH(nome); return Promise.resolve(ler("rh_" + nome)); },
+      salvarRH: function (nome, dados, i) {
+        var d = filtrarCampos(dados, camposRH(nome));
+        var lista = ler("rh_" + nome).filter(function (x) { return x.id !== i; });
+        var chaves = { ocorrencias: ["funcionario", "data", "tipo"], feriados: ["data"], holerites: ["funcionario", "referencia"] }[nome];
+        var atual = i ? ler("rh_" + nome).filter(function (x) { return x.id === i; })[0] : {};
+        var novo = Object.assign({}, atual, d);
+        if (chaves && lista.some(function (x) { return chaves.every(function (k) { return String(x[k]) === String(novo[k]); }); })) {
+          return Promise.reject(erroAmigavel({ code: "23505", message: "duplicate key" }, "salvar no RH"));
+        }
+        return salvar("rh_" + nome, camposRH(nome), d, i);
+      },
+      apagarRH: function (nome, i) {
+        camposRH(nome);
+        if (nome === "funcionarios" && (ler("rh_ocorrencias").concat(ler("rh_holerites"))).some(function (x) { return x.funcionario === i; })) {
+          return Promise.reject(erroAmigavel({ code: "23503", message: "foreign key" }, "apagar"));
+        }
+        if (nome === "turmas") {
+          gravar("rh_funcionarios", ler("rh_funcionarios").map(function (f) { if (f.turma === i) f.turma = null; return f; }));
+        }
+        return apagar("rh_" + nome, i);
+      },
       anexarCupom: function (i, cupom) { return salvar("conferencias", CAMPOS_CONFERENCIA, { cupom: cupom, pendente: false }, i); },
       listarVersoes: function (f) {
         f = f || {};

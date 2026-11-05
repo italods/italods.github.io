@@ -6,8 +6,8 @@ estáticos da raiz como estão; o `vercel.json` só tem a regra `/q/:token` → 
 (QR codes) e cabeçalhos noindex. Domínio: https://italods.com.br/ (sistema em https://italods.com.br/sistema/). Dentro dele fica o **Sistema Veneza**, o sistema gerencial do
 Supermercado Veneza (Paes Landim - PI), usado só pelo Italo e pela irmã (sócia). O sistema tem duas
 áreas: **Conferência de caixa**, **Veneza Escuta** (sugestões, reclamações, elogios e produtos em
-falta enviados pelos clientes por QR codes nas plaquinhas da loja) e **Cartões** (conciliação dos
-pagamentos da Cielo e taxas do contrato).
+falta enviados pelos clientes por QR codes nas plaquinhas da loja), **Cartões** (conciliação dos
+pagamentos da Cielo e taxas do contrato) e **RH** (funcionários, escala, ocorrências, resumo do mês).
 
 Tudo é HTML/CSS/JS puro, sem framework e sem etapa de build. O que estiver no `main` vai ao ar.
 
@@ -48,6 +48,8 @@ sistema/
   js/recebiveis.js  ← conciliação: CSV de Recebíveis da Cielo, taxa do contrato × cobrada (1 centavo
                       de tolerância), prazo em dias úteis, vendas sem pagamento, repasse no BB
   js/cartoes.js     ← área "Cartões": abas Conciliação (#cartoes) e Taxas (#cartoes-taxas)
+  js/rh.js          ← RH (puras + testes): escala rotativa, dia do funcionário, resumo do mês, texto
+  js/rh-admin.js    ← área "RH": Funcionários (#rh), Escala, Ocorrências, Resumo
   js/importar.js    ← aba "Importar" (Conferência de caixa): prévias do CSV da Cielo e do extrato do
                       BB, CNPJ da loja, máquinas, trocas
   js/cupons.js      ← aba "Importar" > "Cupons do Diamante": vários PDFs de uma vez, cada um no seu
@@ -62,6 +64,8 @@ escuta/             ← formulário PÚBLICO dos clientes (sem login): index.htm
 assets/logo-veneza.png ← logo oficial (preta, fundo transparente, versão sem a onda). No topo verde do
                     formulário ela aparece branca (filtro no escuta.css); nas plaquinhas, preta
 supabase/schema.sql ← caixa: tabelas, gatilhos e RLS (colar no SQL Editor; pode rodar de novo)
+supabase/rh.sql   ← RH: rh_funcionarios, rh_turmas, rh_horarios, rh_ocorrencias, rh_feriados,
+                      rh_holerites (rodar depois do schema.sql; pode rodar de novo)
 supabase/escuta.sql ← Veneza Escuta: tabelas, funções, RLS e pasta privada de fotos (rodar
                       depois do schema.sql; pode rodar de novo)
 supabase/testes/    ← Supabase simulado + testes SQL (caixa.test.sql, escuta.test.sql; só para
@@ -148,6 +152,22 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   do projeto e a poucos envios por hora; para outra pessoa, criar o usuário em Authentication >
   Users > Add user (senha provisória, "Auto Confirm") e ela troca em "Trocar senha".
 
+### RH
+- Dados dos funcionários **só no banco** (nunca no código nem nos testes: nomes inventados). Ficha:
+  nome, função, admissão, telefone, salário (centavos), turma, desligamento (preenchido = desligado) e
+  observações. Sem CPF nem endereço (decisão do Italo). O resumo para o contador não leva salário.
+- Escala: horários (entrada/saída de segunda a sábado; domingo fechado) e turmas que **revezam toda
+  semana** (manhã/tarde). Semana de referência em `configuracoes.rh_semana_ref` (segunda-feira): nela a
+  turma de ordem 0 faz o horário de ordem 0; a cada semana avançam um horário. Na tela o Italo escolhe
+  "nesta semana faz" e o sistema calcula a referência.
+- Ocorrências: folga, falta (justificada ou não), atestado (dias corridos a partir da data) e feriado
+  trabalhado. Feriados nacionais vêm de `feriados.js`; municipais/estaduais em `rh_feriados`. A loja
+  abre em alguns feriados: quem trabalhou é marcado. Carnaval e Corpus Christi = ponto facultativo
+  (dia normal no comércio).
+- Holerite: só o registro de recebimento (mês e data), nunca o arquivo. Funcionário com histórico
+  não se apaga (chave estrangeira): preencher o desligamento.
+- Resumo do mês: faltas, atestados, folgas, feriados trabalhados; WhatsApp + PDF.
+
 ### Veneza Escuta
 - Cliente (papel `anon`) não lê nenhuma tabela. Só chama `escuta_plaquinha`, `escuta_buscar_produtos`
   e `escuta_enviar`, e só **cria** arquivo em `escuta-fotos/envios/<id do envio>/<uuid>.jpg`.
@@ -196,6 +216,8 @@ psql -d teste -f supabase/schema.sql
 psql -d teste -f supabase/escuta.sql
 psql -d teste -f supabase/testes/escuta.test.sql   # termina com TODOS_OS_TESTES_PASSARAM
 psql -d teste -f supabase/testes/caixa.test.sql    # idem (cupom do Diamante)
+psql -d teste -f supabase/rh.sql
+psql -d teste -f supabase/testes/rh.test.sql       # idem (RH)
 ```
 
 ## Publicar
@@ -210,7 +232,7 @@ psql -d teste -f supabase/testes/caixa.test.sql    # idem (cupom do Diamante)
    (descontinuado): a correção é em Settings > Node.js Version, não no código.
 3. Enviar para `main` (a Vercel publica sozinha em 1–2 minutos). Um push em outra branch só gera
    uma prévia na Vercel, que usa o mesmo Supabase: cuidado ao testar lá, os dados são os reais.
-4. Mudança no banco: atualizar o `.sql` da área (`schema.sql` ou `escuta.sql`) de forma que possa
+4. Mudança no banco: atualizar o `.sql` da área (`schema.sql`, `escuta.sql` ou `rh.sql`) de forma que possa
    rodar de novo sem apagar dados (`if not exists`, `add column if not exists`, `create or
    replace`), atualizar os testes SQL e avisar o Italo para colar o arquivo no SQL Editor.
    Backup: o plano gratuito do Supabase não guarda cópias para baixar; os CSVs do Histórico e das

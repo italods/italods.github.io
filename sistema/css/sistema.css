@@ -656,3 +656,25 @@ label.botao.ocupado { opacity: .6; pointer-events: none; }
   .etiqueta.sit-pendente { background: #3a3016; color: #f3d891; }
   .cor-pendente { color: #f0c060; }
 }
+
+/* ---------- RH ---------- */
+.esc-dia { border-top: 1px solid var(--borda); padding: 8px 0; }
+.esc-dia:first-child { border-top: 0; }
+.esc-dia.hoje .esc-dia-cab strong { color: var(--primaria); }
+.esc-dia-cab { margin: 0 0 4px; }
+.esc-dia ul, .esc-mes { list-style: none; margin: 0; padding: 0; }
+.esc-dia li, .esc-mes li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; font-variant-numeric: tabular-nums; }
+.esc-mes li { border-top: 1px solid var(--borda); padding: 6px 0; }
+.esc-mes li.hoje { font-weight: 700; }
+.esc-dia li > span:last-child, .esc-mes li > span:last-child { text-align: right; white-space: nowrap; }
+.horario, .turma { border-top: 1px solid var(--borda); padding-top: 10px; margin-top: 10px; }
+.horario:first-child, .turma:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+.tabela-horario { width: 100%; border-collapse: collapse; }
+.tabela-horario th { text-align: left; font-size: .85rem; color: var(--suave); font-weight: 600; }
+.tabela-horario td { padding: 3px 4px 3px 0; }
+.tabela-horario input { width: 100%; min-height: 44px; font: inherit; padding: 4px 6px; box-sizing: border-box; }
+.oc-tipos { grid-auto-columns: minmax(0, 1fr); }
+.oc-tipos button { font-size: .85rem; padding: 0 2px; }
+.holerite-registrar { display: flex; gap: 6px; align-items: center; }
+.holerite-registrar input { min-height: 44px; max-width: 9.5rem; font: inherit; }
+#rh-holerites h3 { margin: 12px 0 4px; }

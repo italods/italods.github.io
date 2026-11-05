@@ -214,12 +214,14 @@
   var ABAS_CAIXA = ["caixa", "historico", "movimentos", "relatorio", "importar"];
   var ABAS_ESCUTA = ["escuta", "escuta-mensagens", "escuta-plaquinhas", "escuta-catalogo"];
   var ABAS_CARTOES = ["cartoes", "cartoes-taxas"];
-  var ABAS = ABAS_CAIXA.concat(ABAS_ESCUTA, ABAS_CARTOES);
+  var ABAS_RH = ["rh", "rh-escala", "rh-ocorrencias", "rh-resumo"];
+  var ABAS = ABAS_CAIXA.concat(ABAS_ESCUTA, ABAS_CARTOES, ABAS_RH);
   var abaAtual = null;
   function mostrarAba() {
     var aba = location.hash.replace("#", "");
     if (ABAS.indexOf(aba) < 0) aba = "caixa";
-    var modulo = ABAS_ESCUTA.indexOf(aba) >= 0 ? "escuta" : ABAS_CARTOES.indexOf(aba) >= 0 ? "cartoes" : "caixa";
+    var modulo = ABAS_ESCUTA.indexOf(aba) >= 0 ? "escuta" : ABAS_CARTOES.indexOf(aba) >= 0 ? "cartoes" :
+      ABAS_RH.indexOf(aba) >= 0 ? "rh" : "caixa";
     ABAS.forEach(function (a) { $("aba-" + a).hidden = a !== aba; });
     Array.prototype.forEach.call(document.querySelectorAll(".abas a"), function (a) {
       a.classList.toggle("ativa", a.dataset.aba === aba);
@@ -240,6 +242,7 @@
     if (!mudou) return;
     if (modulo === "escuta") { window.EscutaAdmin.mostrar(aba); return; }
     if (modulo === "cartoes") { window.Cartoes.mostrar(aba); return; }
+    if (modulo === "rh") { window.RHAdmin.mostrar(aba); return; }
     if (aba === "caixa") { if (conf.vista === "form") atualizarContexto(); else carregarInicio(); }
     if (aba === "historico") buscarHistorico();
     if (aba === "movimentos") listarMovimentosDoDia();
@@ -1555,6 +1558,28 @@
     return String(s).replace(/—/g, "-").replace(/−/g, "-").replace(/ /g, " ");
   }
 
+  // PDF simples de um texto do WhatsApp (linhas *assim* em negrito)
+  function pdfTexto(texto, nomeArquivo) {
+    toast("Gerando PDF…");
+    carregarScript(LIBS.jspdf).then(function () {
+      var doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+      var margem = 18, y = margem, limite = 297 - margem;
+      String(texto).split("\n").forEach(function (l, n) {
+        if (l === "") { y += 3; return; }
+        var negrito = /^\*.*\*/.test(l);
+        var tam = n === 0 ? 14 : 11;
+        doc.setFont("helvetica", negrito ? "bold" : "normal");
+        doc.setFontSize(tam);
+        doc.splitTextToSize(textoPDF(l.replace(/\*/g, "")), 210 - 2 * margem).forEach(function (parte) {
+          if (y > limite) { doc.addPage(); y = margem; }
+          doc.text(parte, margem, y);
+          y += 6 * (tam / 11);
+        });
+      });
+      doc.save(nomeArquivo);
+    }, mostrarErro);
+  }
+
   function pdfRegistros(registros, nomeArquivo) {
     if (!registros || !registros.length) return;
     toast("Gerando PDF…");
@@ -1938,6 +1963,11 @@
     window.Cartoes.iniciar({
       db: db, toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, ocupado: ocupado, escapar: escapar,
       brl: brl, dataBR: C.dataBR, horaCurta: C.horaCurta, hojeISO: hojeISO
+    });
+    window.RHAdmin.iniciar({
+      db: db, toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, ocupado: ocupado, escapar: escapar,
+      dataBR: C.dataBR, hojeISO: hojeISO, dinheiroCampo: dinheiroCampo, definirAlternador: definirAlternador,
+      copiar: copiar, pdfTexto: pdfTexto
     });
     window.CuponsDiamante.iniciar({
       db: db, toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, ocupado: ocupado, escapar: escapar,
