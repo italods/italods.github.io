@@ -185,10 +185,68 @@
     return { exatos: exatos, proximos: proximos, soCupom: soCupom, soBB: bb.filter(function (l, k) { return !usados[k]; }) };
   }
 
+  /*
+   * Quadro do dia (tela "Conferir"): para cada caixa, a diferença do dinheiro (fechamentos com cupom) e,
+   * por forma, Cielo − Diamante; a coluna do dia soma os caixas. Diferenças que se anulam entre caixas
+   * (um com +X e outro com −X) viram uma nota: no dia bateu.
+   * p = { caixas, conferencias, vendas, maquinas, trocas, banco (lançamentos), data, cielo: módulo Cielo, bancoBB: módulo Banco }
+   */
+  function quadroDoDia(p) {
+    var CI = p.cielo, BB = p.bancoBB, data = p.data;
+    var FORMAS = ["debito", "credito", "pix"];
+    var vendas = (p.vendas || []).filter(function (v) { return v.data === data; });
+    var banco = (p.banco || []).filter(function (l) { return l.data === data; });
+    var caixas = (p.caixas || []).map(function (cx) {
+      var fechs = (p.conferencias || []).filter(function (r) { return r.tipo === "fechamento" && r.caixa === cx.id && r.data === data; })
+        .sort(function (a, b) { return String(a.hora).localeCompare(String(b.hora)); });
+      var comCupom = fechs.filter(function (r) { return r.cupom && r.cupom.formas; });
+      var calculados = fechs.filter(function (r) { return r.pendente !== true && r.diferenca_centavos != null; });
+      var ultima = comCupom[comCupom.length - 1] || null;
+      var formas = null;
+      if (ultima && vendas.length) {
+        formas = {};
+        CI.compararComCupom(ultima.cupom, CI.somarPorForma(vendas, cx.id, data, p.maquinas, p.trocas))
+          .forEach(function (l) { formas[l.forma] = l; });
+      }
+      return {
+        id: cx.id, curto: cx.curto || cx.id, fechamentos: fechs.length,
+        pendentes: fechs.filter(function (r) { return r.pendente === true; }).length,
+        dinheiro: calculados.length ? calculados.reduce(function (s, r) { return s + r.diferenca_centavos; }, 0) : null,
+        cupom: ultima ? ultima.cupom : null, conferencia: ultima, formas: formas
+      };
+    });
+    function soma(f) {
+      var vs = caixas.map(f).filter(function (v) { return v != null; });
+      return vs.length ? vs.reduce(function (a, b) { return a + b; }, 0) : null;
+    }
+    var dia = { dinheiro: soma(function (c) { return c.dinheiro; }) };
+    var notas = [];
+    FORMAS.forEach(function (f) {
+      dia[f] = soma(function (c) { return c.formas ? c.formas[f].diferenca : null; });
+      var com = caixas.filter(function (c) { return c.formas && c.formas[f].diferenca; });
+      if (com.length >= 2 && dia[f] === 0) {
+        notas.push({ forma: f, tipo: "compensa", texto: NOMES[f].charAt(0).toUpperCase() + NOMES[f].slice(1) + ": " + com.map(function (c) {
+          var d = c.formas[f].diferenca;
+          return c.curto + " com " + brl(Math.abs(d)) + (d > 0 ? " a mais" : " a menos") + " na Cielo";
+        }).join(" e ") + ". No dia bateu: provavelmente uma venda passada na máquina do outro caixa (ou lançada no Diamante do caixa errado)." });
+      }
+    });
+    var cupons = caixas.filter(function (c) { return c.cupom; }).map(function (c) { return c.cupom; });
+    return {
+      data: data, caixas: caixas, dia: dia, notas: notas,
+      temCielo: vendas.length > 0, temBanco: banco.length > 0,
+      semCaixa: vendas.filter(function (v) { return v.aprovada && !CI.caixaDaVenda(v, p.maquinas, p.trocas); }).length,
+      naoAprovadas: vendas.filter(function (v) { return !v.aprovada; }).length,
+      pixDelivery: banco.length && cupons.length ? BB.compararPixDelivery(cupons, banco, data) : null,
+      semCupom: caixas.filter(function (c) { return !c.cupom; }).map(function (c) { return c.curto; })
+    };
+  }
+
   return {
     combinacoes: combinacoes,
     explicarDiferenca: explicarDiferenca,
     casarPixMaquininha: casarPixMaquininha,
-    casarPixDelivery: casarPixDelivery
+    casarPixDelivery: casarPixDelivery,
+    quadroDoDia: quadroDoDia
   };
 });

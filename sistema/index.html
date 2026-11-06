@@ -102,13 +102,14 @@
         </div>
       </div>
       <nav class="modulos" aria-label="Áreas do sistema">
-        <a href="#caixa" data-modulo="caixa">Conferência de caixa</a>
-        <a href="#escuta" data-modulo="escuta">Veneza Escuta</a>
+        <a href="#caixa" data-modulo="caixa"><span class="rotulo-longo">Conferência de caixa</span><span class="rotulo-curto">Caixa</span></a>
+        <a href="#escuta" data-modulo="escuta"><span class="rotulo-longo">Veneza Escuta</span><span class="rotulo-curto">Escuta</span></a>
         <a href="#cartoes" data-modulo="cartoes">Cartões</a>
         <a href="#rh" data-modulo="rh">RH</a>
       </nav>
       <nav class="abas" data-modulo="caixa" aria-label="Conferência de caixa">
         <a href="#caixa" data-aba="caixa">Caixa</a>
+        <a href="#conferir" data-aba="conferir">Conferir</a>
         <a href="#historico" data-aba="historico">Histórico</a>
         <a href="#movimentos" data-aba="movimentos">Sangrias</a>
         <a href="#relatorio" data-aba="relatorio">Relatório</a>
@@ -160,6 +161,9 @@
           </div>
           <div class="acoes">
             <button type="button" class="botao primario" id="nova-contagem">+ Nova contagem</button>
+          </div>
+          <div class="acoes">
+            <button type="button" class="botao fantasma" id="inicio-conferir">Conferir cartões e PIX deste dia ›</button>
           </div>
         </div>
 
@@ -257,8 +261,8 @@
           </div>
 
           <div class="bloco" id="bloco-formas" hidden>
-            <h2>Conferência por forma</h2>
-            <div id="formas-conteudo"></div>
+            <p class="suave mini">Cartões, PIX e PIX Delivery deste cupom são conferidos com a Cielo e o BB na aba <strong>Conferir</strong>.</p>
+            <div class="acoes"><button type="button" class="botao" id="formas-link">Conferir cartões e PIX do dia</button></div>
           </div>
 
           <div class="bloco" id="bloco-pendente" hidden>
@@ -342,6 +346,19 @@
           <span>Total <strong id="barra-contado">R$ 0,00</strong></span>
           <span id="barra-diferenca" class="barra-dif" hidden></span>
         </div>
+      </section>
+
+      <!-- ============================ CONFERIR ============================ -->
+      <section id="aba-conferir" class="aba" hidden>
+        <div class="bloco">
+          <div class="inicio-topo">
+            <button type="button" class="botao pequeno" id="cf-anterior" aria-label="Dia anterior">‹</button>
+            <h2 id="cf-titulo">Hoje</h2>
+            <button type="button" class="botao pequeno" id="cf-proximo" aria-label="Próximo dia">›</button>
+          </div>
+          <label class="campo compacto"><span class="invisivel">Dia</span><input type="date" id="cf-data" /></label>
+        </div>
+        <div class="bloco" id="cf-conteudo"></div>
       </section>
 
       <!-- ============================ HISTÓRICO ============================ -->
@@ -829,6 +846,7 @@
   <script src="js/escuta-admin.js"></script>
   <script src="js/importar.js"></script>
   <script src="js/cupons.js"></script>
+  <script src="js/conferir.js"></script>
   <script src="js/cartoes.js"></script>
   <script src="js/rh.js"></script>
   <script src="js/rh-admin.js"></script>

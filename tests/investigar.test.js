@@ -93,3 +93,49 @@ test("PIX Delivery: casa exato e próximo; sobra o resto", () => {
   assert.deepEqual(r.soCupom.map((x) => x.valor), [777]);
   assert.deepEqual(r.soBB.map((x) => x.valor_centavos), [30000]);
 });
+
+test("quadro do dia: dois caixas lado a lado e diferença que se anula", () => {
+  const CI = require("../sistema/js/cielo.js");
+  const BB = require("../sistema/js/banco.js");
+  const F = (debito, credito, pix, delivery) => ({ dinheiro: { vendas: 0, receb: 0 }, carteira: { vendas: 0, receb: 0 },
+    debito: { vendas: debito, receb: 0 }, credito: { vendas: credito, receb: 0 }, pix: { vendas: pix, receb: 0 }, pix_delivery: { vendas: delivery, receb: 0 } });
+  const caixas = [{ id: "caixa1", curto: "Caixa 1" }, { id: "caixa2", curto: "Caixa 2" }, { id: "caixa3", curto: "Caixa 3" }];
+  const conferencias = [
+    { tipo: "fechamento", caixa: "caixa1", data: "2027-01-15", hora: "19:00", diferenca_centavos: 870, cupom: { formas: F(10000, 5000, 3000, 2000) } },
+    { tipo: "fechamento", caixa: "caixa2", data: "2027-01-15", hora: "19:10", diferenca_centavos: -120, cupom: { formas: F(4000, 0, 1500, 1000) } },
+    { tipo: "fechamento", caixa: "caixa3", data: "2027-01-15", hora: "19:20", pendente: true, diferenca_centavos: null, cupom: null },
+    { tipo: "fechamento", caixa: "caixa1", data: "2027-01-14", hora: "19:00", diferenca_centavos: 99999, cupom: { formas: F(1, 1, 1, 1) } }
+  ];
+  const maquinas = [{ numero: "111", caixa: "caixa1" }, { numero: "222", caixa: "caixa2" }];
+  const V = (maquina, forma, valor, aprovada) => ({ data: "2027-01-15", hora: "10:00", maquina, forma, valor_centavos: valor, aprovada: aprovada !== false });
+  // venda de débito de R$ 30,00 do Caixa 1 passada na máquina do Caixa 2
+  const vendas = [V("111", "debito", 7000), V("222", "debito", 3000), V("222", "debito", 4000), V("111", "credito", 5000),
+    V("111", "pix", 3000), V("222", "pix", 1400), V("999", "pix", 500), V("111", "debito", 800, false)];
+  const banco = [{ data: "2027-01-15", categoria: "pix_terceiro", valor_centavos: 2900 }, { data: "2027-01-15", categoria: "pix_terceiro", valor_centavos: 50, caixa: "fora" }];
+  const q = I.quadroDoDia({ caixas, conferencias, vendas, maquinas, trocas: [], banco, data: "2027-01-15", cielo: CI, bancoBB: BB });
+  const [c1, c2, c3] = q.caixas;
+  assert.equal(c1.dinheiro, 870);
+  assert.equal(c2.dinheiro, -120);
+  assert.equal(c3.dinheiro, null);
+  assert.equal(c3.pendentes, 1);
+  assert.equal(c3.formas, null, "sem cupom: sem conferência por forma");
+  assert.equal(q.dia.dinheiro, 750, "dia = soma dos caixas com diferença");
+  assert.equal(c1.formas.debito.diferenca, -3000, "Cielo tem 30,00 a menos no Caixa 1");
+  assert.equal(c2.formas.debito.diferenca, 3000, "e 30,00 a mais no Caixa 2");
+  assert.equal(q.dia.debito, 0, "no dia o débito bateu");
+  assert.equal(q.dia.pix, -100);
+  assert.equal(q.notas.length, 1);
+  assert.equal(q.notas[0].forma, "debito");
+  assert.match(q.notas[0].texto, /Caixa 1 com R\$\s?30,00 a menos na Cielo e Caixa 2 com R\$\s?30,00 a mais.*No dia bateu/);
+  assert.equal(q.semCaixa, 1, "venda de máquina sem caixa");
+  assert.equal(q.naoAprovadas, 1);
+  assert.equal(q.pixDelivery.esperado, 3000);
+  assert.equal(q.pixDelivery.encontrado, 2900, "'não é venda' fica fora");
+  assert.deepEqual(q.semCupom, ["Caixa 3"]);
+  // sem Cielo e sem BB importados
+  const vazio = I.quadroDoDia({ caixas, conferencias, vendas: [], maquinas, trocas: [], banco: [], data: "2027-01-15", cielo: CI, bancoBB: BB });
+  assert.equal(vazio.temCielo, false);
+  assert.equal(vazio.caixas[0].formas, null);
+  assert.equal(vazio.pixDelivery, null);
+  assert.equal(vazio.dia.debito, null);
+});

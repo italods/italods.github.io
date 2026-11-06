@@ -52,6 +52,8 @@ sistema/
   js/rh-admin.js    ← área "RH": Funcionários (#rh), Escala, Ocorrências, Resumo
   js/importar.js    ← aba "Importar" (Conferência de caixa): prévias do CSV da Cielo e do extrato do
                       BB, CNPJ da loja, máquinas, trocas
+  js/conferir.js    ← aba "Conferir": caixas do dia lado a lado (dinheiro, débito, crédito, PIX, coluna
+                      Dia) + PIX Delivery do dia × BB + "Investigar" (conta em Investigar.quadroDoDia)
   js/cupons.js      ← aba "Importar" > "Cupons do Diamante": vários PDFs de uma vez, cada um no seu
                       fechamento (terminal + dia, de preferência o "falta o cupom")
   js/db.js          ← acesso ao Supabase + modo demonstração (?demo=1, guarda no localStorage)
@@ -121,7 +123,11 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   sistema sugere o CNPJ que mais aparece e o Italo confirma). O repasse da Cielo é reconhecido pelo
   nome "CIELO". No fechamento, o PIX Delivery é conferido por **dia** (cupons de todos os caixas ×
   PIX de clientes no BB), porque o BB não diz o caixa. Ainda falta OFX/Excel (sem amostra).
-- **Investigar diferença**: botão em cada forma com diferença no quadro "Conferência por forma".
+- **Conferir** (aba própria desde nov/2026, fora da contagem): por dia, cada caixa e a coluna Dia;
+  dinheiro = diferença dos fechamentos com cupom; cartões/PIX = Cielo − Diamante (+ = Cielo tem a mais).
+  Diferenças que se anulam entre caixas viram nota ("venda passada na máquina do outro caixa"). O
+  fechamento só mostra um link para o Conferir. No celular o topo usa nomes curtos (Caixa, Escuta...).
+- **Investigar diferença**: toque num valor com diferença no Conferir.
   Só sugere (não muda nada sozinho) e, sem explicação, diz que não achou. No PIX Delivery, o Italo
   marca cada PIX de cliente que sobrou como de um caixa ou "Não é venda" (`banco_lancamentos.caixa`
   = id do caixa ou `fora`; `fora` sai da conta do PIX Delivery).

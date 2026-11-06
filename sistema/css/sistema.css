@@ -678,3 +678,21 @@ label.botao.ocupado { opacity: .6; pointer-events: none; }
 .holerite-registrar { display: flex; gap: 6px; align-items: center; }
 .holerite-registrar input { min-height: 44px; max-width: 9.5rem; font: inherit; }
 #rh-holerites h3 { margin: 12px 0 4px; }
+
+/* ---------- Conferir (caixas lado a lado) ---------- */
+.tabela-conferir { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tabela-conferir th, .tabela-conferir td { padding: 6px 4px; border-bottom: 1px solid var(--borda); text-align: right; white-space: nowrap; }
+.tabela-conferir th:first-child { text-align: left; white-space: normal; }
+.tabela-conferir thead th { color: var(--suave); font-size: .85rem; }
+.celula-inv { font: inherit; font-weight: 700; background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 6px;
+  min-height: 40px; padding: 4px 6px; cursor: pointer; }
+.cor-bateu { color: var(--suave); }
+#cf-data { width: 100%; }
+@media (max-width: 400px) { .tabela-conferir { font-size: .85rem; } .tabela-conferir th, .tabela-conferir td { padding: 6px 2px; } }
+
+/* Topo: nomes curtos das áreas no celular (4 áreas) */
+.modulos .rotulo-curto { display: none; }
+@media (max-width: 480px) {
+  .modulos .rotulo-longo { display: none; }
+  .modulos .rotulo-curto { display: inline; }
+}
