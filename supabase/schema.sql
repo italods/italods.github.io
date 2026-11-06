@@ -85,6 +85,9 @@ alter table public.conferencias add column if not exists sangrias_lancadas_centa
 -- Fechamento salvo só com a contagem, esperando o cupom (nov/2026): sem esperado nem diferença
 -- até o cupom chegar (pela aba Importar ou editando o fechamento). Com cupom, deixa de ser pendente.
 alter table public.conferencias add column if not exists pendente boolean not null default false;
+-- Troco separado no fechamento para a próxima abertura (nov/2026): quantidade por valor, como a contagem.
+-- Não pode ter mais de cada cédula/moeda do que foi contado. Valor do troco de cada caixa: configuracoes.troco_caixas.
+alter table public.conferencias add column if not exists troco_separado jsonb;
 
 create index if not exists conferencias_data_caixa_idx on public.conferencias (data desc, caixa);
 create index if not exists conferencias_fechamento_idx on public.conferencias (caixa, data) where tipo = 'fechamento';
@@ -223,6 +226,32 @@ begin
 end;
 $$;
 
+-- Troco separado: só valores conhecidos, quantidades inteiras de 0 até o contado
+create or replace function public.troco_normalizar(t jsonb, contagem jsonb)
+returns jsonb
+language plpgsql immutable
+set search_path = public
+as $$
+declare
+  k text;
+  v text;
+  r jsonb := '{}'::jsonb;
+begin
+  if t is null or t = 'null'::jsonb then return null; end if;
+  if jsonb_typeof(t) <> 'object' then raise exception 'troco separado inválido'; end if;
+  for k, v in select * from jsonb_each_text(t) loop
+    if k not in ('5', '10', '25', '50', '100', '200', '500', '1000', '2000', '5000', '10000', '20000') or v !~ '^[0-9]{1,5}$' then
+      raise exception 'troco separado inválido';
+    end if;
+    if v::int > coalesce((contagem ->> k)::int, 0) then
+      raise exception 'O troco separado tem mais notas/moedas de % centavos do que foi contado.', k;
+    end if;
+    if v::int > 0 then r := r || jsonb_build_object(k, v::int); end if;
+  end loop;
+  return r;
+end;
+$$;
+
 -- Recalcula totais, esperado e diferença de uma conferência.
 -- Esperado = Fundo + Vendas dinheiro + Recebimentos dinheiro + Suprimentos − Sangrias
 -- Diferença = Contado − Esperado
@@ -280,6 +309,7 @@ begin
       new.cupom := null;
     end if;
 
+    new.troco_separado                 := public.troco_normalizar(new.troco_separado, new.contagem);
     new.pendente                       := coalesce(new.pendente, false);
     new.fundo_centavos                 := coalesce(new.fundo_centavos, 0);
     new.vendas_dinheiro_centavos       := coalesce(new.vendas_dinheiro_centavos, 0);
@@ -297,6 +327,7 @@ begin
     end if;
   else
     new.pendente                   := false;
+    new.troco_separado             := null;
     new.cupom                      := null;
     new.sangrias_lancadas_centavos := null;
     new.sangrias_centavos    := null;

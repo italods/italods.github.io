@@ -259,7 +259,8 @@
     fundoManual: false,
     movimentos: { sangrias: 0, suprimentos: 0 },
     cupom: null,
-    legado: false,       // fechamento antigo, digitado sem cupom (não fica "falta o cupom")
+    legado: false,
+    trocoSeparado: null, // do fechamento em edição (some se a contagem não comportar mais)       // fechamento antigo, digitado sem cupom (não fica "falta o cupom")
     vista: "inicio",     // inicio | escolha | form
     confsDoDia: [],
     pedido: 0
@@ -340,6 +341,7 @@
       fundoManual: conf.fundoManual,
       cupom: conf.cupom,
       legado: conf.legado,
+      trocoSeparado: conf.trocoSeparado,
       textos: {}
     };
     Object.keys(CAMPOS_DINHEIRO).forEach(function (k) { f.textos[k] = $(CAMPOS_DINHEIRO[k]).value; });
@@ -370,6 +372,7 @@
     conf.fundoManual = !!f.fundoManual;
     conf.cupom = f.cupom && f.cupom.formas ? f.cupom : null;
     conf.legado = !!f.legado;
+    conf.trocoSeparado = f.trocoSeparado || null;
     desenharCupom();
     $("editando").hidden = !conf.editId;
     $("editando-texto").textContent = conf.editRotulo || "Editando registro";
@@ -460,6 +463,7 @@
     } else {
       barraDif.hidden = true;
     }
+    if (!fechamento) window.Troco.compararAbertura(lerContagem());
     gravarLocal(RASCUNHO_CONF, lerFormularioConf());
   }
 
@@ -489,6 +493,18 @@
 
   function atualizarContexto() {
     atualizarAvisoForm();
+    var ehAbertura = $("conf-tipo").dataset.valor !== "fechamento";
+    window.Troco.mostrarAbertura(ehAbertura ? $("conf-caixa").dataset.valor : "", $("conf-data").value, $("conf-hora").value, !!conf.editId);
+    if (!ehAbertura && !conf.editId && db) {
+      var caixaTroco = $("conf-caixa").dataset.valor;
+      window.Troco.valorDoCaixa(caixaTroco).then(function (v) {
+        var atualTroco = C.reaisParaCentavos($("conf-troco").value);
+        if ($("conf-caixa").dataset.valor === caixaTroco && (atualTroco == null || atualTroco === C.TROCO_PADRAO) && v !== atualTroco) {
+          $("conf-troco").value = dinheiroCampo(v);
+          atualizarConferencia();
+        }
+      });
+    }
     if (!db || $("conf-tipo").dataset.valor !== "fechamento") return Promise.resolve();
     var data = $("conf-data").value;
     var caixa = $("conf-caixa").dataset.valor;
@@ -578,6 +594,10 @@
     d.carteira_centavos = opcional("conf-carteira");
     d.cupom = fech ? conf.cupom : null;
     d.pendente = fech && !conf.cupom && !conf.legado;
+    if (fech && conf.editId && conf.trocoSeparado &&
+        C.compararContagens(conf.trocoSeparado, d.contagem).some(function (x) { return x.a > x.b; })) {
+      d.troco_separado = null;   // a contagem mudou e o troco separado não cabe mais
+    }
     return d;
   }
 
@@ -611,6 +631,7 @@
       if (eraEdicao && voltarAoHistorico) location.hash = "#historico";
       else { $("inicio-data").value = salvo.data; carregarInicio(); }
       voltarAoHistorico = false;
+      if (salvo.tipo === "fechamento" && !eraEdicao) window.Troco.perguntar(salvo);
     }, mostrarErro).then(function () { ocupado(botao, false); });
   }
 
@@ -637,7 +658,7 @@
     preencherFormularioConf({
       tipo: r.tipo, caixa: r.caixa, operador: r.operador, data: r.data, hora: C.horaCurta(r.hora),
       contagem: r.contagem, observacao: r.observacao, textos: textos, editId: r.id, fundoManual: true, cupom: r.cupom,
-      legado: r.tipo === "fechamento" && !r.cupom && !r.pendente,
+      legado: r.tipo === "fechamento" && !r.cupom && !r.pendente, trocoSeparado: r.troco_separado,
       editRotulo: "Editando: " + F.nomeTipo(r.tipo) + " · " + nomeCaixa(r.caixa) + " · " + C.dataBR(r.data) + " " + C.horaCurta(r.hora)
     });
     atualizarConferencia();
@@ -1757,6 +1778,19 @@
       db: db, toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, ocupado: ocupado, escapar: escapar,
       dataBR: C.dataBR, hojeISO: hojeISO, dinheiroCampo: dinheiroCampo, definirAlternador: definirAlternador,
       copiar: copiar, pdfTexto: pdfTexto
+    });
+    window.Troco.iniciar({
+      db: db, toast: toast, mostrarErro: mostrarErro, ocupado: ocupado, escapar: escapar, brl: brl, nomeCaixa: nomeCaixa,
+      dataBR: C.dataBR, dinheiroCampo: dinheiroCampo, lerContagem: lerContagem,
+      preencherContagem: function (cont) {
+        Array.prototype.forEach.call(document.querySelectorAll(".linha-contagem"), function (l) {
+          var q = cont && cont[l.dataset.valor];
+          l.querySelector("input").value = String(q > 0 ? q : 0);
+        });
+        atualizarConferencia();
+        toast("Quantidades preenchidas. Confira com a gaveta.");
+      },
+      aoSalvar: function () { if (abaAtual === "caixa" && conf.vista === "inicio") carregarInicio(); }
     });
     window.Conferir.iniciar({
       db: db, toast: toast, mostrarErro: mostrarErro, escapar: escapar, brl: brl, caixas: CAIXAS, nomeCaixa: nomeCaixa,

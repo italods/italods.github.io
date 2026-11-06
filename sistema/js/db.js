@@ -9,7 +9,7 @@
 
   var CAMPOS_CONFERENCIA = ["tipo", "caixa", "operador", "data", "hora", "contagem", "fundo_centavos",
     "vendas_dinheiro_centavos", "recebimentos_dinheiro_centavos", "pix_centavos", "debito_centavos",
-    "credito_centavos", "carteira_centavos", "troco_amanha_centavos", "observacao", "cupom", "pendente"];
+    "credito_centavos", "carteira_centavos", "troco_amanha_centavos", "observacao", "cupom", "pendente", "troco_separado"];
   var CAMPOS_MOVIMENTO = ["tipo", "caixa", "data", "hora", "valor_centavos", "motivo", "responsavel"];
   var CAMPOS_MAQUINA = ["numero", "apelido", "caixa", "ativa"];
   var CAMPOS_TROCA = ["data", "maquina", "caixa", "hora_de", "hora_ate", "observacao"];
@@ -164,6 +164,11 @@
       apagarConferencia: function (id) {
         return cliente.from("conferencias").delete().eq("id", id)
           .then(resultado("apagar a conferência"), falhaRede("apagar a conferência"));
+      },
+      // Troco separado no fechamento para a próxima abertura
+      salvarTroco: function (id, troco) {
+        return cliente.from("conferencias").update({ troco_separado: troco }).eq("id", id).select().single()
+          .then(resultado("guardar o troco separado"), falhaRede("guardar o troco separado"));
       },
       // Cupom importado depois (aba Importar): completa o fechamento que estava "falta o cupom"
       anexarCupom: function (id, cupom) {
@@ -345,6 +350,14 @@
           c.cupom = null;
         }
         c.pendente = !!c.pendente;
+        if (c.troco_separado) {
+          var t = {};
+          Object.keys(c.troco_separado).forEach(function (k) {
+            var q = Math.min(+c.troco_separado[k] || 0, +(c.contagem || {})[k] || 0);
+            if (q > 0) t[k] = q;
+          });
+          c.troco_separado = t;
+        }
         c.fundo_centavos = c.fundo_centavos || 0;
         c.vendas_dinheiro_centavos = c.vendas_dinheiro_centavos || 0;
         c.recebimentos_dinheiro_centavos = c.recebimentos_dinheiro_centavos || 0;
@@ -358,6 +371,7 @@
         if (c.pendente) c.esperado_centavos = c.diferenca_centavos = null;
       } else {
         c.pendente = false;
+        c.troco_separado = null;
         c.sangrias_centavos = c.suprimentos_centavos = c.esperado_centavos = c.diferenca_centavos = null;
         c.cupom = c.sangrias_lancadas_centavos = null;
       }
@@ -469,6 +483,7 @@
         }
         return apagar("rh_" + nome, i);
       },
+      salvarTroco: function (i, troco) { return salvar("conferencias", CAMPOS_CONFERENCIA, { troco_separado: troco }, i); },
       anexarCupom: function (i, cupom) { return salvar("conferencias", CAMPOS_CONFERENCIA, { cupom: cupom, pendente: false }, i); },
       listarVersoes: function (f) {
         f = f || {};

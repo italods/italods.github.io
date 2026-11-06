@@ -218,6 +218,9 @@
           </div>
         </div>
 
+        <div class="bloco destaque" id="abertura-troco" hidden></div>
+        <p class="msg-aviso mini" id="abertura-troco-dif" role="status" hidden></p>
+
         <div class="bloco">
           <h2>Cédulas</h2>
           <div id="linhas-cedulas"></div>
@@ -802,6 +805,15 @@
   <datalist id="esc-setores"></datalist>
 
   <!-- Janela de detalhe de um registro -->
+  <!-- Troco de amanhã (depois do fechamento) -->
+  <dialog id="troco" class="janela janela-larga">
+    <div class="janela-topo">
+      <h2 id="troco-titulo">Troco de amanhã</h2>
+      <button type="button" class="botao fantasma" id="troco-fechar" aria-label="Fechar">×</button>
+    </div>
+    <div id="troco-corpo"></div>
+  </dialog>
+
   <!-- Conferência de caixa: investigar diferença -->
   <dialog id="investigar" class="janela janela-larga">
     <div class="janela-topo">
@@ -847,6 +859,7 @@
   <script src="js/importar.js"></script>
   <script src="js/cupons.js"></script>
   <script src="js/conferir.js"></script>
+  <script src="js/troco.js"></script>
   <script src="js/cartoes.js"></script>
   <script src="js/rh.js"></script>
   <script src="js/rh-admin.js"></script>

@@ -97,3 +97,59 @@ test("cupom importado depois: acha o fechamento certo", () => {
   assert.match(D.fechamentoDoCupom(CAIXAS, confs, Object.assign({}, cupom, { terminal: "9" })).erro, /terminal 9/);
   assert.match(D.fechamentoDoCupom(CAIXAS, confs, { terminal: "3" }).erro, /data do cupom/);
 });
+
+test("troco de amanhã: valor exato, moedas ficam, 2 de R$ 50, R$ 100 no cofre", () => {
+  const soma = (c) => Object.keys(c).reduce((s, k) => s + +k * c[k], 0);
+  // fechamento inventado: R$ 27,50 em moedas e cédulas de todos os valores
+  const contagem = { 5: 10, 10: 20, 25: 20, 50: 10, 100: 15, 200: 30, 500: 20, 1000: 15, 2000: 20, 5000: 6, 10000: 5 };
+  const ideal = { 200: 20, 500: 10, 1000: 10, 2000: 5, 5000: 2 }; // abertura do dia
+  const r = C.separarTroco({ contagem, alvo: 50000, ideal });
+  assert.equal(r.exato, true);
+  assert.equal(r.totalDeixar, 50000);
+  assert.equal(soma(r.deixar), 50000);
+  assert.equal(r.totalDeixar + r.totalCofre, soma(contagem), "nada some: gaveta + cofre = contado");
+  assert.equal(r.deixar[5000], 2, "2 notas de R$ 50");
+  assert.equal(r.deixar[10000], undefined, "R$ 100 sempre no cofre");
+  const moedasFicam = [5, 10, 25, 50, 100].reduce((s, v) => s + v * (r.deixar[v] || 0), 0);
+  assert.ok(moedasFicam >= 2700 && moedasFicam <= 2750, "moedas ficam (só saem os centavos): " + moedasFicam);
+  assert.equal(moedasFicam % 100, 0, "moedas fecham em reais redondos");
+  for (const v of [200, 500, 1000, 2000]) assert.ok(r.deixar[v] <= contagem[v], "não deixa mais do que tem");
+  // perto do que havia na abertura (cada cédula pequena no mínimo o que tinha)
+  for (const v of [200, 500, 1000, 2000]) assert.ok(r.deixar[v] >= ideal[v] - 1, "perto da abertura de " + v + ": " + r.deixar[v]);
+  for (const v of Object.keys(r.cofre)) assert.equal(r.cofre[v], contagem[v] - (r.deixar[v] || 0));
+
+  // sem abertura (sem ideal): ficam as menores e saem primeiro as maiores
+  const s2 = C.separarTroco({ contagem: { 100: 30, 200: 40, 500: 20, 1000: 10, 2000: 10, 5000: 3 }, alvo: 50000 });
+  assert.equal(s2.totalDeixar, 50000);
+  assert.equal(s2.deixar[200], 40, "notas de R$ 2 ficam");
+  assert.equal(s2.deixar[100], 30, "moedas de R$ 1 ficam");
+  assert.ok((s2.deixar[2000] || 0) < 10, "tira as de R$ 20 antes das pequenas");
+
+  // não tem o suficiente (sem contar R$ 100): deixa tudo o que pode e diz quanto falta
+  const s3 = C.separarTroco({ contagem: { 100: 10, 2000: 5, 10000: 3 }, alvo: 50000 });
+  assert.equal(s3.exato, false);
+  assert.equal(s3.totalDeixar, 11000);
+  assert.equal(s3.falta, 39000);
+  assert.equal(s3.deixar[10000], undefined);
+  assert.equal(s3.cofre[10000], 3);
+
+  // moedas demais: passa do alvo, então saem moedas
+  const s4 = C.separarTroco({ contagem: { 100: 600 }, alvo: 50000 });
+  assert.equal(s4.totalDeixar, 50000);
+  assert.equal(s4.cofre[100], 100);
+});
+
+test("troco separado × abertura contada; último fechamento do caixa", () => {
+  assert.deepEqual(C.compararContagens({ 200: 20, 5000: 2 }, { 200: 18, 5000: 2, 100: 1 }),
+    [{ valor: 200, a: 20, b: 18 }, { valor: 100, a: 0, b: 1 }]);
+  assert.deepEqual(C.compararContagens({ 200: 20 }, { 200: 20 }), []);
+  const confs = [
+    { id: "a", tipo: "fechamento", caixa: "caixa1", data: "2027-01-14", hora: "19:00" },
+    { id: "b", tipo: "fechamento", caixa: "caixa1", data: "2027-01-15", hora: "12:00" },
+    { id: "c", tipo: "fechamento", caixa: "caixa2", data: "2027-01-15", hora: "19:00" },
+    { id: "d", tipo: "abertura", caixa: "caixa1", data: "2027-01-15", hora: "13:00" }
+  ];
+  assert.equal(C.ultimoFechamento(confs, "caixa1", "2027-01-15", "07:00").id, "a", "abertura de manhã: fechamento do dia anterior");
+  assert.equal(C.ultimoFechamento(confs, "caixa1", "2027-01-15", "13:00").id, "b", "segundo turno: fechamento do primeiro");
+  assert.equal(C.ultimoFechamento(confs, "caixa3", "2027-01-15", "13:00"), null);
+});

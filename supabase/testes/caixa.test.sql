@@ -104,6 +104,18 @@ select pg_temp.ok((select not pendente and esperado_centavos = 15000 and diferen
 insert into conferencias (tipo, caixa, data, hora, pendente) values ('abertura', 'caixa7', '2027-01-21', '07:00', true) returning id as ab_pend \gset
 select pg_temp.ok((select not pendente from conferencias where id = :'ab_pend'), 'abertura nunca fica pendente');
 
+-- ===== troco separado para a próxima abertura
+insert into conferencias (tipo, caixa, data, hora, contagem, pendente, troco_separado)
+values ('fechamento', 'caixa3', '2027-01-20', '19:00', '{"5000": 4, "200": 10, "100": 5}', true, '{"5000": 2, "200": 10, "100": 0}')
+returning id as troco \gset
+select pg_temp.ok((select troco_separado = '{"5000": 2, "200": 10}'::jsonb from conferencias where id = :'troco'), 'troco separado guardado (sem zeros)');
+select pg_temp.espera_erro(format($q$update conferencias set troco_separado = '{"5000": 5}' where id = %L$q$, :'troco'), 'mais notas/moedas de 5000');
+select pg_temp.espera_erro(format($q$update conferencias set troco_separado = '{"300": 1}' where id = %L$q$, :'troco'), 'troco separado inválido');
+select pg_temp.espera_erro(format($q$update conferencias set troco_separado = '{"200": -1}' where id = %L$q$, :'troco'), 'troco separado inválido');
+insert into conferencias (tipo, caixa, data, hora, contagem, troco_separado) values ('abertura', 'caixa3', '2027-01-21', '07:00', '{"5000": 2}', '{"5000": 2}')
+returning id as ab_troco \gset
+select pg_temp.ok((select troco_separado is null from conferencias where id = :'ab_troco'), 'abertura não guarda troco separado');
+
 -- ===== caixa aberto não abre de novo
 insert into conferencias (tipo, caixa, data, hora) values ('abertura', 'caixa6', '2027-01-20', '07:00') returning id as ab1 \gset
 select pg_temp.espera_erro($q$insert into conferencias (tipo, caixa, data, hora) values ('abertura', 'caixa6', '2027-01-20', '08:00')$q$,

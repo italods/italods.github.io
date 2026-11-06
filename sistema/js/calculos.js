@@ -13,7 +13,7 @@
   var CEDULAS = [200, 500, 1000, 2000, 5000, 10000];
   var MOEDAS = [5, 10, 25, 50, 100];
   var FUNDO_PADRAO = 30000; // R$ 300,00
-  var TROCO_PADRAO = 30000; // R$ 300,00
+  var TROCO_PADRAO = 50000; // R$ 500,00 (cada caixa pode ter o seu em configuracoes.troco_caixas)
 
   function inteiro(n) {
     n = Number(n);
@@ -223,6 +223,90 @@
   }
 
   /*
+   * Separa o troco de amanhã a partir da contagem do fechamento (o que fica na gaveta e o que vai para o cofre).
+   * p = { contagem, alvo (centavos), ideal (contagem desejada: a abertura do dia; opcional),
+   *       notas50 (quantas de R$ 50 deixar, padrão 2), cofreSempre (padrão R$ 100 e R$ 200) }
+   * Regras: deixa exatamente o alvo; moedas ficam (só saem os centavos que não fecham o valor redondo, ou se
+   * passarem do alvo); R$ 50 = notas50; R$ 100 e R$ 200 nunca ficam; cédulas pequenas o mais perto do ideal
+   * (sem ideal: ficam todas e saem primeiro as maiores). Sem dinheiro suficiente: deixa o que der e diz quanto falta.
+   * Devolve { deixar, cofre, totalDeixar, totalCofre, exato, falta }.
+   */
+  function separarTroco(p) {
+    var cont = {};
+    Object.keys(p.contagem || {}).forEach(function (k) { var q = quantidade(p.contagem[k]); if (q > 0) cont[k] = q; });
+    var alvo = Math.max(0, inteiro(p.alvo));
+    var n50 = p.notas50 == null ? 2 : quantidade(p.notas50);
+    var proibidas = (p.cofreSempre || [10000, 20000]).map(String);
+    var ideal = p.ideal || null;
+    var U = 5;                                   // menor moeda: tudo em múltiplos de 5 centavos
+    var A = Math.floor(alvo / U);
+    var valores = Object.keys(cont).map(Number).filter(function (v) { return v % U === 0; }).sort(function (a, b) { return a - b; });
+    function custo(v, k) {
+      var f = cont[v];
+      if (proibidas.indexOf(String(v)) >= 0) return k ? Infinity : 0;
+      if (v < 200) return (f - k) * 5;           // tirar moeda custa caro
+      if (v === 5000) return Math.abs(k - Math.min(n50, f)) * 4;
+      if (ideal) { var i = quantidade(ideal[v]); return k < i ? (i - k) * 2 : k - i; }   // ficar abaixo da abertura custa mais
+      return (f - k) * (1 - v / 100000);         // sem ideal: tira primeiro as maiores
+    }
+    var dp = new Float64Array(A + 1).fill(Infinity);
+    dp[0] = 0;
+    var escolhas = [];
+    valores.forEach(function (v) {
+      var u = v / U, f = cont[v], novo = new Float64Array(A + 1).fill(Infinity), esc = new Int32Array(A + 1).fill(-1);
+      for (var a = 0; a <= A; a++) {
+        if (dp[a] === Infinity) continue;
+        for (var k = 0; k <= f && a + k * u <= A; k++) {
+          var c = dp[a] + custo(v, k);
+          if (c < novo[a + k * u]) { novo[a + k * u] = c; esc[a + k * u] = k; }
+        }
+      }
+      escolhas.push({ v: v, u: u, esc: esc, antes: dp });
+      dp = novo;
+    });
+    // exato, ou o maior valor possível abaixo do alvo
+    var fim = A;
+    while (fim > 0 && dp[fim] === Infinity) fim--;
+    var deixar = {}, cofre = {}, a = fim;
+    for (var i = escolhas.length - 1; i >= 0; i--) {
+      var e = escolhas[i], k = e.esc[a];
+      if (k < 0) k = 0;
+      deixar[e.v] = k;
+      a -= k * e.u;
+    }
+    var totalDeixar = 0, totalCofre = 0;
+    Object.keys(cont).forEach(function (v) {
+      var d = deixar[v] || 0;
+      deixar[v] = d;
+      cofre[v] = cont[v] - d;
+      totalDeixar += d * +v;
+      totalCofre += (cont[v] - d) * +v;
+    });
+    Object.keys(deixar).forEach(function (v) { if (!deixar[v]) delete deixar[v]; });
+    Object.keys(cofre).forEach(function (v) { if (!cofre[v]) delete cofre[v]; });
+    return { deixar: deixar, cofre: cofre, totalDeixar: totalDeixar, totalCofre: totalCofre,
+      exato: totalDeixar === alvo, falta: Math.max(0, alvo - totalDeixar) };
+  }
+
+  // Diferenças entre duas contagens (ex.: troco separado × abertura contada): [{ valor, a, b }]
+  function compararContagens(a, b) {
+    var ks = {};
+    Object.keys(a || {}).concat(Object.keys(b || {})).forEach(function (k) { ks[k] = true; });
+    return Object.keys(ks).map(Number).sort(function (x, y) { return y - x; }).map(function (v) {
+      return { valor: v, a: quantidade((a || {})[v]), b: quantidade((b || {})[v]) };
+    }).filter(function (x) { return x.a !== x.b; });
+  }
+
+  // Último fechamento do caixa antes desta abertura (para puxar o troco separado ou a sugestão)
+  function ultimoFechamento(conferencias, caixa, data, hora) {
+    var l = (conferencias || []).filter(function (c) {
+      return c.tipo === "fechamento" && c.caixa === caixa &&
+        (c.data < data || (c.data === data && (!hora || String(c.hora).slice(0, 5) <= String(hora).slice(0, 5))));
+    }).sort(function (x, y) { return (x.data + String(x.hora)).localeCompare(y.data + String(y.hora)); });
+    return l[l.length - 1] || null;
+  }
+
+  /*
    * Resumo do mês. Recebe conferências e movimentos já filtrados pelo mês.
    * Só fechamentos contam para sobras/faltas.
    */
@@ -293,6 +377,9 @@
     podeRegistrar: podeRegistrar,
     ehPendente: ehPendente,
     aberturaAntes: aberturaAntes,
+    separarTroco: separarTroco,
+    compararContagens: compararContagens,
+    ultimoFechamento: ultimoFechamento,
     reaisParaCentavos: reaisParaCentavos,
     formatarBRL: formatarBRL,
     rotuloValor: rotuloValor,

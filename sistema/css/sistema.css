@@ -696,3 +696,15 @@ label.botao.ocupado { opacity: .6; pointer-events: none; }
   .modulos .rotulo-longo { display: none; }
   .modulos .rotulo-curto { display: inline; }
 }
+
+/* ---------- Troco de amanhã ---------- */
+.tabela-troco { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tabela-troco th, .tabela-troco td { padding: 4px; border-bottom: 1px solid var(--borda); text-align: right; white-space: nowrap; }
+.tabela-troco th:first-child { text-align: left; line-height: 1.2; }
+.tabela-troco td:last-child { min-width: 2.5rem; }
+.tabela-troco thead th { color: var(--suave); font-size: .85rem; }
+.tabela-troco tfoot th, .tabela-troco tfoot td { border-bottom: 0; padding-top: 8px; }
+.troco-ajuste { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.troco-ajuste .botao { min-width: 40px; min-height: 40px; padding: 0; }
+.troco-ajuste strong { min-width: 2ch; text-align: center; }
+#abertura-troco p { margin: 0 0 8px; }

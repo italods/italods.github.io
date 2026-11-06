@@ -54,6 +54,8 @@ sistema/
                       BB, CNPJ da loja, máquinas, trocas
   js/conferir.js    ← aba "Conferir": caixas do dia lado a lado (dinheiro, débito, crédito, PIX, coluna
                       Dia) + PIX Delivery do dia × BB + "Investigar" (conta em Investigar.quadroDoDia)
+  js/troco.js       ← troco de amanhã: pergunta depois do fechamento, separação gaveta × cofre e oferta
+                      na abertura seguinte (conta em Calculos.separarTroco)
   js/cupons.js      ← aba "Importar" > "Cupons do Diamante": vários PDFs de uma vez, cada um no seu
                       fechamento (terminal + dia, de preferência o "falta o cupom")
   js/db.js          ← acesso ao Supabase + modo demonstração (?demo=1, guarda no localStorage)
@@ -96,6 +98,13 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   ("Falta o cupom": sem esperado/diferença, fora do Relatório) e já conta como caixa fechado; o cupom
   entra depois em Importar > Cupons do Diamante (`db.anexarCupom`) ou editando. Aviso quando a abertura
   não bate com o fundo do cupom. Contagem não salva aparece no início ("Contagem em andamento").
+- **Troco de amanhã**: depois de salvar um fechamento, "Quer separar o troco de amanhã agora?".
+  `C.separarTroco` deixa exatamente o valor do troco do caixa (`configuracoes.troco_caixas`, JSON
+  {"caixa1": 50000}; padrão `C.TROCO_PADRAO` = R$ 500,00; "Usar como padrão" na tela). Regras do Italo:
+  moedas ficam (só saem os centavos que não fecham o valor redondo), 2 notas de R$ 50, R$ 100/200 sempre
+  no cofre, cédulas pequenas perto da abertura do dia. Guardado em `conferencias.troco_separado` (o banco
+  recusa mais notas do que o contado). Na abertura seguinte do caixa: "Usar essas quantidades" (ou a
+  sugestão, se não separou) e aviso quando a contagem fica diferente. Não cria a abertura sozinho.
 - **Histórico de edições**: tabela `versoes` (gatilho `guardar_versao`) guarda como cada conferência ou
   sangria/suprimento estava antes de editar/apagar; Histórico > "Últimas alterações" > Desfazer.
   Recálculo por outro gatilho não conta como edição. Só o banco grava em `versoes`.
