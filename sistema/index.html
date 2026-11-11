@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="robots" content="noindex, nofollow" />
   <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#f6f6f3" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#16171a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#123e30" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0f3127" media="(prefers-color-scheme: dark)" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/archivo@5.3.0/wdth.css" />
   <title>Sistema Veneza</title>
   <link rel="stylesheet" href="css/sistema.css" />
 </head>
@@ -17,13 +18,13 @@
 
   <!-- Carregando -->
   <section id="tela-carregando" class="tela-centro">
-    <p class="marca">Supermercado Veneza</p>
+    <img class="logo" src="../assets/logo-veneza.png" alt="Supermercado Veneza" width="161" height="64" />
     <p class="suave">Carregando…</p>
   </section>
 
   <!-- Sem configuração -->
   <section id="tela-config" class="tela-centro" hidden>
-    <p class="marca">Supermercado Veneza</p>
+    <img class="logo" src="../assets/logo-veneza.png" alt="Supermercado Veneza" width="161" height="64" />
     <div class="cartao">
       <h1>Sistema ainda não configurado</h1>
       <p>Preencha <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code> no arquivo <code>sistema/config.js</code>.</p>
@@ -33,7 +34,7 @@
 
   <!-- Login -->
   <section id="tela-login" class="tela-centro" hidden>
-    <p class="marca">Supermercado Veneza</p>
+    <img class="logo" src="../assets/logo-veneza.png" alt="Supermercado Veneza" width="161" height="64" />
     <form id="form-login" class="cartao" novalidate>
       <h1>Entrar</h1>
       <label class="campo">
@@ -52,7 +53,7 @@
 
   <!-- Esqueci minha senha -->
   <section id="tela-esqueci" class="tela-centro" hidden>
-    <p class="marca">Supermercado Veneza</p>
+    <img class="logo" src="../assets/logo-veneza.png" alt="Supermercado Veneza" width="161" height="64" />
     <form id="form-esqueci" class="cartao" novalidate>
       <h1>Esqueci minha senha</h1>
       <p class="suave">Digite o seu e-mail. Vamos mandar um link para você criar uma senha nova.</p>
@@ -69,7 +70,7 @@
 
   <!-- Criar / trocar a senha -->
   <section id="tela-nova-senha" class="tela-centro" hidden>
-    <p class="marca">Supermercado Veneza</p>
+    <img class="logo" src="../assets/logo-veneza.png" alt="Supermercado Veneza" width="161" height="64" />
     <form id="form-nova-senha" class="cartao" novalidate>
       <h1 id="nova-senha-titulo">Criar senha nova</h1>
       <p class="suave mini" id="nova-senha-email"></p>
@@ -91,9 +92,10 @@
   <!-- Aplicação -->
   <div id="app" hidden>
     <header class="topo">
+      <div class="topo-faixa">
       <div class="topo-linha">
         <div>
-          <p class="marca pequena">Supermercado Veneza</p>
+          <img class="logo" src="../assets/logo-veneza.png" alt="Supermercado Veneza" width="95" height="38" />
           <p class="suave mini" id="usuario-email"></p>
         </div>
         <div class="topo-botoes">
@@ -107,6 +109,7 @@
         <a href="#cartoes" data-modulo="cartoes">Cartões</a>
         <a href="#rh" data-modulo="rh">RH</a>
       </nav>
+      </div>
       <nav class="abas" data-modulo="caixa" aria-label="Conferência de caixa">
         <a href="#caixa" data-aba="caixa">Caixa</a>
         <a href="#conferir" data-aba="conferir">Conferir</a>
