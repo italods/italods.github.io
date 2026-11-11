@@ -50,6 +50,8 @@ sistema/
   js/cartoes.js     ← área "Cartões": abas Conciliação (#cartoes) e Taxas (#cartoes-taxas)
   js/rh.js          ← RH (puras + testes): escala rotativa, dia do funcionário, resumo do mês, texto
   js/rh-admin.js    ← área "RH": Funcionários (#rh), Escala, Ocorrências, Resumo
+  js/painel.js      ← Visão geral (puras + testes): indicadores, "O que precisa de atenção", diferença por dia
+  js/visao.js       ← tela "Visão geral" (#visao, a primeira depois do login)
   js/importar.js    ← aba "Importar" (Conferência de caixa): prévias do CSV da Cielo e do extrato do
                       BB, CNPJ da loja, máquinas, trocas
   js/conferir.js    ← aba "Conferir": caixas do dia lado a lado (dinheiro, débito, crédito, PIX, coluna
@@ -146,10 +148,17 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   esperada = arredondar(bruto × taxa) por lançamento. O repasse "CIELO S.A" no BB é só de cartões (o
   PIX da maquininha cai um por venda). "Vendas sem pagamento" só olha o período coberto pelos
   recebíveis importados. Parcelado (contrato atual): todas as parcelas pagas no dia útil seguinte.
+- **Visual (nov/2026, a partir da referência "painel")**: letra Manrope (Google Fonts), verde #1d7247,
+  fundo #f3f5f4, cartões brancos (raio 14px), indicadores grandes (.kpi), etiquetas (.etiqueta), caixas
+  de resultado (ok/aviso/erro). Barra lateral no computador (≥1024px) e barra de baixo no celular
+  (5 áreas: Início, Caixa, Cartões, Escuta, RH, com números de pendências). Tema automático (segue o
+  aparelho) ou escolhido em "Tema" (claro/escuro), guardado em `localStorage` "veneza.tema"
+  (`html[data-theme]`). Cores só por variáveis em `:root` (claro) e no bloco escuro: nada de cor fixa.
+  Visão geral só com dados reais (sem faturamento/ticket/margem enquanto não houver dados do ERP).
 - **Celular primeiro**: botões de no mínimo 48px, sem rolagem lateral em 360–390px de largura.
 - Tudo em **português do Brasil**, visual limpo, sem gradientes.
 - Páginas do sistema com `<meta name="robots" content="noindex">`.
-- Bibliotecas só por CDN com versão exata (jsDelivr/cdnjs): supabase-js 2.109.0, jsPDF 2.5.2,
+- Fonte Manrope pelo Google Fonts (única exceção à regra abaixo). Bibliotecas só por CDN com versão exata (jsDelivr/cdnjs): supabase-js 2.109.0, jsPDF 2.5.2,
   Chart.js 4.5.1, pdf.js (pdfjs-dist) 4.10.38 (build "legacy", módulo carregado com `import()`).
   jsPDF, Chart.js e pdf.js são carregados só quando usados.
 - Não apagar nem renomear as páginas antigas. Para incluir um caixa, editar `CAIXAS` em

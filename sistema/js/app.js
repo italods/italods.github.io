@@ -215,13 +215,24 @@
   var ABAS_ESCUTA = ["escuta", "escuta-mensagens", "escuta-plaquinhas", "escuta-catalogo"];
   var ABAS_CARTOES = ["cartoes", "cartoes-taxas"];
   var ABAS_RH = ["rh", "rh-escala", "rh-ocorrencias", "rh-resumo"];
-  var ABAS = ABAS_CAIXA.concat(ABAS_ESCUTA, ABAS_CARTOES, ABAS_RH);
+  var ABAS_VISAO = ["visao"];
+  var ABAS = ABAS_VISAO.concat(ABAS_CAIXA, ABAS_ESCUTA, ABAS_CARTOES, ABAS_RH);
+  var TITULOS = { visao: "Visão geral", caixa: "Conferência de caixa", cartoes: "Cartões", escuta: "Veneza Escuta", rh: "Recursos humanos" };
+
+  // "terça-feira, 11 de novembro de 2026"
+  function dataLonga(iso) {
+    var p = iso.split("-");
+    return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  }
   var abaAtual = null;
   function mostrarAba() {
     var aba = location.hash.replace("#", "");
-    if (ABAS.indexOf(aba) < 0) aba = "caixa";
-    var modulo = ABAS_ESCUTA.indexOf(aba) >= 0 ? "escuta" : ABAS_CARTOES.indexOf(aba) >= 0 ? "cartoes" :
+    if (ABAS.indexOf(aba) < 0) aba = "visao";
+    var modulo = ABAS_VISAO.indexOf(aba) >= 0 ? "visao" : ABAS_ESCUTA.indexOf(aba) >= 0 ? "escuta" : ABAS_CARTOES.indexOf(aba) >= 0 ? "cartoes" :
       ABAS_RH.indexOf(aba) >= 0 ? "rh" : "caixa";
+    $("pagina-titulo").textContent = TITULOS[modulo];
+    $("pagina-sub").textContent = modulo === "visao" || modulo === "caixa" ? dataLonga(hojeISO()) : "";
+    $("conta-menu").hidden = true;
     ABAS.forEach(function (a) { $("aba-" + a).hidden = a !== aba; });
     Array.prototype.forEach.call(document.querySelectorAll(".abas a"), function (a) {
       a.classList.toggle("ativa", a.dataset.aba === aba);
@@ -231,7 +242,8 @@
     // Área do sistema: Conferência de caixa ou Veneza Escuta (cada uma lembra a última aba aberta)
     Array.prototype.forEach.call(document.querySelectorAll(".modulos a"), function (a) {
       a.classList.toggle("ativa", a.dataset.modulo === modulo);
-      if (a.dataset.modulo === modulo) a.setAttribute("href", "#" + aba);
+      if (a.dataset.modulo === modulo) { a.setAttribute("href", "#" + aba); a.setAttribute("aria-current", "page"); }
+      else a.removeAttribute("aria-current");
     });
     Array.prototype.forEach.call(document.querySelectorAll("nav.abas"), function (n) {
       n.hidden = n.dataset.modulo !== modulo;
@@ -240,6 +252,8 @@
     var mudou = abaAtual !== aba;
     abaAtual = aba;
     if (!mudou) return;
+    window.scrollTo(0, 0);
+    if (modulo === "visao") { window.Visao.mostrar(); return; }
     if (modulo === "escuta") { window.EscutaAdmin.mostrar(aba); return; }
     if (modulo === "cartoes") { window.Cartoes.mostrar(aba); return; }
     if (modulo === "rh") { window.RHAdmin.mostrar(aba); return; }
@@ -739,15 +753,85 @@
     });
   }
 
+  var ICONE_OK = '<svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+  var ICONE_ALERTA = '<svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.5"/></svg>';
+
+  // Cartão de um caixa no dia (estilo da referência): situação, valores do cupom, contado, resultado e ação
+  function cartaoCaixa(cx) {
+    var sit = C.situacaoDoCaixa(inicio.confs, cx.id, inicio.data);
+    var regs = sit.registros;
+    var fech = regs.filter(function (r) { return r.tipo === "fechamento"; }).pop() || null;
+    var ab = regs.filter(function (r) { return r.tipo === "abertura"; }).pop() || null;
+    var pend = fech && C.ehPendente(fech);
+    var pill = sit.estado === "aberto" ? '<span class="etiqueta sit-aberto">Aberto</span>'
+      : sit.estado === "fechado" ? (pend ? '<span class="etiqueta sit-pendente">Falta o cupom</span>' : '<span class="etiqueta sit-fechado">Fechado</span>')
+      : '<span class="etiqueta">Não aberto</span>';
+    var quem = (sit.ultima && sit.ultima.operador) || "";
+    var sub = [quem, ab ? "Aberto às " + C.horaCurta(ab.hora) : fech ? "Sem abertura registrada" : ""].filter(Boolean).join(" · ") ||
+      "Nenhuma contagem neste dia";
+    var html = '<article class="bloco cx-cartao"><div class="cx-cab"><div><h3>' + escapar(cx.curto) + "</h3><p>" + escapar(sub) + "</p></div>" + pill + "</div>";
+    if (fech && fech.cupom) {
+      var v = function (rot, c) { return "<div><dt>" + rot + "</dt><dd>" + brl(c || 0) + "</dd></div>"; };
+      html += '<dl class="cx-valores">' + v("Dinheiro", fech.vendas_dinheiro_centavos) + v("PIX", fech.pix_centavos) +
+        v("Débito", fech.debito_centavos) + v("Crédito", fech.credito_centavos) + v("Sangrias", fech.sangrias_centavos) +
+        v("Troco inicial", fech.fundo_centavos) + "</dl>";
+    }
+    var base = fech || ab;
+    if (base) html += '<div class="cx-total"><span>' + (fech ? "Contado no fechamento" : "Contado na abertura") + "</span><strong>" + brl(base.total_centavos) + "</strong></div>";
+    if (fech) {
+      var d = fech.diferenca_centavos, quando = "Fechado às " + C.horaCurta(fech.hora);
+      var res = pend ? ["aviso", ICONE_ALERTA, "Falta o cupom", quando + " · importe o PDF em Importar"]
+        : d === 0 ? ["ok", ICONE_OK, "Caixa bateu", quando]
+        : d < 0 ? ["erro", ICONE_ALERTA, "Falta de " + brl(-d), quando]
+        : ["aviso", ICONE_ALERTA, "Sobra de " + brl(d), quando];
+      if (sit.estado === "fechado") {
+        html += '<div class="cx-resultado res-' + res[0] + '">' + res[1] + "<div><strong>" + escapar(res[2]) + "</strong><span>" + escapar(res[3]) + "</span></div></div>";
+      }
+    }
+    html += '<div class="cx-acoes">' + (sit.estado === "aberto"
+      ? '<button type="button" class="botao primario" data-acao="fechamento" data-caixa="' + escapar(cx.id) + '">Fechar caixa</button>'
+      : '<button type="button" class="botao" data-acao="abertura" data-caixa="' + escapar(cx.id) + '">Abrir caixa</button>') + "</div>";
+    if (regs.length) {
+      html += "<details><summary>Contagens do dia (" + regs.length + ")</summary>" + regs.map(linhaRegistro).join("") + "</details>";
+    }
+    return html + "</article>";
+  }
+
   function desenharInicio() {
-    $("inicio-caixas").innerHTML = CAIXAS.map(function (cx) {
-      var sit = C.situacaoDoCaixa(inicio.confs, cx.id, inicio.data);
-      var d = descricaoSituacao(sit);
-      return '<div class="caixa-cartao">' +
-        '<div class="caixa-cab"><strong>' + escapar(cx.curto) + '</strong><span class="etiqueta ' + d.classe + '">' + escapar(d.texto) + "</span></div>" +
-        (sit.registros.length ? sit.registros.map(linhaRegistro).join("") : '<p class="suave mini">Nenhuma contagem neste dia.</p>') +
-        "</div>";
-    }).join("");
+    var sits = CAIXAS.map(function (cx) { return C.situacaoDoCaixa(inicio.confs, cx.id, inicio.data); });
+    var fechados = sits.filter(function (x) { return x.estado === "fechado"; }).length;
+    var fechs = inicio.confs.filter(function (r) { return r.tipo === "fechamento" && r.data === inicio.data; });
+    var calc = fechs.filter(function (r) { return !C.ehPendente(r) && r.diferenca_centavos != null; });
+    var dif = calc.reduce(function (t, r) { return t + r.diferenca_centavos; }, 0);
+    var pend = fechs.length - calc.length;
+    var kpi = function (rot, val, sub, cls) {
+      return '<div class="kpi"><span class="kpi-rotulo">' + rot + '</span><span class="kpi-valor' + (cls ? " kpi-" + cls : "") + '">' + escapar(val) +
+        '</span><span class="kpi-sub">' + escapar(sub) + "</span></div>";
+    };
+    $("inicio-caixas").innerHTML = '<div class="kpis">' +
+      kpi("Caixas fechados", fechados + " de " + CAIXAS.length, sits.filter(function (x) { return x.estado === "aberto"; }).length + " aberto(s)") +
+      kpi("Contado nos fechamentos", brl(fechs.reduce(function (t, r) { return t + (r.total_centavos || 0); }, 0)), fechs.length + " fechamento(s)") +
+      (calc.length ? kpi("Diferença do dia", dif === 0 ? "Bateu" : (dif < 0 ? "Falta de " : "Sobra de ") + brl(Math.abs(dif)),
+        "Soma de " + calc.length + " fechamento(s)", dif === 0 ? "ok" : dif < 0 ? "erro" : "aviso")
+        : kpi("Diferença do dia", "—", "Sem fechamento com cupom")) +
+      kpi("Falta o cupom", String(pend), pend ? "Importe em Importar" : "Nenhum pendente", pend ? "aviso" : "") +
+      '</div><div class="caixas-grade">' + CAIXAS.map(cartaoCaixa).join("") + "</div>";
+  }
+
+  // Botão "Fechar caixa" / "Abrir caixa" do cartão: começa a contagem direto (se a regra deixar)
+  function contagemRapida(caixa, tipo) {
+    var x = rascunhoComConteudo();
+    if (x && !confirm("Há uma contagem em andamento que não foi salva (" + $("inicio-rascunho-texto").textContent +
+        "). Descartar e começar outra?")) return;
+    if (x) { gravarLocal(RASCUNHO_CONF, null); preencherFormularioConf(formularioVazio()); desenharRascunhoInicio(); }
+    escolha.modo = "nova";
+    escolha.data = $("inicio-data").value || hojeISO();
+    escolha.caixa = caixa;
+    escolha.tipo = tipo;
+    escolha.confs = inicio.confs;
+    var r = C.podeRegistrar(situacaoNaEscolha(caixa), tipo);
+    if (!r.ok || r.aviso) { mostrarVista("escolha"); desenharEscolha(); window.scrollTo(0, 0); return; }
+    confirmarEscolha();
   }
 
   function desenharRascunhoInicio() {
@@ -855,6 +939,8 @@
       desenharRascunhoInicio();
     });
     $("inicio-caixas").addEventListener("click", function (ev) {
+      var acao = ev.target.closest("button[data-acao]");
+      if (acao) { contagemRapida(acao.dataset.caixa, acao.dataset.acao); return; }
       var b = ev.target.closest("button[data-id]");
       if (!b) return;
       var r = inicio.confs.filter(function (x) { return x.id === b.dataset.id; })[0];
@@ -1753,6 +1839,43 @@
     $("rel-csv").addEventListener("click", exportarRelatorioCSV);
   }
 
+  /* ======================= Tema e menu da conta ======================= */
+
+  // Tema: automático (segue o aparelho), claro ou escuro; fica guardado neste aparelho
+  var TEMAS = ["automático", "claro", "escuro"];
+  function temaAtual() {
+    var t = null;
+    try { t = localStorage.getItem("veneza.tema"); } catch (e) { t = null; }
+    return TEMAS.indexOf(t) >= 0 ? t : "automático";
+  }
+  function aplicarTema(t) {
+    if (t === "claro") document.documentElement.dataset.theme = "light";
+    else if (t === "escuro") document.documentElement.dataset.theme = "dark";
+    else delete document.documentElement.dataset.theme;
+    try { if (t === "automático") localStorage.removeItem("veneza.tema"); else localStorage.setItem("veneza.tema", t); } catch (e) { /* sem armazenamento */ }
+    Array.prototype.forEach.call(document.querySelectorAll("[data-tema-botao]"), function (b) { b.textContent = "Tema: " + t; });
+  }
+  function iniciarConta() {
+    aplicarTema(temaAtual());
+    Array.prototype.forEach.call(document.querySelectorAll("[data-tema-botao]"), function (b) {
+      b.addEventListener("click", function () {
+        var t = TEMAS[(TEMAS.indexOf(temaAtual()) + 1) % TEMAS.length];
+        aplicarTema(t);
+        toast("Tema " + t + (t === "automático" ? " (segue o aparelho)" : "") + ".");
+      });
+    });
+    $("conta-botao").addEventListener("click", function () {
+      var m = $("conta-menu");
+      m.hidden = !m.hidden;
+      $("conta-botao").setAttribute("aria-expanded", String(!m.hidden));
+    });
+    document.addEventListener("click", function (ev) {
+      if (!ev.target.closest("#conta-menu, #conta-botao")) { $("conta-menu").hidden = true; $("conta-botao").setAttribute("aria-expanded", "false"); }
+    });
+    $("botao-senha-m").addEventListener("click", function () { $("conta-menu").hidden = true; $("botao-senha").click(); });
+    $("botao-sair-m").addEventListener("click", function () { $("conta-menu").hidden = true; $("botao-sair").click(); });
+  }
+
   /* =========================== Login e início =========================== */
 
   var appIniciado = false;
@@ -1805,13 +1928,17 @@
       db: db, toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, ocupado: ocupado, escapar: escapar,
       brl: brl, caixas: CAIXAS, nomeCaixa: nomeCaixa, dataBR: C.dataBR, horaCurta: C.horaCurta, hojeISO: hojeISO
     });
+    var painelEscuta = window.EscutaBanco.criarPainel(db.cliente, DEMO);
+    window.Visao.iniciar({ db: db, escapar: escapar, hojeISO: hojeISO, dataBR: C.dataBR, caixas: CAIXAS, mostrarErro: mostrarErro,
+      escuta: painelEscuta });
     window.EscutaAdmin.iniciar({
-      banco: window.EscutaBanco.criarPainel(db.cliente, DEMO),
+      banco: painelEscuta,
       demo: DEMO,
       toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, copiar: copiar, baixar: baixar,
       carregarScript: carregarScript, ocupado: ocupado, escapar: escapar
     });
     $("aviso-fechar").addEventListener("click", limparErro);
+    iniciarConta();
     window.addEventListener("hashchange", mostrarAba);
     window.addEventListener("offline", function () {
       mostrarErro({ message: "Sem internet. Você pode continuar contando: a contagem fica guardada neste aparelho até salvar." });
@@ -1822,6 +1949,7 @@
   function entrarNoApp(sessao) {
     usuarioEmail = (sessao && sessao.user && sessao.user.email) || "";
     $("usuario-email").textContent = usuarioEmail;
+    $("usuario-email-m").textContent = usuarioEmail;
     var iniciar = function () {
       iniciarApp();
       mostrarTela("app");

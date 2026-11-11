@@ -5,10 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="robots" content="noindex, nofollow" />
   <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#f6f6f3" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#16171a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f3f5f4" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0f1412" media="(prefers-color-scheme: dark)" />
   <title>Sistema Veneza</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="css/sistema.css" />
+  <script>
+    // Tema escolhido (automático, claro ou escuro) antes de desenhar a página
+    try { var t = localStorage.getItem("veneza.tema"); if (t === "claro" || t === "escuro") document.documentElement.dataset.theme = t === "claro" ? "light" : "dark"; } catch (e) {}
+  </script>
 </head>
 <body>
   <div id="faixa-demo" class="faixa-demo" hidden>
@@ -17,13 +24,13 @@
 
   <!-- Carregando -->
   <section id="tela-carregando" class="tela-centro">
-    <p class="marca">Supermercado Veneza</p>
+    <img class="logo-entrada" src="../assets/logo-veneza.png" alt="Supermercado Veneza" width="180" height="76" />
     <p class="suave">Carregando…</p>
   </section>
 
   <!-- Sem configuração -->
   <section id="tela-config" class="tela-centro" hidden>
-    <p class="marca">Supermercado Veneza</p>
+    <img class="logo-entrada" src="../assets/logo-veneza.png" alt="Supermercado Veneza" width="180" height="76" />
     <div class="cartao">
       <h1>Sistema ainda não configurado</h1>
       <p>Preencha <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code> no arquivo <code>sistema/config.js</code>.</p>
@@ -33,7 +40,7 @@
 
   <!-- Login -->
   <section id="tela-login" class="tela-centro" hidden>
-    <p class="marca">Supermercado Veneza</p>
+    <img class="logo-entrada" src="../assets/logo-veneza.png" alt="Supermercado Veneza" width="180" height="76" />
     <form id="form-login" class="cartao" novalidate>
       <h1>Entrar</h1>
       <label class="campo">
@@ -52,7 +59,7 @@
 
   <!-- Esqueci minha senha -->
   <section id="tela-esqueci" class="tela-centro" hidden>
-    <p class="marca">Supermercado Veneza</p>
+    <img class="logo-entrada" src="../assets/logo-veneza.png" alt="Supermercado Veneza" width="180" height="76" />
     <form id="form-esqueci" class="cartao" novalidate>
       <h1>Esqueci minha senha</h1>
       <p class="suave">Digite o seu e-mail. Vamos mandar um link para você criar uma senha nova.</p>
@@ -69,7 +76,7 @@
 
   <!-- Criar / trocar a senha -->
   <section id="tela-nova-senha" class="tela-centro" hidden>
-    <p class="marca">Supermercado Veneza</p>
+    <img class="logo-entrada" src="../assets/logo-veneza.png" alt="Supermercado Veneza" width="180" height="76" />
     <form id="form-nova-senha" class="cartao" novalidate>
       <h1 id="nova-senha-titulo">Criar senha nova</h1>
       <p class="suave mini" id="nova-senha-email"></p>
@@ -89,24 +96,47 @@
   </section>
 
   <!-- Aplicação -->
-  <div id="app" hidden>
-    <header class="topo">
-      <div class="topo-linha">
-        <div>
-          <p class="marca pequena">Supermercado Veneza</p>
-          <p class="suave mini" id="usuario-email"></p>
-        </div>
-        <div class="topo-botoes">
-          <button type="button" class="botao fantasma" id="botao-senha">Trocar senha</button>
-          <button type="button" class="botao fantasma" id="botao-sair">Sair</button>
-        </div>
+  <div id="app" class="app" hidden>
+    <!-- Barra lateral (computador) -->
+    <aside class="sidebar">
+      <div class="brand">
+        <img class="marca-logo" src="../assets/logo-veneza.png" alt="Supermercado Veneza" width="96" height="40" />
+        <div><p class="brand-sub">Sistema gerencial</p></div>
       </div>
-      <nav class="modulos" aria-label="Áreas do sistema">
-        <a href="#caixa" data-modulo="caixa"><span class="rotulo-longo">Conferência de caixa</span><span class="rotulo-curto">Caixa</span></a>
-        <a href="#escuta" data-modulo="escuta"><span class="rotulo-longo">Veneza Escuta</span><span class="rotulo-curto">Escuta</span></a>
-        <a href="#cartoes" data-modulo="cartoes">Cartões</a>
-        <a href="#rh" data-modulo="rh">RH</a>
+      <nav class="modulos side-nav" aria-label="Áreas do sistema">
+        <a href="#visao" data-modulo="visao"><svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="nav-rotulo">Visão geral</span><span class="nav-badge" data-badge="visao" hidden></span></a>
+        <a href="#caixa" data-modulo="caixa"><svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="9" rx="2"/><path d="M7 11V5h10v6M7 15h2M11 15h2M15 15h2"/></svg><span class="nav-rotulo">Conferência de caixa</span><span class="nav-badge" data-badge="caixa" hidden></span></a>
+        <a href="#cartoes" data-modulo="cartoes"><svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg><span class="nav-rotulo">Cartões</span><span class="nav-badge" data-badge="cartoes" hidden></span></a>
+        <a href="#escuta" data-modulo="escuta"><svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg><span class="nav-rotulo">Veneza Escuta</span><span class="nav-badge" data-badge="escuta" hidden></span></a>
+        <a href="#rh" data-modulo="rh"><svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.3c2 .8 3.5 2.8 3.5 5.7"/></svg><span class="nav-rotulo">Recursos humanos</span><span class="nav-badge" data-badge="rh" hidden></span></a>
       </nav>
+      <div class="side-foot">
+        <p class="xs suave" id="usuario-email"></p>
+        <button type="button" class="botao fantasma pequeno tema-botao" data-tema-botao>Tema: automático</button>
+        <button type="button" class="botao fantasma pequeno" id="botao-senha">Trocar senha</button>
+        <button type="button" class="botao fantasma pequeno" id="botao-sair">Sair</button>
+      </div>
+    </aside>
+
+    <div class="principal">
+      <!-- Topo (celular) -->
+      <header class="mobile-top">
+        <div class="brand">
+          <img class="marca-logo" src="../assets/logo-veneza.png" alt="Supermercado Veneza" width="96" height="40" />
+          <div><p class="brand-sub" id="usuario-email-m"></p></div>
+        </div>
+        <button type="button" class="botao fantasma pequeno" id="conta-botao" aria-expanded="false" aria-controls="conta-menu">Conta</button>
+        <div class="conta-menu" id="conta-menu" hidden>
+          <button type="button" class="botao fantasma" data-tema-botao>Tema: automático</button>
+          <button type="button" class="botao fantasma" id="botao-senha-m">Trocar senha</button>
+          <button type="button" class="botao fantasma" id="botao-sair-m">Sair</button>
+        </div>
+      </header>
+
+      <div class="page-head">
+        <h1 id="pagina-titulo">Visão geral</h1>
+        <p class="muted" id="pagina-sub"></p>
+      </div>
       <nav class="abas" data-modulo="caixa" aria-label="Conferência de caixa">
         <a href="#caixa" data-aba="caixa">Caixa</a>
         <a href="#conferir" data-aba="conferir">Conferir</a>
@@ -126,12 +156,11 @@
         <a href="#rh-resumo" data-aba="rh-resumo">Resumo</a>
       </nav>
       <nav class="abas" data-modulo="escuta" aria-label="Veneza Escuta" hidden>
-        <a href="#escuta" data-aba="escuta">Visão geral</a>
+        <a href="#escuta" data-aba="escuta">Resumo</a>
         <a href="#escuta-mensagens" data-aba="escuta-mensagens">Mensagens</a>
         <a href="#escuta-plaquinhas" data-aba="escuta-plaquinhas">Plaquinhas</a>
         <a href="#escuta-catalogo" data-aba="escuta-catalogo">Catálogo</a>
       </nav>
-    </header>
 
     <div id="aviso" class="aviso" role="alert" hidden>
       <span id="aviso-texto"></span>
@@ -140,16 +169,18 @@
 
     <main class="conteudo">
 
+      <!-- ========================= VISÃO GERAL ========================= -->
+      <section id="aba-visao" class="aba" hidden>
+        <div id="visao-conteudo"><p class="vazio">Carregando…</p></div>
+      </section>
+
       <!-- ===================== CONFERÊNCIA DE CAIXA ===================== -->
       <section id="aba-caixa" class="aba" hidden>
         <!-- Tela inicial: situação de cada caixa no dia -->
         <div id="caixa-inicio">
-          <div class="bloco">
-            <div class="inicio-topo">
-              <h2 id="inicio-titulo">Hoje</h2>
-              <label class="campo compacto"><span class="invisivel">Dia</span><input type="date" id="inicio-data" /></label>
-            </div>
-            <div id="inicio-caixas"><p class="vazio">Carregando…</p></div>
+          <div class="inicio-topo caixa-topo">
+            <h2 id="inicio-titulo">Hoje</h2>
+            <label class="campo compacto"><span class="invisivel">Dia</span><input type="date" id="inicio-data" /></label>
           </div>
           <div class="bloco destaque" id="inicio-rascunho" hidden>
             <p><strong>Contagem em andamento</strong> <span id="inicio-rascunho-texto"></span></p>
@@ -162,6 +193,7 @@
           <div class="acoes">
             <button type="button" class="botao primario" id="nova-contagem">+ Nova contagem</button>
           </div>
+          <div id="inicio-caixas"><p class="vazio">Carregando…</p></div>
           <div class="acoes">
             <button type="button" class="botao fantasma" id="inicio-conferir">Conferir cartões e PIX deste dia ›</button>
           </div>
@@ -782,6 +814,16 @@
         <div id="esc-catalogo"></div>
       </section>
     </main>
+    </div>
+
+    <!-- Barra de baixo (celular) -->
+    <nav class="modulos bottomnav" aria-label="Áreas do sistema">
+        <a href="#visao" data-modulo="visao"><svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="nav-rotulo">Início</span><span class="nav-badge" data-badge="visao" hidden></span></a>
+        <a href="#caixa" data-modulo="caixa"><svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="9" rx="2"/><path d="M7 11V5h10v6M7 15h2M11 15h2M15 15h2"/></svg><span class="nav-rotulo">Caixa</span><span class="nav-badge" data-badge="caixa" hidden></span></a>
+        <a href="#cartoes" data-modulo="cartoes"><svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg><span class="nav-rotulo">Cartões</span><span class="nav-badge" data-badge="cartoes" hidden></span></a>
+        <a href="#escuta" data-modulo="escuta"><svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg><span class="nav-rotulo">Escuta</span><span class="nav-badge" data-badge="escuta" hidden></span></a>
+        <a href="#rh" data-modulo="rh"><svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.3c2 .8 3.5 2.8 3.5 5.7"/></svg><span class="nav-rotulo">RH</span><span class="nav-badge" data-badge="rh" hidden></span></a>
+    </nav>
   </div>
 
   <!-- Veneza Escuta: detalhe de uma mensagem -->
@@ -863,6 +905,8 @@
   <script src="js/cartoes.js"></script>
   <script src="js/rh.js"></script>
   <script src="js/rh-admin.js"></script>
+  <script src="js/painel.js"></script>
+  <script src="js/visao.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

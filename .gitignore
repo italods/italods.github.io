@@ -3,3 +3,4 @@ privado/
 
 # Permissoes locais do Claude Code (so neste computador)
 .claude/settings.local.json
+sitereferencia/

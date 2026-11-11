@@ -190,11 +190,26 @@
     return l.join("\n");
   }
 
+  // Equipe num dia: quem está na escala, quem faltou, atestado, folga (para a Visão geral)
+  function equipeDoDia(ctx, funcionarios, t) {
+    var r = { trabalhando: [], faltas: [], atestados: [], folgas: [], semEscala: [] };
+    (funcionarios || []).forEach(function (f) {
+      var d = diaDoFuncionario(ctx, f, t);
+      var x = { nome: f.nome, id: f.id, entrada: d.entrada, saida: d.saida, ocorrencia: d.ocorrencia };
+      if (d.tipo === "trabalho") r.trabalhando.push(x);
+      else if (d.tipo === "falta") r.faltas.push(x);
+      else if (d.tipo === "atestado") r.atestados.push(x);
+      else if (d.tipo === "folga") r.folgas.push(x);
+      else if (d.tipo === "sem_escala") r.semEscala.push(x);
+    });
+    return r;
+  }
+
   return {
     DIAS: DIAS, DIAS_CURTOS: DIAS_CURTOS, MESES: MESES,
     diaDaSemana: diaDaSemana, segundaDaSemana: segundaDaSemana, semanasEntre: semanasEntre, diasDoMes: diasDoMes,
     lerHora: lerHora, duracao: duracao, horarioDaTurma: horarioDaTurma, feriadoDoDia: feriadoDoDia,
     diaDoFuncionario: diaDoFuncionario, mesDoFuncionario: mesDoFuncionario, resumoFuncionario: resumoFuncionario,
-    ativosNoMes: ativosNoMes, textoResumo: textoResumo, rotuloMes: rotuloMes, horas: horas, dataBR: dataBR
+    ativosNoMes: ativosNoMes, equipeDoDia: equipeDoDia, textoResumo: textoResumo, rotuloMes: rotuloMes, horas: horas, dataBR: dataBR
   };
 });
