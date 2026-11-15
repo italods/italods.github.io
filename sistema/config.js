@@ -16,6 +16,9 @@ window.VENEZA_CONFIG = {
     { id: "caixa2", nome: "Caixa 2 (Terminal 3)", curto: "Caixa 2", terminal: "3" }
   ],
 
+  // Nome e cidade da loja (aparecem na advertência, suspensão e aviso de férias). O CNPJ fica só no banco.
+  EMPRESA: { nome: "Supermercado Veneza", cidade: "Paes Landim - PI" },
+
   // Sugestões no campo Operador / Responsável (pode digitar outro nome)
   OPERADORES: ["Italo", "Irmã", "Cida"],
 

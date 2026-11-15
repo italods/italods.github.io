@@ -47,14 +47,14 @@
       ultimoDia: ultimo,
       escutaNovas: p.escutaNovas == null ? null : p.escutaNovas,
       equipe: p.equipe ? { naEscala: p.equipe.trabalhando.length, ausentes: p.equipe.faltas.length + p.equipe.atestados.length,
-        folgas: p.equipe.folgas.length } : null
+        folgas: p.equipe.folgas.length, ferias: (p.equipe.ferias || []).length } : null
     };
   }
 
   /*
    * "O que precisa de atenção": [{ nivel: erro|aviso|info, icone, titulo, detalhe, link, data? }]
    * p = { hoje, caixas, conferencias (últimos dias), cielo: {data: n}, banco: {data: n}, quadros: [{data, quadro}],
-   *       escutaNovas, equipe (RH.equipeDoDia), holerites: { rotulo, faltando: [nomes] } }
+   *       escutaNovas, equipe (RH.equipeDoDia), holerites: { rotulo, faltando: [nomes] }, rhAvisos (RHFolha.avisos) }
    */
   function atencao(p) {
     var r = [], hoje = p.hoje, caixas = p.caixas || [], confs = p.conferencias || [];
@@ -134,6 +134,7 @@
     if (p.holerites && p.holerites.faltando.length) r.push({ nivel: "info", icone: "pessoas",
       titulo: "Holerite de " + p.holerites.rotulo + " não registrado",
       detalhe: lista(p.holerites.faltando) + ".", link: "#rh-resumo" });
+    (p.rhAvisos || []).forEach(function (x) { r.push(x); });
     return r.map(function (x, i) { x._i = i; return x; }).sort(function (a, b) { return ORDEM[a.nivel] - ORDEM[b.nivel] || a._i - b._i; })
       .map(function (x) { delete x._i; return x; });
   }

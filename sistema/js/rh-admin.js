@@ -1,19 +1,26 @@
 /*
  * Área "RH": Funcionários (#rh), Escala (#rh-escala), Ocorrências (#rh-ocorrencias) e Resumo (#rh-resumo).
- * As contas ficam em rh.js; aqui só telas. Dados dos funcionários ficam só no banco (nunca no código).
+ * Banco de horas, Férias, Custos e Saúde ficam em rh-gestao.js (usa os mesmos dados, por RHAdmin.base).
+ * As contas ficam em rh.js e rh-folha.js; aqui só telas. Dados dos funcionários ficam só no banco (nunca no código).
  */
 (function () {
   "use strict";
   var RH = window.RH;
+  var RF = window.RHFolha;
   var C = window.Calculos;
   var u = null;
-  var d = { funcionarios: [], turmas: [], horarios: [], ocorrencias: [], feriados: [], holerites: [], ref: "" };
+  // tabelas do RH (rh_<nome>); as de NOVAS podem faltar se o rh.sql ainda não foi colado no Supabase
+  var TABELAS = ["funcionarios", "turmas", "horarios", "ocorrencias", "feriados", "holerites"];
+  var NOVAS = ["banco_horas", "ferias", "historico", "exames", "treinamentos", "entregas"];
+  var d = { funcionarios: [], turmas: [], horarios: [], ocorrencias: [], feriados: [], holerites: [], banco_horas: [], ferias: [],
+    historico: [], exames: [], treinamentos: [], entregas: [], ref: "", cfg: RF.lerEncargos(""), cnpj: "", faltaSQL: false };
   var carregado = null;
   var fichaId = null;
   var semana = "";        // segunda-feira mostrada na escala
   var ocTipo = "folga";
 
-  var NOMES_TIPO = { folga: "Folga", falta: "Falta", atestado: "Atestado", feriado_trabalhado: "Feriado trabalhado" };
+  var NOMES_TIPO = RF.NOMES_OC;
+  var CAMPOS_HIST = { funcao: "Função", salario: "Salário", gratificacao: "Gratificação", turma: "Turma", outro: "Outro" };
 
   function $(id) { return document.getElementById(id); }
   function esc(s) { return u.escapar(s); }
@@ -22,19 +29,49 @@
   function anoMes(v) { var p = String(v || mesAtual()).split("-"); return { ano: +p[0], mes: +p[1] }; }
   function porNome(a, b) { return String(a.nome).localeCompare(String(b.nome), "pt-BR"); }
   function ordenar(l) { return l.slice().sort(function (a, b) { return (+a.ordem || 0) - (+b.ordem || 0) || porNome(a, b); }); }
-  function ctx() { return { turmas: d.turmas, horarios: d.horarios, ref: d.ref, ocorrencias: d.ocorrencias, feriados: d.feriados }; }
+  function ctx() {
+    return { turmas: d.turmas, horarios: d.horarios, ref: d.ref, ocorrencias: d.ocorrencias, feriados: d.feriados, ferias: d.ferias,
+      banco: d.banco_horas, exames: d.exames, treinamentos: d.treinamentos, funcionarios: d.funcionarios, cfg: d.cfg, hoje: hoje() };
+  }
   function ativos() { return d.funcionarios.filter(function (f) { return !f.desligamento || f.desligamento >= hoje(); }).sort(porNome); }
   function funcionario(id) { return d.funcionarios.filter(function (f) { return f.id === id; })[0] || null; }
   function turma(id) { return d.turmas.filter(function (t) { return t.id === id; })[0] || null; }
   function primeiroNome(n) { return String(n || "").split(/\s+/)[0]; }
+  function lerDinheiro(id, rotulo) {
+    var v = $(id).value.trim();
+    if (!v) return { valor: null };
+    var c = C.reaisParaCentavos(v);
+    return c == null ? { erro: rotulo + " inválido. Use só números, por exemplo 1.621,00." } : { valor: c };
+  }
+  function opcoesFuncionarios(lista, sel) {
+    return lista.map(function (f) { return '<option value="' + esc(f.id) + '"' + (f.id === sel ? " selected" : "") + ">" + esc(f.nome) + "</option>"; }).join("");
+  }
+  function empresa() { return { nome: u.empresa.nome || "Supermercado", cidade: u.empresa.cidade || "", cnpj: formatarCNPJ(d.cnpj) }; }
+  function formatarCNPJ(s) {
+    var c = String(s || "").replace(/\D/g, "");
+    return c.length === 14 ? c.slice(0, 2) + "." + c.slice(2, 5) + "." + c.slice(5, 8) + "/" + c.slice(8, 12) + "-" + c.slice(12) : "";
+  }
 
   function carregar(forcar) {
     if (carregado && !forcar) return carregado;
-    var nomes = ["funcionarios", "turmas", "horarios", "ocorrencias", "feriados", "holerites"];
-    carregado = Promise.all(nomes.map(function (n) { return u.db.listarRH(n); }).concat([u.db.obterConfiguracao("rh_semana_ref")]))
+    var faltou = false;
+    var novas = NOVAS.map(function (n) {
+      return u.db.listarRH(n).then(null, function (e) {
+        var m = String((e && (e.message || (e.original && e.original.message))) || "");
+        if (/does not exist|schema cache|not find the table|relation/i.test(m)) { faltou = true; return []; }
+        throw e;
+      });
+    });
+    carregado = Promise.all(TABELAS.map(function (n) { return u.db.listarRH(n); }).concat(novas, [
+      u.db.obterConfiguracao("rh_semana_ref"), u.db.obterConfiguracao("rh_encargos").then(null, function () { return ""; }),
+      u.db.obterConfiguracao("cnpj_loja").then(null, function () { return ""; })]))
       .then(function (r) {
-        nomes.forEach(function (n, i) { d[n] = r[i] || []; });
-        d.ref = r[nomes.length] || RH.segundaDaSemana(hoje());
+        TABELAS.concat(NOVAS).forEach(function (n, i) { d[n] = r[i] || []; });
+        var k = TABELAS.length + NOVAS.length;
+        d.ref = r[k] || RH.segundaDaSemana(hoje());
+        d.cfg = RF.lerEncargos(r[k + 1]);
+        d.cnpj = r[k + 2] || "";
+        d.faltaSQL = faltou;
         return d;
       }, function (e) { carregado = null; throw e; });
     return carregado;
@@ -43,10 +80,12 @@
   function mostrar(aba) {
     u.limparErro();
     carregar(true).then(function () {
+      $("rh-falta-sql").hidden = !d.faltaSQL;
       if (aba === "rh") desenharFuncionarios();
       if (aba === "rh-escala") desenharEscala();
       if (aba === "rh-ocorrencias") desenharOcorrencias();
       if (aba === "rh-resumo") desenharResumo();
+      if (window.RHGestao) window.RHGestao.mostrar(aba);
     }, u.mostrarErro);
   }
 
@@ -60,10 +99,14 @@
 
   function linhaFuncionario(f) {
     var t = turma(f.turma);
+    var dia = RH.diaDoFuncionario(ctx(), f, hoje());
+    var hojeTxt = { ferias: "De férias", folga: "De folga", atestado: "Atestado", falta: "Faltou hoje", suspensao: "Suspenso" }[dia.tipo];
     var sub = [f.funcao, t ? t.nome : "sem turma", f.admissao ? "desde " + u.dataBR(f.admissao) : ""].filter(Boolean).join(" · ");
     return '<button type="button" class="registro" data-func="' + esc(f.id) + '">' +
       '<span class="r-titulo">' + esc(f.nome) + "</span>" +
-      '<span class="r-total">' + (f.desligamento ? '<span class="etiqueta">Desligado</span>' : "") + "</span>" +
+      '<span class="r-total">' + (f.desligamento && f.desligamento < hoje() ? '<span class="etiqueta">Desligado</span>' :
+        f.desligamento ? '<span class="etiqueta sit-pendente">Sai em ' + esc(u.dataBR(f.desligamento).slice(0, 5)) + "</span>" :
+        hojeTxt ? '<span class="etiqueta">' + esc(hojeTxt) + "</span>" : "") + "</span>" +
       '<span class="r-sub">' + esc(sub) + "</span><span></span></button>";
   }
 
@@ -75,25 +118,68 @@
     if (fichaId === null) $("rh-ficha").hidden = true;
   }
 
+  var CAMPOS_TEXTO = [["rh-nome", "nome"], ["rh-funcao", "funcao"], ["rh-telefone", "telefone"], ["rh-observacao", "observacao"],
+    ["rh-rg", "rg"], ["rh-ctps", "ctps"], ["rh-endereco", "endereco"], ["rh-email", "email"], ["rh-pix", "pix"],
+    ["rh-estado-civil", "estado_civil"], ["rh-escolaridade", "escolaridade"], ["rh-uniforme", "uniforme"], ["rh-emergencia", "contato_emergencia"],
+    ["rh-desl-motivo", "desligamento_motivo"]];
+  var passos = {};
+
   function abrirFicha(f) {
     fichaId = f ? f.id : "";
     $("rh-ficha").hidden = false;
     $("rh-ficha-titulo").textContent = f ? f.nome : "Novo funcionário";
-    $("rh-nome").value = f ? f.nome : "";
-    $("rh-funcao").value = f ? f.funcao || "" : "";
+    CAMPOS_TEXTO.forEach(function (c) { $(c[0]).value = f ? f[c[1]] || "" : ""; });
     $("rh-turma").innerHTML = opcoesTurma(f ? f.turma : "");
     $("rh-admissao").value = f ? f.admissao || "" : "";
-    $("rh-telefone").value = f ? f.telefone || "" : "";
+    $("rh-nascimento").value = f ? f.nascimento || "" : "";
     $("rh-salario").value = f && f.salario_centavos != null ? u.dinheiroCampo(f.salario_centavos) : "";
+    $("rh-gratificacao").value = f && +f.gratificacao_centavos ? u.dinheiroCampo(f.gratificacao_centavos) : "";
+    $("rh-jornada").value = f ? Math.round((+f.jornada_semanal_min || 2640) / 60) : 44;
+    $("rh-cpf").value = f && f.cpf ? RF.formatarCPF(f.cpf) : "";
+    $("rh-pis").value = f ? f.pis || "" : "";
+    $("rh-dependentes").value = f ? +f.dependentes || 0 : 0;
     $("rh-desligamento").value = f ? f.desligamento || "" : "";
-    $("rh-observacao").value = f ? f.observacao || "" : "";
+    $("rh-desl-tipo").value = f ? f.desligamento_tipo || "" : "";
+    $("rh-desl-aviso").value = f && f.desligamento_aviso ? f.desligamento_aviso : "indenizado";
+    $("rh-fgts").value = f && f.fgts_saldo_centavos != null ? u.dinheiroCampo(f.fgts_saldo_centavos) : "";
+    $("rh-desligamento-parte").open = !!(f && f.desligamento);
+    $("rh-desligamento-parte").hidden = !f;
+    passos = Object.assign({}, f && f.desligamento_passos || {});
+    desenharPassos();
+    $("rh-rescisao").innerHTML = "";
     $("rh-apagar").hidden = !f;
+    desenharHistorico(f);
     desenharHolerites(f);
     $("rh-ficha").scrollIntoView({ behavior: "smooth", block: "start" });
     $("rh-nome").focus();
   }
 
   function fecharFicha() { fichaId = null; $("rh-ficha").hidden = true; }
+
+  function desenharPassos() {
+    var t = $("rh-desligamento").value;
+    $("rh-passos").innerHTML = RF.PASSOS_DESLIGAMENTO.map(function (p) {
+      var texto = p.texto + (p.id === "pagar" && t ? " (até " + u.dataBR(window.Feriados.somarDias(t, 10)) + ")" : "");
+      return '<label class="marcar"><input type="checkbox" data-passo="' + p.id + '"' + (passos[p.id] ? " checked" : "") + " /> " + esc(texto) + "</label>";
+    }).join("");
+  }
+
+  function desenharHistorico(f) {
+    var el = $("rh-historico");
+    var hs = f ? d.historico.filter(function (h) { return h.funcionario === f.id; }).sort(function (a, b) {
+      return a.data < b.data ? 1 : a.data > b.data ? -1 : String(b.criado_em).localeCompare(String(a.criado_em));
+    }) : [];
+    el.hidden = !f;
+    if (!f) { el.innerHTML = ""; return; }
+    function valor(h, v) {
+      if ((h.campo === "salario" || h.campo === "gratificacao") && /^\d+$/.test(v)) return u.brl(+v);
+      return v || "—";
+    }
+    el.innerHTML = '<h3 class="mini">Histórico</h3>' + (hs.length ? '<ul class="lista-versoes">' + hs.map(function (h) {
+      return "<li><div><strong>" + esc(u.dataBR(h.data)) + " · " + esc(CAMPOS_HIST[h.campo] || h.campo) + "</strong><br>" +
+        esc(valor(h, h.antes)) + " → " + esc(valor(h, h.depois)) + (h.observacao ? ' <small class="suave">' + esc(h.observacao) + "</small>" : "") + "</div></li>";
+    }).join("") + "</ul>" : '<p class="suave mini">Mudanças de função, salário, gratificação e turma aparecem aqui sozinhas.</p>');
+  }
 
   function desenharHolerites(f) {
     var el = $("rh-holerites");
@@ -108,23 +194,44 @@
     }).join("") + "</ul>" : '<p class="suave mini">Nenhum registrado. Registre no Resumo do mês.</p>');
   }
 
+  function lerFicha() {
+    var nome = $("rh-nome").value.trim();
+    if (!nome) return { erro: "Preencha o nome." };
+    var sal = lerDinheiro("rh-salario", "Salário"); if (sal.erro) return sal;
+    var gra = lerDinheiro("rh-gratificacao", "Gratificação"); if (gra.erro) return gra;
+    var fg = lerDinheiro("rh-fgts", "Saldo do FGTS"); if (fg.erro) return fg;
+    var tel = $("rh-telefone").value.trim();
+    if (!/^[0-9 ()+-]{0,20}$/.test(tel)) return { erro: "Telefone inválido: use só números, espaço, parênteses e traço." };
+    var cpf = RF.soNumeros($("rh-cpf").value);
+    if (cpf && !RF.cpfValido(cpf)) return { erro: "CPF inválido. Confira os números." };
+    var pis = RF.soNumeros($("rh-pis").value);
+    if (pis && pis.length !== 11) return { erro: "PIS/NIS tem 11 números." };
+    var jor = parseInt($("rh-jornada").value, 10);
+    if (!(jor >= 1 && jor <= 44)) return { erro: "Jornada: de 1 a 44 horas por semana." };
+    var dep = parseInt($("rh-dependentes").value, 10) || 0;
+    if (dep < 0 || dep > 20) return { erro: "Dependentes: de 0 a 20." };
+    var adm = $("rh-admissao").value, desl = $("rh-desligamento").value;
+    if (adm && desl && desl < adm) return { erro: "O desligamento está antes da admissão." };
+    var dados = { turma: $("rh-turma").value || null, admissao: adm || null, nascimento: $("rh-nascimento").value || null,
+      salario_centavos: sal.valor, gratificacao_centavos: gra.valor || 0, fgts_saldo_centavos: fg.valor, jornada_semanal_min: jor * 60,
+      cpf: cpf, pis: pis, dependentes: dep, desligamento: desl || null,
+      desligamento_tipo: desl ? $("rh-desl-tipo").value : "", desligamento_aviso: desl ? $("rh-desl-aviso").value : "",
+      desligamento_passos: passos };
+    CAMPOS_TEXTO.forEach(function (c) { dados[c[1]] = $(c[0]).value.trim(); });
+    dados.telefone = tel;
+    if (!desl) dados.desligamento_motivo = "";
+    if (desl && !dados.desligamento_tipo) return { erro: "Escolha o tipo de desligamento." };
+    return { dados: dados };
+  }
+
   function salvarFicha() {
     u.limparErro();
-    var nome = $("rh-nome").value.trim();
-    if (!nome) { u.mostrarErro({ message: "Preencha o nome." }); return; }
-    var sal = $("rh-salario").value.trim();
-    var salario = sal ? C.reaisParaCentavos(sal) : null;
-    if (sal && salario == null) { u.mostrarErro({ message: "Salário inválido. Use só números, por exemplo 1.621,00." }); return; }
-    var tel = $("rh-telefone").value.trim();
-    if (!/^[0-9 ()+-]{0,20}$/.test(tel)) { u.mostrarErro({ message: "Telefone inválido: use só números, espaço, parênteses e traço." }); return; }
-    var adm = $("rh-admissao").value, desl = $("rh-desligamento").value;
-    if (adm && desl && desl < adm) { u.mostrarErro({ message: "O desligamento está antes da admissão." }); return; }
-    var dados = { nome: nome, funcao: $("rh-funcao").value.trim(), turma: $("rh-turma").value || null, admissao: adm || null,
-      telefone: tel, salario_centavos: salario, desligamento: desl || null, observacao: $("rh-observacao").value.trim() };
+    var r = lerFicha();
+    if (r.erro) { u.mostrarErro({ message: r.erro }); return; }
     var b = $("rh-salvar");
     u.ocupado(b, true, "Salvando…");
-    u.db.salvarRH("funcionarios", dados, fichaId || null).then(function () {
-      u.toast("Salvo: " + nome);
+    u.db.salvarRH("funcionarios", r.dados, fichaId || null).then(function () {
+      u.toast("Salvo: " + r.dados.nome);
       fecharFicha();
       return carregar(true).then(desenharFuncionarios);
     }, u.mostrarErro).then(function () { u.ocupado(b, false); });
@@ -140,24 +247,41 @@
     }, u.mostrarErro);
   }
 
+  // Estimativa da rescisão com o que está na tela (não grava nada)
+  function calcularRescisao() {
+    u.limparErro();
+    var f0 = funcionario(fichaId);
+    var r = lerFicha();
+    if (r.erro) { u.mostrarErro({ message: r.erro }); return; }
+    var f = Object.assign({}, f0 || {}, r.dados, { desligamento: null, id: fichaId });
+    var saida = $("rh-desligamento").value;
+    if (!saida) { u.mostrarErro({ message: "Preencha o último dia de trabalho (pode ser uma data para simular)." }); return; }
+    if (!f.admissao) { u.mostrarErro({ message: "Preencha a admissão." }); return; }
+    if (!f.salario_centavos) { u.mostrarErro({ message: "Preencha o salário." }); return; }
+    var tipo = $("rh-desl-tipo").value || "sem_justa_causa";
+    var res = RF.rescisao(f, { saida: saida, tipo: tipo, aviso: $("rh-desl-aviso").value, fgtsSaldo: r.dados.fgts_saldo_centavos },
+      { ferias: d.ferias, ocorrencias: d.ocorrencias, cfg: d.cfg });
+    function linha(rot, v, det, forte) {
+      return '<div class="linha-info' + (forte ? " forte" : "") + '"><span>' + esc(rot) + (det ? ' <small class="suave">' + esc(det) + "</small>" : "") +
+        "</span><strong>" + esc(u.brl(v)) + "</strong></div>";
+    }
+    $("rh-rescisao").innerHTML = '<div class="rescisao">' +
+      '<p class="mini"><strong>' + esc(RF.TIPOS_DESLIGAMENTO[tipo]) + "</strong> · aviso prévio de " + res.diasAviso + " dias" +
+      (res.projecao !== saida ? " (contrato vai até " + esc(u.dataBR(res.projecao)) + ")" : "") + "</p>" +
+      res.itens.map(function (x) { return linha(x.rotulo, x.valor, x.detalhe); }).join("") +
+      linha("Total para o funcionário", res.total, "", true) +
+      linha("FGTS do mês da rescisão", res.fgtsMes, "8%, na guia") +
+      (res.pctMulta ? linha("Multa do FGTS (" + res.pctMulta / 100 + "%)", res.multa, (res.fgtsEstimado ? "saldo estimado: " : "saldo: ") + u.brl(res.fgtsSaldo)) : "") +
+      linha("Custo total para a loja", res.custoTotal, "", true) +
+      '<p class="mini">Pagar até <strong>' + esc(u.dataBR(res.pagarAte)) + "</strong> (10 dias depois do último dia).</p>" +
+      '<ul class="mini suave">' + res.notas.map(function (n) { return "<li>" + esc(n) + "</li>"; }).join("") + "</ul></div>";
+  }
+
   /* ============================== Escala ============================== */
 
-  function textoDia(x, curto) {
-    switch (x.tipo) {
-      case "trabalho": return x.entrada + "–" + x.saida + (x.ocorrencia && x.ocorrencia.tipo === "feriado_trabalhado" ? " (feriado)" : "");
-      case "folga": return "Folga";
-      case "folga_escala": return "Não trabalha";
-      case "falta": return x.ocorrencia.justificada ? "Falta justificada" : "Falta";
-      case "atestado": return "Atestado";
-      case "feriado": return "Feriado";
-      case "domingo": return "Fechado";
-      case "sem_escala": return curto ? "Sem turma" : "Sem turma (escolha na ficha)";
-      default: return "—";
-    }
-  }
   function classeDia(x) {
-    return { trabalho: "", folga: "cor-pendente", folga_escala: "suave", falta: "cor-falta", atestado: "cor-pendente",
-      feriado: "suave", domingo: "suave", sem_escala: "suave" }[x.tipo] || "suave";
+    return { trabalho: "", folga: "cor-pendente", folga_escala: "suave", falta: "cor-falta", atestado: "cor-pendente", ferias: "cor-sobra",
+      suspensao: "cor-falta", feriado: "suave", domingo: "suave", sem_escala: "suave" }[x.tipo] || "suave";
   }
 
   function desenharEscala() {
@@ -178,15 +302,14 @@
             var x = RH.diaDoFuncionario(ctx(), f, t);
             if (x.tipo === "fora") return "";
             return '<li><span>' + esc(primeiroNome(f.nome)) + (x.horario ? ' <small class="suave">' + esc(x.horario.nome) + "</small>" : "") +
-              '</span><span class="' + classeDia(x) + '">' + esc(textoDia(x, true)) + "</span></li>";
+              '</span><span class="' + classeDia(x) + '">' + esc(RH.textoDia(x)) + "</span></li>";
           }).join("") + "</ul></div>";
       }
     }
     $("esc-semana").innerHTML = html;
     // mês de um funcionário
     var sel = $("esc-func"), atual = sel.value;
-    sel.innerHTML = fs.map(function (f) { return '<option value="' + esc(f.id) + '">' + esc(f.nome) + "</option>"; }).join("");
-    if (atual && funcionario(atual)) sel.value = atual;
+    sel.innerHTML = opcoesFuncionarios(fs, atual);
     if (!$("esc-mes").value) $("esc-mes").value = mesAtual();
     desenharMesFuncionario();
     desenharHorarios();
@@ -204,22 +327,27 @@
         if (x.tipo === "domingo") return "";
         return '<li class="' + (x.data === hoje() ? "hoje" : "") + '"><span>' + RH.DIAS_CURTOS[x.semana] + " " + u.dataBR(x.data).slice(0, 5) +
           (x.feriado ? ' <small class="suave">' + esc(x.feriado.nome) + "</small>" : "") + '</span><span class="' + classeDia(x) + '">' +
-          esc(textoDia(x)) + "</span></li>";
+          esc(x.tipo === "sem_escala" ? "Sem turma (escolha na ficha)" : RH.textoDia(x)) + "</span></li>";
       }).join("") + "</ul>";
   }
 
   function desenharHorarios() {
     var hs = ordenar(d.horarios);
     $("esc-horarios").innerHTML = hs.length ? hs.map(function (h) {
+      var sem = RH.minutosDaSemana(h), maisDe10 = [1, 2, 3, 4, 5, 6].filter(function (i) { return RH.minutosDoDia((h.dias || {})[String(i)]) > 600; });
+      var aviso = sem > 2640 ? "Passa de 44h por semana: as horas a mais são hora extra (ou banco de horas)." :
+        maisDe10.length ? "Dia com mais de 10 horas de trabalho (" + maisDe10.map(function (i) { return RH.DIAS_CURTOS[i]; }).join(", ") + "): a CLT permite no máximo 2h a mais por dia." : "";
       return '<div class="horario" data-horario="' + esc(h.id) + '">' +
         '<div class="dupla"><label class="campo"><span>Nome</span><input type="text" class="h-nome" maxlength="40" value="' + esc(h.nome) + '" /></label>' +
         '<label class="campo"><span>Ordem</span><input type="number" class="h-ordem" min="0" max="9" value="' + esc(h.ordem) + '" /></label></div>' +
-        '<table class="tabela-horario"><thead><tr><th>Dia</th><th>Entrada</th><th>Saída</th></tr></thead><tbody>' +
+        '<div class="tabela-rolagem"><table class="tabela-horario"><thead><tr><th>Dia</th><th>Entrada</th><th>Saída</th><th>Almoço <small>(min)</small></th></tr></thead><tbody>' +
         [1, 2, 3, 4, 5, 6].map(function (i) {
           var x = (h.dias || {})[String(i)] || {};
           return "<tr><td>" + RH.DIAS_CURTOS[i] + '</td><td><input type="time" data-dia="' + i + '" data-campo="entrada" value="' + esc(x.entrada || "") + '" aria-label="Entrada ' + RH.DIAS[i] + '" /></td>' +
-            '<td><input type="time" data-dia="' + i + '" data-campo="saida" value="' + esc(x.saida || "") + '" aria-label="Saída ' + RH.DIAS[i] + '" /></td></tr>';
-        }).join("") + "</tbody></table>" +
+            '<td><input type="time" data-dia="' + i + '" data-campo="saida" value="' + esc(x.saida || "") + '" aria-label="Saída ' + RH.DIAS[i] + '" /></td>' +
+            '<td><input type="number" class="h-intervalo" min="0" max="240" step="5" data-dia="' + i + '" data-campo="intervalo" value="' + esc(x.intervalo || "") + '" aria-label="Almoço ' + RH.DIAS[i] + ' em minutos" /></td></tr>';
+        }).join("") + "</tbody></table></div>" +
+        '<p class="mini">Total: <strong>' + RH.horas(sem) + "</strong> por semana</p>" + (aviso ? '<p class="msg-aviso mini">' + esc(aviso) + "</p>" : "") +
         '<div class="acoes"><button type="button" class="botao perigo pequeno" data-apagar-horario="' + esc(h.id) + '">Apagar</button>' +
         '<button type="button" class="botao primario pequeno" data-salvar-horario="' + esc(h.id) + '">Salvar horário</button></div></div>';
     }).join("") : '<p class="vazio">Nenhum horário. Inclua, por exemplo, "Manhã" e "Tarde".</p>';
@@ -233,9 +361,14 @@
     [1, 2, 3, 4, 5, 6].forEach(function (i) {
       var e = el.querySelector('[data-dia="' + i + '"][data-campo="entrada"]').value;
       var s = el.querySelector('[data-dia="' + i + '"][data-campo="saida"]').value;
+      var iv = el.querySelector('[data-dia="' + i + '"][data-campo="intervalo"]').value;
       if (!e && !s) return;
       if (!RH.lerHora(e) || !RH.lerHora(s)) { erro = "Preencha entrada e saída de " + RH.DIAS[i] + " (ou deixe as duas vazias)."; return; }
+      var n = iv === "" ? 0 : parseInt(iv, 10);
+      if (!(n >= 0 && n <= 240)) { erro = "Almoço de " + RH.DIAS[i] + ": de 0 a 240 minutos."; return; }
       dias[String(i)] = { entrada: RH.lerHora(e), saida: RH.lerHora(s) };
+      if (n) dias[String(i)].intervalo = n;
+      if (RH.minutosDoDia(dias[String(i)]) <= 0) erro = "Em " + RH.DIAS[i] + " o almoço é maior que o dia de trabalho.";
     });
     if (erro) { u.mostrarErro({ message: erro }); return; }
     u.limparErro();
@@ -300,12 +433,51 @@
     }).then(function () { return carregar(true).then(desenharEscala); }, u.mostrarErro);
   }
 
+  function textoPDF(s) { return String(s).replace(/[—–]/g, "-").replace(/−/g, "-").replace(/ | /g, " "); }
+
+  // Escala da semana em A4 deitado: funcionários × dias
+  function pdfEscala() {
+    var fs = ativos();
+    if (!fs.length) { u.mostrarErro({ message: "Cadastre os funcionários primeiro." }); return; }
+    u.toast("Gerando PDF…");
+    u.jspdf().then(function (lib) {
+      var doc = new lib.jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+      var m = 12, larg = 297 - 2 * m, col0 = 48, colW = (larg - col0) / 6, y = 18;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+      doc.text(textoPDF("Escala - " + (u.empresa.nome || "Supermercado")), m, y);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(11);
+      doc.text("Semana de " + u.dataBR(semana) + " a " + u.dataBR(window.Feriados.somarDias(semana, 5)), m, y + 7);
+      y += 16;
+      doc.setDrawColor(150); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+      for (var i = 0; i < 6; i++) {
+        var t = window.Feriados.somarDias(semana, i), fer = RH.feriadoDoDia(t, d.feriados);
+        doc.text(textoPDF(RH.DIAS[i + 1] + " " + u.dataBR(t).slice(0, 5)), m + col0 + i * colW + 2, y);
+        if (fer) { doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text(textoPDF(doc.splitTextToSize(fer.nome, colW - 4)[0]), m + col0 + i * colW + 2, y + 4); doc.setFont("helvetica", "bold"); doc.setFontSize(10); }
+      }
+      y += 7;
+      var alt = Math.min(22, (210 - y - 14) / fs.length);
+      fs.forEach(function (f) {
+        doc.line(m, y, m + larg, y);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(11);
+        doc.text(textoPDF(doc.splitTextToSize(f.nome, col0 - 4)[0]), m + 1, y + 6);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+        for (var i = 0; i < 6; i++) {
+          var x = RH.diaDoFuncionario(ctx(), f, window.Feriados.somarDias(semana, i));
+          var txt = x.tipo === "fora" ? "" : x.tipo === "trabalho" ? x.entrada + " - " + x.saida + (x.intervalo ? "\nAlmoço " + RH.horas(x.intervalo) : "") : RH.textoDia(x);
+          doc.text(textoPDF(txt).split("\n"), m + col0 + i * colW + 2, y + 6);
+        }
+        y += alt;
+      });
+      doc.line(m, y, m + larg, y);
+      doc.save("escala_" + semana + ".pdf");
+    }, u.mostrarErro);
+  }
+
   /* ============================ Ocorrências ============================ */
 
   function desenharOcorrencias() {
     var sel = $("oc-func"), atual = sel.value;
-    sel.innerHTML = ativos().map(function (f) { return '<option value="' + esc(f.id) + '">' + esc(f.nome) + "</option>"; }).join("");
-    if (atual && funcionario(atual)) sel.value = atual;
+    sel.innerHTML = opcoesFuncionarios(ativos(), atual);
     if (!$("oc-data").value) $("oc-data").value = hoje();
     if (!$("oc-mes").value) $("oc-mes").value = mesAtual();
     escolherTipo(ocTipo);
@@ -315,17 +487,23 @@
 
   function escolherTipo(t) {
     ocTipo = t;
-    u.definirAlternador($("oc-tipo"), t);
-    $("oc-dias-campo").hidden = t !== "atestado";
+    var segunda = ["advertencia", "suspensao", "elogio"].indexOf(t) >= 0;
+    u.definirAlternador($("oc-tipo"), segunda ? "" : t);
+    u.definirAlternador($("oc-tipo2"), segunda ? t : "");
+    $("oc-dias-campo").hidden = t !== "atestado" && t !== "suspensao";
+    $("oc-dias").max = t === "suspensao" ? "30" : "365";
     $("oc-justificada-campo").hidden = t !== "falta";
-    $("oc-data-rotulo").textContent = t === "atestado" ? "Primeiro dia" : "Data";
+    $("oc-banco-campo").hidden = t !== "folga" && t !== "feriado_trabalhado";
+    $("oc-banco-rotulo").textContent = t === "folga" ? "Folga do banco de horas (desconta as horas do dia)" : "Vai para o banco de horas (em vez de pagar)";
+    $("oc-data-rotulo").textContent = t === "atestado" || t === "suspensao" ? "Primeiro dia" : "Data";
+    $("oc-motivo-rotulo").textContent = t === "advertencia" || t === "suspensao" ? "Motivo (vai no documento para assinar)" : t === "elogio" ? "Elogio (o que fez)" : "Motivo / observação";
     avisoOcorrencia();
   }
 
   function avisoOcorrencia() {
     var el = $("oc-aviso"), t = $("oc-data").value, f = funcionario($("oc-func").value);
     var msg = "";
-    if (t && RH.diaDaSemana(t) === 0 && ocTipo !== "atestado") msg = "Esse dia é domingo (loja fechada).";
+    if (t && RH.diaDaSemana(t) === 0 && ["atestado", "advertencia", "elogio"].indexOf(ocTipo) < 0) msg = "Esse dia é domingo (loja fechada).";
     if (t && ocTipo === "feriado_trabalhado") {
       var fer = RH.feriadoDoDia(t, d.feriados);
       if (!fer) msg = "Esse dia não é feriado. Se for feriado municipal, inclua em Feriados abaixo.";
@@ -335,7 +513,10 @@
       var x = RH.diaDoFuncionario(ctx(), f, t);
       if (x.tipo === "folga_escala") msg = "Pela escala, " + primeiroNome(f.nome) + " já não trabalha nesse dia.";
       if (x.tipo === "feriado") msg = "Esse dia é feriado (" + x.feriado.nome + ").";
+      if (x.tipo === "ferias") msg = primeiroNome(f.nome) + " está de férias nesse dia.";
+      if (ocTipo === "folga" && $("oc-banco").checked && x.tipo === "trabalho") msg = "Vai descontar " + RH.horas(x.minutos) + " do banco de horas.";
     }
+    if (ocTipo === "suspensao" && !msg) msg = "A suspensão é de no máximo 30 dias e os dias não são pagos. Antes, em geral, vêm advertências.";
     el.textContent = msg;
     el.hidden = !msg;
   }
@@ -346,35 +527,50 @@
     if (!f) { u.mostrarErro({ message: "Escolha o funcionário (cadastre na aba Funcionários)." }); return; }
     var t = $("oc-data").value;
     if (!t) { u.mostrarErro({ message: "Preencha a data." }); return; }
-    var dias = ocTipo === "atestado" ? parseInt($("oc-dias").value, 10) : 1;
-    if (!(dias >= 1 && dias <= 365)) { u.mostrarErro({ message: "Dias do atestado: de 1 a 365." }); return; }
+    var comDias = ocTipo === "atestado" || ocTipo === "suspensao";
+    var dias = comDias ? parseInt($("oc-dias").value, 10) : 1;
+    var max = ocTipo === "suspensao" ? 30 : 365;
+    if (!(dias >= 1 && dias <= max)) { u.mostrarErro({ message: "Dias: de 1 a " + max + "." }); return; }
+    var motivo = $("oc-motivo").value.trim();
+    if ((ocTipo === "advertencia" || ocTipo === "suspensao") && !motivo) { u.mostrarErro({ message: "Escreva o motivo: ele vai no documento que o funcionário assina." }); return; }
     var dados = { funcionario: f.id, tipo: ocTipo, data: t, dias: dias, justificada: ocTipo === "falta" && $("oc-justificada").checked,
-      motivo: $("oc-motivo").value.trim() };
+      banco: (ocTipo === "folga" || ocTipo === "feriado_trabalhado") && $("oc-banco").checked, motivo: motivo };
     var b = $("oc-incluir");
     u.ocupado(b, true, "Salvando…");
-    u.db.salvarRH("ocorrencias", dados).then(function () {
+    u.db.salvarRH("ocorrencias", dados).then(function (salvo) {
       u.toast(NOMES_TIPO[ocTipo] + " registrada: " + primeiroNome(f.nome) + " · " + u.dataBR(t));
       $("oc-motivo").value = "";
       $("oc-justificada").checked = false;
+      $("oc-banco").checked = false;
       $("oc-dias").value = "1";
       $("oc-mes").value = t.slice(0, 7);
+      if ((ocTipo === "advertencia" || ocTipo === "suspensao") && confirm("Gerar o documento para imprimir e assinar?")) imprimirMedida(salvo || dados);
       return carregar(true).then(desenharOcorrencias);
     }, u.mostrarErro).then(function () { u.ocupado(b, false); });
+  }
+
+  function imprimirMedida(o) {
+    var f = funcionario(o.funcionario);
+    if (!f) return;
+    u.pdfTexto(RF.textoMedida(empresa(), f, o), o.tipo + "_" + primeiroNome(f.nome).toLowerCase() + "_" + o.data + ".pdf");
   }
 
   function desenharListaOcorrencias() {
     var m = $("oc-mes").value || mesAtual();
     var am = anoMes(m), dias = RH.diasDoMes(am.ano, am.mes), ini = dias[0], fim = dias[dias.length - 1];
     var lista = d.ocorrencias.filter(function (o) {
-      var ate = o.tipo === "atestado" ? window.Feriados.somarDias(o.data, (+o.dias || 1) - 1) : o.data;
+      var ate = o.tipo === "atestado" || o.tipo === "suspensao" ? window.Feriados.somarDias(o.data, (+o.dias || 1) - 1) : o.data;
       return o.data <= fim && ate >= ini;
     }).sort(function (a, b) { return a.data < b.data ? -1 : a.data > b.data ? 1 : 0; });
     $("oc-lista").innerHTML = lista.length ? '<ul class="lista-versoes">' + lista.map(function (o) {
       var f = funcionario(o.funcionario);
-      var det = o.tipo === "atestado" ? " · " + o.dias + (+o.dias === 1 ? " dia" : " dias") : o.tipo === "falta" ? (o.justificada ? " · justificada" : " · sem justificativa") : "";
+      var det = o.tipo === "atestado" || o.tipo === "suspensao" ? " · " + o.dias + (+o.dias === 1 ? " dia" : " dias") :
+        o.tipo === "falta" ? (o.justificada ? " · justificada" : " · sem justificativa") : o.banco ? " · banco de horas" : "";
+      var imprimir = o.tipo === "advertencia" || o.tipo === "suspensao";
       return "<li><div><strong>" + esc(u.dataBR(o.data).slice(0, 5)) + " · " + esc(NOMES_TIPO[o.tipo]) + "</strong>" + esc(det) + "<br>" +
         esc(f ? f.nome : "?") + (o.motivo ? ' <small class="suave">' + esc(o.motivo) + "</small>" : "") + "</div>" +
-        '<button type="button" class="botao pequeno" data-apagar-oc="' + esc(o.id) + '" aria-label="Apagar">×</button></li>';
+        '<span class="lista-botoes">' + (imprimir ? '<button type="button" class="botao pequeno" data-imprimir-oc="' + esc(o.id) + '">Imprimir</button>' : "") +
+        '<button type="button" class="botao pequeno" data-apagar-oc="' + esc(o.id) + '" aria-label="Apagar">×</button></span></li>';
     }).join("") + "</ul>" : '<p class="vazio">Nenhuma ocorrência em ' + esc(RH.rotuloMes(am.ano, am.mes)) + ".</p>";
   }
 
@@ -417,14 +613,21 @@
     var am = anoMes($("res-mes").value);
     var rs = resumos();
     var ref = $("res-mes").value + "-01";
+    var fimMes = RH.diasDoMes(am.ano, am.mes).pop();
     $("res-conteudo").innerHTML = '<h2 style="margin:4px 0 10px">' + esc(RH.rotuloMes(am.ano, am.mes)) + "</h2>" + (rs.length ? rs.map(function (r) {
       var f = r.funcionario;
+      var bh = RF.saldoBanco(ctx(), f, fimMes < hoje() ? fimMes : hoje(), d.cfg);
       function item(rotulo, valor) { return '<div class="linha-info"><span>' + rotulo + "</span><strong>" + valor + "</strong></div>"; }
       return '<div class="bloco"><h2>' + esc(f.nome) + (f.funcao ? ' <small class="suave">' + esc(f.funcao) + "</small>" : "") + "</h2>" +
         item("Faltas", r.faltas.length ? r.faltas.length + " (" + r.faltasJustificadas + " justificada" + (r.faltasJustificadas === 1 ? "" : "s") + ")" : "0") +
         item("Dias de atestado", String(r.diasAtestado)) +
         item("Folgas", String(r.folgas.length)) +
         item("Feriados trabalhados", r.feriadosTrabalhados.length ? r.feriadosTrabalhados.map(function (x) { return u.dataBR(x.data).slice(0, 5); }).join(", ") : "0") +
+        (r.diasFerias ? item("Dias de férias", String(r.diasFerias)) : "") +
+        (r.suspensoes.length ? item("Dias de suspensão", String(r.diasSuspensao)) : "") +
+        (r.advertencias.length ? item("Advertências", String(r.advertencias.length)) : "") +
+        (r.elogios.length ? item("Elogios", String(r.elogios.length)) : "") +
+        item("Banco de horas (saldo)", esc(sinalHoras(bh.saldo))) +
         item("Dias na escala", r.trabalhados + " (" + RH.horas(r.minutos) + ")") +
         '<div class="linha-info"><span>Holerite</span>' + (r.holerite ? "<strong>Recebido em " + esc(u.dataBR(r.holerite.recebido_em)) + "</strong>"
           : '<span class="holerite-registrar"><input type="date" value="' + hoje() + '" aria-label="Data em que o holerite chegou" data-holerite-data="' + esc(f.id) + '" />' +
@@ -432,6 +635,8 @@
         "</div>";
     }).join("") : '<p class="vazio">Nenhum funcionário ativo em ' + esc(RH.rotuloMes(am.ano, am.mes)) + ".</p>");
   }
+
+  function sinalHoras(min) { return min === 0 ? "0h" : (min > 0 ? "+" : "−") + RH.horas(Math.abs(min)); }
 
   function registrarHolerite(func, ref) {
     var inp = document.querySelector('[data-holerite-data="' + func + '"]');
@@ -451,9 +656,21 @@
     $("rh-cancelar").addEventListener("click", fecharFicha);
     $("rh-salvar").addEventListener("click", salvarFicha);
     $("rh-apagar").addEventListener("click", apagarFicha);
-    $("rh-salario").addEventListener("blur", function () {
-      var c = C.reaisParaCentavos($("rh-salario").value);
-      if (c != null) $("rh-salario").value = u.dinheiroCampo(c);
+    $("rh-calcular-rescisao").addEventListener("click", calcularRescisao);
+    $("rh-desligamento").addEventListener("change", desenharPassos);
+    $("rh-passos").addEventListener("change", function (ev) {
+      var c = ev.target.closest("[data-passo]");
+      if (c) passos[c.dataset.passo] = c.checked;
+    });
+    ["rh-salario", "rh-gratificacao", "rh-fgts"].forEach(function (id) {
+      $(id).addEventListener("blur", function () {
+        var c = C.reaisParaCentavos($(id).value);
+        if (c != null && $(id).value.trim()) $(id).value = u.dinheiroCampo(c);
+      });
+    });
+    $("rh-cpf").addEventListener("blur", function () {
+      var c = RF.soNumeros($("rh-cpf").value);
+      if (c.length === 11) $("rh-cpf").value = RF.formatarCPF(c);
     });
     $("rh-lista").addEventListener("click", function (ev) {
       var b = ev.target.closest("[data-func]");
@@ -466,9 +683,21 @@
         return carregar(true).then(function () { desenharHolerites(funcionario(fichaId)); });
       }, u.mostrarErro);
     });
+    // exportar
+    $("rh-csv-func").addEventListener("click", function () {
+      u.baixar("funcionarios_" + hoje() + ".csv", RF.csvFuncionarios(d.funcionarios.slice().sort(porNome), d.turmas), "text/csv;charset=utf-8");
+    });
+    $("rh-csv-oc").addEventListener("click", function () {
+      u.baixar("ocorrencias_" + hoje() + ".csv", RF.csvOcorrencias(d.ocorrencias, d.funcionarios), "text/csv;charset=utf-8");
+    });
+    $("rh-csv-banco").addEventListener("click", function () {
+      u.baixar("banco_de_horas_" + hoje() + ".csv", RF.csvBanco(ctx(), d.funcionarios.slice().sort(porNome)), "text/csv;charset=utf-8");
+    });
     // escala
     $("esc-anterior").addEventListener("click", function () { semana = window.Feriados.somarDias(semana, -7); desenharEscala(); });
     $("esc-proxima").addEventListener("click", function () { semana = window.Feriados.somarDias(semana, 7); desenharEscala(); });
+    $("esc-copiar").addEventListener("click", function () { u.copiar(RH.textoEscalaSemana(ctx(), ativos(), semana)); });
+    $("esc-pdf").addEventListener("click", pdfEscala);
     $("esc-func").addEventListener("change", desenharMesFuncionario);
     $("esc-mes").addEventListener("change", desenharMesFuncionario);
     $("esc-novo-horario").addEventListener("click", novoHorario);
@@ -488,14 +717,18 @@
       }
     });
     // ocorrências
-    $("oc-tipo").addEventListener("click", function (ev) {
-      var b = ev.target.closest("button[data-valor]");
-      if (b) escolherTipo(b.dataset.valor);
+    ["oc-tipo", "oc-tipo2"].forEach(function (id) {
+      $(id).addEventListener("click", function (ev) {
+        var b = ev.target.closest("button[data-valor]");
+        if (b) escolherTipo(b.dataset.valor);
+      });
     });
-    ["oc-data", "oc-func"].forEach(function (id) { $(id).addEventListener("change", avisoOcorrencia); });
+    ["oc-data", "oc-func", "oc-banco"].forEach(function (id) { $(id).addEventListener("change", avisoOcorrencia); });
     $("oc-incluir").addEventListener("click", incluirOcorrencia);
     $("oc-mes").addEventListener("change", function () { desenharListaOcorrencias(); desenharFeriados(); });
     $("oc-lista").addEventListener("click", function (ev) {
+      var p = ev.target.closest("[data-imprimir-oc]");
+      if (p) { imprimirMedida(d.ocorrencias.filter(function (o) { return o.id === p.dataset.imprimirOc; })[0]); return; }
       var b = ev.target.closest("[data-apagar-oc]");
       if (!b || !confirm("Apagar esta ocorrência?")) return;
       u.db.apagarRH("ocorrencias", b.dataset.apagarOc).then(function () { return carregar(true).then(desenharOcorrencias); }, u.mostrarErro);
@@ -520,7 +753,14 @@
       var am = anoMes($("res-mes").value);
       u.pdfTexto(RH.textoResumo(resumos(), am.ano, am.mes), "rh_" + $("res-mes").value + ".pdf");
     });
+    if (window.RHGestao) window.RHGestao.iniciar(base);
   }
 
-  window.RHAdmin = { iniciar: iniciar, mostrar: mostrar };
+  // o que rh-gestao.js usa
+  var base = {
+    d: d, u: function () { return u; }, carregar: carregar, ctx: ctx, ativos: ativos, funcionario: funcionario, primeiroNome: primeiroNome,
+    porNome: porNome, opcoesFuncionarios: opcoesFuncionarios, empresa: empresa, sinalHoras: sinalHoras, hoje: hoje, esc: function (s) { return esc(s); }
+  };
+
+  window.RHAdmin = { iniciar: iniciar, mostrar: mostrar, base: base };
 })();

@@ -723,7 +723,50 @@ label.botao.ocupado { opacity: .6; pointer-events: none; }
 .oc-tipos button { font-size: .85rem; padding: 0 2px; }
 .holerite-registrar { display: flex; gap: 6px; align-items: center; }
 .holerite-registrar input { min-height: 44px; max-width: 9.5rem; font: inherit; }
-#rh-holerites h3 { margin: 12px 0 4px; }
+#rh-holerites h3, #rh-historico h3, #rh-desligamento-parte h3 { margin: 12px 0 4px; }
+
+/* ---------- RH completo ---------- */
+.tabela-horario { min-width: 300px; }
+.tabela-horario input.h-intervalo { max-width: 5rem; }
+details.ficha-parte { border: 1px solid var(--borda); border-radius: var(--raio-md); padding: 0 12px; margin: 4px 0 12px; }
+details.ficha-parte > summary { cursor: pointer; font-weight: 700; min-height: 48px; display: flex; align-items: center; }
+details.ficha-parte[open] { padding-bottom: 8px; }
+.lista-botoes { display: flex; gap: 6px; flex: 0 0 auto; }
+.rescisao { margin: 8px 0 12px; padding: 12px; border-radius: var(--raio-md); background: var(--superficie-2); }
+.rescisao ul { margin: 8px 0 0; padding-left: 18px; }
+.rescisao .linha-info span, .cu-func .linha-info span { min-width: 0; overflow-wrap: anywhere; }
+.rescisao .linha-info strong, .cu-func .linha-info strong { white-space: nowrap; }
+.fe-func, .cu-func, .sa-grupo { border-top: 1px solid var(--borda); padding-top: 10px; margin-top: 10px; }
+.fe-func:first-child, .cu-func:first-child, .sa-grupo:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+.fe-func h3, .cu-func h3, .sa-grupo h3 { margin: 0 0 4px; font-size: 1rem; }
+.fe-func .linha-info { align-items: flex-start; gap: 10px; }
+.fe-func .linha-info span:first-child { min-width: 0; }
+.fe-func .etiqueta { flex: none; }
+.cu-grade { display: grid; gap: 0 24px; }
+@media (min-width: 900px) { .cu-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cu-func:nth-child(2) { border-top: 0; margin-top: 0; padding-top: 0; } }
+.sa-grupo-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+details.sa-func { border-top: 1px solid var(--borda); padding: 6px 0; }
+details.sa-func:first-child { border-top: 0; }
+details.sa-func > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; min-height: 48px; list-style: none; }
+details.sa-func > summary::-webkit-details-marker { display: none; }
+details.sa-func > summary .etiqueta { flex: none; }
+.fe-tabela { border-collapse: collapse; width: 100%; min-width: 560px; font-variant-numeric: tabular-nums; }
+.fe-tabela th, .fe-tabela td { padding: 6px 2px; text-align: center; font-size: .85rem; border-bottom: 1px solid var(--borda); }
+.fe-tabela thead th { color: var(--suave); font-weight: 600; text-transform: capitalize; }
+.fe-tabela tbody th { text-align: left; white-space: nowrap; padding-right: 8px; }
+.fe-tabela td.fe-tem, .fe-legenda.fe-tem { background: var(--sobra-fundo); color: var(--sobra); font-weight: 700; }
+.fe-tabela td.fe-junto, .fe-legenda.fe-junto { background: var(--aviso-fundo); color: var(--aviso-texto); font-weight: 700; }
+.fe-tabela td.fe-limite, .fe-legenda.fe-limite { box-shadow: inset 0 0 0 2px var(--falta); color: var(--falta); font-weight: 800; }
+.fe-legenda { display: inline-block; min-width: 1.2em; padding: 0 3px; border-radius: 4px; text-align: center; vertical-align: middle; }
+#fe-conferencia .cx-resultado { margin-bottom: 8px; }
+#fe-conferencia .cx-resultado strong { margin-bottom: 2px; }
+#cu-plano td:first-child { white-space: normal; min-width: 7.5rem; }
+#cu-plano { width: 100%; min-width: 520px; border-collapse: collapse; }
+#cu-plano th, #cu-plano td { padding: 8px 6px; border-bottom: 1px solid var(--borda); vertical-align: top; }
+#cu-plano th { font-size: .85rem; color: var(--suave); }
+.visao-equipe ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.visao-equipe li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px solid var(--borda); }
+.visao-equipe li:first-child { border-top: 0; }
 
 /* ---------- Conferir (caixas lado a lado) ---------- */
 .tabela-conferir { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }

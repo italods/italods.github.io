@@ -214,7 +214,7 @@
   var ABAS_CAIXA = ["caixa", "conferir", "historico", "movimentos", "relatorio", "importar"];
   var ABAS_ESCUTA = ["escuta", "escuta-mensagens", "escuta-plaquinhas", "escuta-catalogo"];
   var ABAS_CARTOES = ["cartoes", "cartoes-taxas"];
-  var ABAS_RH = ["rh", "rh-escala", "rh-ocorrencias", "rh-resumo"];
+  var ABAS_RH = ["rh", "rh-escala", "rh-ocorrencias", "rh-banco", "rh-ferias", "rh-custos", "rh-saude", "rh-resumo"];
   var ABAS_VISAO = ["visao"];
   var ABAS = ABAS_VISAO.concat(ABAS_CAIXA, ABAS_ESCUTA, ABAS_CARTOES, ABAS_RH);
   var TITULOS = { visao: "Visão geral", caixa: "Conferência de caixa", cartoes: "Cartões", escuta: "Veneza Escuta", rh: "Recursos humanos" };
@@ -1900,7 +1900,8 @@
     window.RHAdmin.iniciar({
       db: db, toast: toast, mostrarErro: mostrarErro, limparErro: limparErro, ocupado: ocupado, escapar: escapar,
       dataBR: C.dataBR, hojeISO: hojeISO, dinheiroCampo: dinheiroCampo, definirAlternador: definirAlternador,
-      copiar: copiar, pdfTexto: pdfTexto
+      copiar: copiar, pdfTexto: pdfTexto, brl: brl, baixar: baixar, empresa: CFG.EMPRESA || {},
+      jspdf: function () { return carregarScript(LIBS.jspdf).then(function () { return window.jspdf; }); }
     });
     window.Troco.iniciar({
       db: db, toast: toast, mostrarErro: mostrarErro, ocupado: ocupado, escapar: escapar, brl: brl, nomeCaixa: nomeCaixa,

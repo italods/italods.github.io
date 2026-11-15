@@ -48,8 +48,12 @@ sistema/
   js/recebiveis.js  ← conciliação: CSV de Recebíveis da Cielo, taxa do contrato × cobrada (1 centavo
                       de tolerância), prazo em dias úteis, vendas sem pagamento, repasse no BB
   js/cartoes.js     ← área "Cartões": abas Conciliação (#cartoes) e Taxas (#cartoes-taxas)
-  js/rh.js          ← RH (puras + testes): escala rotativa, dia do funcionário, resumo do mês, texto
-  js/rh-admin.js    ← área "RH": Funcionários (#rh), Escala, Ocorrências, Resumo
+  js/rh.js          ← RH (puras + testes): escala rotativa (com almoço), dia do funcionário (férias, suspensão),
+                      resumo do mês, escala da semana para o WhatsApp
+  js/rh-folha.js    ← RH (puras + testes): férias (CLT), banco de horas, custo e reserva (13º, férias, FGTS),
+                      rescisão estimada, passo a passo do desligamento, advertência/suspensão/aviso de férias, avisos, CSV
+  js/rh-admin.js    ← área "RH": Funcionários (#rh, ficha completa, histórico, rescisão), Escala, Ocorrências, Resumo
+  js/rh-gestao.js   ← área "RH": Banco de horas (#rh-banco), Férias (#rh-ferias), Custos (#rh-custos), Saúde (#rh-saude)
   js/painel.js      ← Visão geral (puras + testes): indicadores, "O que precisa de atenção", diferença por dia
   js/visao.js       ← tela "Visão geral" (#visao, a primeira depois do login)
   js/importar.js    ← aba "Importar" (Conferência de caixa): prévias do CSV da Cielo e do extrato do
@@ -70,8 +74,9 @@ escuta/             ← formulário PÚBLICO dos clientes (sem login): index.htm
 assets/logo-veneza.png ← logo oficial (preta, fundo transparente, versão sem a onda). No topo verde do
                     formulário ela aparece branca (filtro no escuta.css); nas plaquinhas, preta
 supabase/schema.sql ← caixa: tabelas, gatilhos e RLS (colar no SQL Editor; pode rodar de novo)
-supabase/rh.sql   ← RH: rh_funcionarios, rh_turmas, rh_horarios, rh_ocorrencias, rh_feriados,
-                      rh_holerites (rodar depois do schema.sql; pode rodar de novo)
+supabase/rh.sql   ← RH: rh_funcionarios, rh_turmas, rh_horarios, rh_ocorrencias, rh_feriados, rh_holerites,
+                      rh_banco_horas, rh_ferias, rh_historico, rh_exames, rh_treinamentos, rh_entregas
+                      (rodar depois do schema.sql; pode rodar de novo)
 supabase/escuta.sql ← Veneza Escuta: tabelas, funções, RLS e pasta privada de fotos (rodar
                       depois do schema.sql; pode rodar de novo)
 supabase/testes/    ← Supabase simulado + testes SQL (caixa.test.sql, escuta.test.sql; só para
@@ -177,10 +182,14 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   Users > Add user (senha provisória, "Auto Confirm") e ela troca em "Trocar senha".
 
 ### RH
-- Dados dos funcionários **só no banco** (nunca no código nem nos testes: nomes inventados). Ficha:
-  nome, função, admissão, telefone, salário (centavos), turma, desligamento (preenchido = desligado) e
-  observações. Sem CPF nem endereço (decisão do Italo). O resumo para o contador não leva salário.
-- Escala: horários (entrada/saída de segunda a sábado; domingo fechado) e turmas que **revezam toda
+- Dados dos funcionários **só no banco** (nunca no código nem nos testes: nomes inventados). Ficha completa
+  (nov/2026, decisão do Italo: "todos os dados necessários"): nome, função, turma, admissão, nascimento,
+  telefone, jornada semanal, salário e gratificação (centavos), CPF (validado), RG, PIS, CTPS, endereço,
+  e-mail, PIX, estado civil, escolaridade, dependentes, contato de emergência, uniforme e observações.
+  O resumo para o contador não leva salário. Equipe atual: 4 funcionários CLT (1 caixa, 3 serviços gerais),
+  gratificação de R$ 200; o Italo e a irmã não entram como funcionários.
+- Histórico: o gatilho `rh_funcionario_historico` grava sozinho mudança de função, salário, gratificação e turma.
+- Escala: horários (entrada/saída e almoço em minutos, de segunda a sábado; domingo fechado) e turmas que **revezam toda
   semana** (manhã/tarde). Semana de referência em `configuracoes.rh_semana_ref` (segunda-feira): nela a
   turma de ordem 0 faz o horário de ordem 0; a cada semana avançam um horário. Na tela o Italo escolhe
   "nesta semana faz" e o sistema calcula a referência.
@@ -188,9 +197,24 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   trabalhado. Feriados nacionais vêm de `feriados.js`; municipais/estaduais em `rh_feriados`. A loja
   abre em alguns feriados: quem trabalhou é marcado. Carnaval e Corpus Christi = ponto facultativo
   (dia normal no comércio).
+- Ocorrências também: advertência e suspensão (até 30 dias; documento para imprimir e assinar) e elogio.
+  `rh_ocorrencias.banco`: folga que desconta do banco de horas ou feriado trabalhado que vira crédito.
 - Holerite: só o registro de recebimento (mês e data), nunca o arquivo. Funcionário com histórico
   não se apaga (chave estrangeira): preencher o desligamento.
-- Resumo do mês: faltas, atestados, folgas, feriados trabalhados; WhatsApp + PDF.
+- Resumo do mês: faltas, atestados, folgas, feriados trabalhados, férias, suspensões, banco de horas; WhatsApp + PDF.
+- **Banco de horas** (sem registro de ponto, decisão do Italo): lançamentos à mão (+/− minutos) + folgas e
+  feriados marcados "do banco" (valem as horas do dia na escala). Créditos mais antigos são usados primeiro;
+  aviso quando passam de 6 meses (art. 59 §5, acordo individual escrito).
+- **Férias** (`rh_ferias`, ligadas ao período aquisitivo): regras da CLT em `RHFolha.conferirFerias` (art. 130,
+  134, 135, 137, 145). Não vendem 1/3; às vezes dividem. Planejamento do ano e aviso de vencimento.
+- **Custos**: custo real por mês, quanto guardar (1/12 de 13º, 1/12 de férias + 1/3, FGTS sobre eles, multa de 40%
+  opcional), reserva que já devia existir e plano de 12 meses. Encargos em `configuracoes.rh_encargos` (JSON;
+  padrão Simples Nacional = só FGTS 8%). Tudo estimado, sem INSS/IR do funcionário: o oficial é do contador.
+- **Desligamento**: tipo, aviso prévio (30 + 3 por ano, até 90), estimativa da rescisão (`RHFolha.rescisao`),
+  passo a passo em `desligamento_passos` e prazo de 10 dias.
+- **Saúde**: exames ASO (`rh_exames`, próximo exame padrão 24 meses), treinamentos e entrega de EPI/uniforme
+  (ficha para assinar). Avisos do RH (`RHFolha.avisos`) entram em "O que precisa de atenção".
+- Sem acesso dos funcionários ao sistema, sem registro de ponto, sem processo de admissão (decisões do Italo).
 
 ### Veneza Escuta
 - Cliente (papel `anon`) não lê nenhuma tabela. Só chama `escuta_plaquinha`, `escuta_buscar_produtos`

@@ -153,6 +153,10 @@
         <a href="#rh" data-aba="rh">Funcionários</a>
         <a href="#rh-escala" data-aba="rh-escala">Escala</a>
         <a href="#rh-ocorrencias" data-aba="rh-ocorrencias">Ocorrências</a>
+        <a href="#rh-banco" data-aba="rh-banco">Banco de horas</a>
+        <a href="#rh-ferias" data-aba="rh-ferias">Férias</a>
+        <a href="#rh-custos" data-aba="rh-custos">Custos</a>
+        <a href="#rh-saude" data-aba="rh-saude">Saúde</a>
         <a href="#rh-resumo" data-aba="rh-resumo">Resumo</a>
       </nav>
       <nav class="abas" data-modulo="escuta" aria-label="Veneza Escuta" hidden>
@@ -592,6 +596,8 @@
 
       <!-- ======================= RH: FUNCIONÁRIOS ======================= -->
       <section id="aba-rh" class="aba" hidden>
+        <p class="msg-aviso bloco" id="rh-falta-sql" hidden>Falta atualizar o banco: cole o arquivo <strong>supabase/rh.sql</strong> no SQL Editor do
+          Supabase e clique em Run. Até lá, férias, banco de horas, histórico e saúde não são gravados.</p>
         <div class="bloco" id="rh-lista-bloco">
           <h2>Funcionários</h2>
           <div id="rh-lista"><p class="vazio">Carregando…</p></div>
@@ -599,7 +605,7 @@
         </div>
         <div class="bloco" id="rh-ficha" hidden>
           <h2 id="rh-ficha-titulo">Novo funcionário</h2>
-          <label class="campo"><span>Nome</span><input type="text" id="rh-nome" maxlength="80" autocomplete="off" /></label>
+          <label class="campo"><span>Nome completo</span><input type="text" id="rh-nome" maxlength="80" autocomplete="off" /></label>
           <div class="dupla">
             <label class="campo"><span>Função</span><input type="text" id="rh-funcao" maxlength="60" list="rh-funcoes" autocomplete="off" /></label>
             <label class="campo"><span>Turma</span><select id="rh-turma"></select></label>
@@ -607,19 +613,87 @@
           <datalist id="rh-funcoes"><option value="Caixa"></option><option value="Serviços gerais"></option></datalist>
           <div class="dupla">
             <label class="campo"><span>Admissão</span><input type="date" id="rh-admissao" /></label>
+            <label class="campo"><span>Nascimento</span><input type="date" id="rh-nascimento" /></label>
+          </div>
+          <div class="dupla">
             <label class="campo"><span>Telefone</span><input type="tel" id="rh-telefone" maxlength="20" autocomplete="off" /></label>
+            <label class="campo"><span>Jornada <small class="suave">(h/semana)</small></span><input type="number" id="rh-jornada" min="1" max="44" step="1" value="44" /></label>
           </div>
           <div class="dupla">
             <label class="campo"><span>Salário</span><input type="text" inputmode="decimal" class="dinheiro" id="rh-salario" placeholder="0,00" autocomplete="off" /></label>
-            <label class="campo"><span>Desligamento <small class="suave">(se saiu)</small></span><input type="date" id="rh-desligamento" /></label>
+            <label class="campo"><span>Gratificação</span><input type="text" inputmode="decimal" class="dinheiro" id="rh-gratificacao" placeholder="0,00" autocomplete="off" /></label>
           </div>
+          <details class="ficha-parte">
+            <summary>Documentos</summary>
+            <div class="dupla">
+              <label class="campo"><span>CPF</span><input type="text" inputmode="numeric" id="rh-cpf" maxlength="14" autocomplete="off" /></label>
+              <label class="campo"><span>RG</span><input type="text" id="rh-rg" maxlength="30" autocomplete="off" /></label>
+            </div>
+            <div class="dupla">
+              <label class="campo"><span>PIS/NIS</span><input type="text" inputmode="numeric" id="rh-pis" maxlength="14" autocomplete="off" /></label>
+              <label class="campo"><span>Carteira de trabalho</span><input type="text" id="rh-ctps" maxlength="30" autocomplete="off" placeholder="número e série" /></label>
+            </div>
+          </details>
+          <details class="ficha-parte">
+            <summary>Dados pessoais e contato</summary>
+            <label class="campo"><span>Endereço</span><input type="text" id="rh-endereco" maxlength="200" autocomplete="off" /></label>
+            <div class="dupla">
+              <label class="campo"><span>E-mail</span><input type="email" id="rh-email" maxlength="120" autocomplete="off" /></label>
+              <label class="campo"><span>Chave PIX</span><input type="text" id="rh-pix" maxlength="120" autocomplete="off" /></label>
+            </div>
+            <div class="dupla">
+              <label class="campo"><span>Estado civil</span><input type="text" id="rh-estado-civil" maxlength="30" list="rh-estados-civis" autocomplete="off" /></label>
+              <label class="campo"><span>Dependentes</span><input type="number" id="rh-dependentes" min="0" max="20" value="0" /></label>
+            </div>
+            <datalist id="rh-estados-civis"><option value="Solteiro(a)"></option><option value="Casado(a)"></option><option value="União estável"></option>
+              <option value="Divorciado(a)"></option><option value="Viúvo(a)"></option></datalist>
+            <div class="dupla">
+              <label class="campo"><span>Escolaridade</span><input type="text" id="rh-escolaridade" maxlength="60" list="rh-escolaridades" autocomplete="off" /></label>
+              <label class="campo"><span>Uniforme <small class="suave">(tamanhos)</small></span><input type="text" id="rh-uniforme" maxlength="60" autocomplete="off" placeholder="camisa M, bota 40" /></label>
+            </div>
+            <datalist id="rh-escolaridades"><option value="Fundamental incompleto"></option><option value="Fundamental completo"></option>
+              <option value="Médio incompleto"></option><option value="Médio completo"></option><option value="Superior incompleto"></option><option value="Superior completo"></option></datalist>
+            <label class="campo"><span>Contato de emergência <small class="suave">(nome e telefone)</small></span><input type="text" id="rh-emergencia" maxlength="120" autocomplete="off" /></label>
+          </details>
           <label class="campo"><span>Observações</span><textarea id="rh-observacao" rows="2" maxlength="2000"></textarea></label>
+          <details class="ficha-parte" id="rh-desligamento-parte">
+            <summary>Desligamento e rescisão</summary>
+            <p class="suave mini">Use para simular quanto custa um desligamento ou para registrar a saída. A data preenchida marca o funcionário como desligado
+              quando você salvar.</p>
+            <div class="dupla">
+              <label class="campo"><span>Último dia de trabalho</span><input type="date" id="rh-desligamento" /></label>
+              <label class="campo"><span>Tipo</span><select id="rh-desl-tipo">
+                <option value="">—</option><option value="sem_justa_causa">Dispensa sem justa causa</option><option value="pedido">Pedido de demissão</option>
+                <option value="acordo">Acordo (art. 484-A)</option><option value="justa_causa">Justa causa</option></select></label>
+            </div>
+            <div class="dupla">
+              <label class="campo"><span>Aviso prévio</span><select id="rh-desl-aviso">
+                <option value="indenizado">Indenizado (não trabalha)</option><option value="trabalhado">Trabalhado</option>
+                <option value="dispensado">Dispensado pela loja</option><option value="nao_cumprido">Não cumprido (pedido)</option></select></label>
+              <label class="campo"><span>Saldo do FGTS <small class="suave">(opcional)</small></span><input type="text" inputmode="decimal" class="dinheiro" id="rh-fgts" placeholder="0,00" autocomplete="off" /></label>
+            </div>
+            <label class="campo"><span>Motivo</span><input type="text" id="rh-desl-motivo" maxlength="300" autocomplete="off" /></label>
+            <div class="acoes"><button type="button" class="botao" id="rh-calcular-rescisao">Calcular rescisão</button></div>
+            <div id="rh-rescisao"></div>
+            <h3 class="mini">Passo a passo do desligamento</h3>
+            <div id="rh-passos"></div>
+          </details>
+          <div id="rh-historico" hidden></div>
           <div id="rh-holerites" hidden></div>
           <div class="acoes">
             <button type="button" class="botao" id="rh-cancelar">Cancelar</button>
             <button type="button" class="botao primario" id="rh-salvar">Salvar</button>
           </div>
           <div class="acoes"><button type="button" class="botao perigo pequeno" id="rh-apagar" hidden>Apagar funcionário</button></div>
+        </div>
+        <div class="bloco">
+          <h2>Exportar (planilha)</h2>
+          <p class="suave mini">Arquivos CSV para abrir no Excel. Servem também de cópia de segurança.</p>
+          <div class="acoes quatro">
+            <button type="button" class="botao" id="rh-csv-func">Funcionários</button>
+            <button type="button" class="botao" id="rh-csv-oc">Ocorrências</button>
+            <button type="button" class="botao" id="rh-csv-banco">Banco de horas</button>
+          </div>
         </div>
       </section>
 
@@ -632,6 +706,10 @@
             <button type="button" class="botao pequeno" id="esc-proxima" aria-label="Próxima semana">›</button>
           </div>
           <div id="esc-semana"><p class="vazio">Carregando…</p></div>
+          <div class="acoes">
+            <button type="button" class="botao" id="esc-pdf">PDF para imprimir</button>
+            <button type="button" class="botao primario" id="esc-copiar">Copiar para o WhatsApp</button>
+          </div>
         </div>
         <div class="bloco">
           <h2>Mês de um funcionário</h2>
@@ -643,7 +721,8 @@
         </div>
         <div class="bloco">
           <h2>Horários</h2>
-          <p class="suave mini">Entrada e saída de cada dia (vazio = não trabalha nesse dia). Domingo a loja é fechada.</p>
+          <p class="suave mini">Entrada, saída e almoço (em minutos) de cada dia. Vazio = não trabalha nesse dia. Domingo a loja é fechada.
+            A CLT permite até 44 horas por semana e 2 horas a mais por dia.</p>
           <div id="esc-horarios"></div>
           <div class="acoes"><button type="button" class="botao" id="esc-novo-horario">+ Horário</button></div>
         </div>
@@ -667,13 +746,19 @@
             <button type="button" role="radio" data-valor="atestado">Atestado</button>
             <button type="button" role="radio" data-valor="feriado_trabalhado">Feriado trab.</button>
           </div>
+          <div class="alternador oc-tipos" role="radiogroup" aria-label="Tipo (disciplina e elogio)" id="oc-tipo2">
+            <button type="button" role="radio" data-valor="advertencia">Advertência</button>
+            <button type="button" role="radio" data-valor="suspensao">Suspensão</button>
+            <button type="button" role="radio" data-valor="elogio">Elogio</button>
+          </div>
           <div class="dupla">
             <label class="campo"><span id="oc-data-rotulo">Data</span><input type="date" id="oc-data" /></label>
             <label class="campo" id="oc-dias-campo" hidden><span>Dias</span><input type="number" id="oc-dias" min="1" max="365" value="1" /></label>
           </div>
           <label class="marcar" id="oc-justificada-campo" hidden><input type="checkbox" id="oc-justificada" /> Falta justificada</label>
+          <label class="marcar" id="oc-banco-campo" hidden><input type="checkbox" id="oc-banco" /> <span id="oc-banco-rotulo">Folga do banco de horas</span></label>
           <p class="msg-aviso" id="oc-aviso" hidden></p>
-          <label class="campo"><span>Motivo / observação</span><input type="text" id="oc-motivo" maxlength="300" autocomplete="off" /></label>
+          <label class="campo"><span id="oc-motivo-rotulo">Motivo / observação</span><input type="text" id="oc-motivo" maxlength="300" autocomplete="off" /></label>
           <div class="acoes"><button type="button" class="botao primario" id="oc-incluir">Registrar</button></div>
         </div>
         <div class="bloco">
@@ -690,6 +775,170 @@
             <label class="campo"><span>Nome</span><input type="text" id="fer-nome" maxlength="60" autocomplete="off" /></label>
           </div>
           <div class="acoes"><button type="button" class="botao" id="fer-incluir">Incluir feriado</button></div>
+        </div>
+      </section>
+
+      <!-- ======================= RH: BANCO DE HORAS ======================= -->
+      <section id="aba-rh-banco" class="aba" hidden>
+        <div id="bh-saldos" class="kpis"></div>
+        <div class="bloco">
+          <h2>Lançar</h2>
+          <label class="campo"><span>Funcionário</span><select id="bh-func"></select></label>
+          <div class="alternador" role="radiogroup" aria-label="Tipo de lançamento" id="bh-tipo">
+            <button type="button" role="radio" data-valor="mais">Horas a mais</button>
+            <button type="button" role="radio" data-valor="menos">Horas a menos</button>
+            <button type="button" role="radio" data-valor="folga">Folga</button>
+          </div>
+          <p class="suave mini" id="bh-explica"></p>
+          <div class="dupla">
+            <label class="campo"><span>Data</span><input type="date" id="bh-data" /></label>
+            <label class="campo" id="bh-horas-campo"><span>Horas <small class="suave">(ex.: 1:30)</small></span><input type="text" inputmode="numeric" id="bh-horas" maxlength="6" autocomplete="off" placeholder="0:00" /></label>
+          </div>
+          <label class="campo"><span>Motivo</span><input type="text" id="bh-motivo" maxlength="300" autocomplete="off" placeholder="ex.: ficou para o inventário" /></label>
+          <p class="msg-aviso" id="bh-aviso" hidden></p>
+          <div class="acoes"><button type="button" class="botao primario" id="bh-incluir">Lançar</button></div>
+        </div>
+        <div class="bloco">
+          <h2>Extrato</h2>
+          <label class="campo"><span>Funcionário</span><select id="bh-extrato-func"></select></label>
+          <div id="bh-extrato"></div>
+        </div>
+        <div class="bloco">
+          <h2>Como funciona</h2>
+          <p class="suave mini">Horas a mais (ficou depois do horário, feriado trabalhado marcado “para o banco”) somam. Horas a menos (saiu mais cedo,
+            chegou atrasado) e folgas do banco descontam as horas do dia na escala. Pela CLT, com acordo individual por escrito, as horas
+            devem ser compensadas em até 6 meses; depois disso, pague como hora extra (50% a mais). Faça o acordo de banco de horas por escrito
+            com cada funcionário (o contador tem o modelo).</p>
+        </div>
+      </section>
+
+      <!-- ======================= RH: FÉRIAS ======================= -->
+      <section id="aba-rh-ferias" class="aba" hidden>
+        <div class="bloco">
+          <h2>Situação de cada funcionário</h2>
+          <div id="fe-situacao"><p class="vazio">Carregando…</p></div>
+        </div>
+        <div class="bloco" id="fe-form">
+          <h2 id="fe-form-titulo">Programar férias</h2>
+          <label class="campo"><span>Funcionário</span><select id="fe-func"></select></label>
+          <label class="campo"><span>Período aquisitivo</span><select id="fe-aquisitivo"></select></label>
+          <div class="dupla">
+            <label class="campo"><span>Primeiro dia</span><input type="date" id="fe-inicio" /></label>
+            <label class="campo"><span>Dias</span><input type="number" id="fe-dias" min="5" max="30" value="30" /></label>
+          </div>
+          <label class="campo"><span>Observação</span><input type="text" id="fe-obs" maxlength="300" autocomplete="off" /></label>
+          <div id="fe-conferencia"></div>
+          <div class="acoes">
+            <button type="button" class="botao" id="fe-cancelar" hidden>Cancelar</button>
+            <button type="button" class="botao primario" id="fe-salvar">Salvar férias</button>
+          </div>
+        </div>
+        <div class="bloco">
+          <div class="inicio-topo">
+            <button type="button" class="botao pequeno" id="fe-ano-anterior" aria-label="Ano anterior">‹</button>
+            <h2 id="fe-ano-titulo">Planejamento</h2>
+            <button type="button" class="botao pequeno" id="fe-ano-proximo" aria-label="Próximo ano">›</button>
+          </div>
+          <div id="fe-plano"></div>
+        </div>
+        <div class="bloco">
+          <h2>Férias registradas</h2>
+          <div id="fe-lista"></div>
+        </div>
+        <div class="bloco">
+          <h2>Regras</h2>
+          <p class="suave mini">Depois de 12 meses de trabalho (período aquisitivo), o funcionário tem 30 dias de férias, que devem ser tiradas nos
+            12 meses seguintes. Faltas sem justificativa diminuem os dias (6 a 14 faltas: 24 dias; 15 a 23: 18; 24 a 32: 12; mais de 32: perde).
+            Dá para dividir em até 3 períodos: um com 14 dias ou mais e os outros com 5 ou mais. Não podem começar nos 2 dias antes de domingo ou
+            feriado. Avise por escrito 30 dias antes e pague (férias + 1/3) até 2 dias antes. Se passar do prazo, os dias são pagos em dobro.</p>
+        </div>
+      </section>
+
+      <!-- ======================= RH: CUSTOS ======================= -->
+      <section id="aba-rh-custos" class="aba" hidden>
+        <div id="cu-kpis" class="kpis"></div>
+        <div class="bloco">
+          <h2>Próximos 12 meses</h2>
+          <p class="suave mini">“Guardar” é o que separar todo mês para 13º, férias e FGTS. “Pagar” é o que sai no mês: salários, gratificação,
+            FGTS e, quando cai no mês, 13º e férias.</p>
+          <div class="tabela-rolagem"><table class="tabela-numeros" id="cu-plano"></table></div>
+        </div>
+        <div class="bloco">
+          <h2>Custo de cada funcionário por mês</h2>
+          <div id="cu-funcionarios"></div>
+        </div>
+        <div class="bloco">
+          <h2>Encargos</h2>
+          <p class="suave mini">No Simples Nacional a contribuição do INSS da loja já vai na guia do DAS; por fora fica o FGTS (8%). Fora do Simples,
+            soma o INSS patronal (20% + RAT + terceiros, perto de 27,8%). Confirme o regime com o contador.</p>
+          <div class="alternador" role="radiogroup" aria-label="Regime" id="cu-regime">
+            <button type="button" role="radio" data-valor="simples">Simples Nacional</button>
+            <button type="button" role="radio" data-valor="normal">Outro regime</button>
+          </div>
+          <label class="campo" id="cu-inss-campo" hidden><span>INSS da loja (%)</span><input type="text" inputmode="decimal" id="cu-inss" maxlength="6" autocomplete="off" /></label>
+          <label class="marcar"><input type="checkbox" id="cu-multa" /> Guardar também para a multa de 40% do FGTS (se demitir)</label>
+          <label class="marcar"><input type="checkbox" id="cu-grat" /> A gratificação entra no 13º, férias e FGTS</label>
+          <div class="acoes"><button type="button" class="botao primario" id="cu-salvar">Salvar</button></div>
+          <p class="suave mini">Valores estimados, antes dos descontos do funcionário (INSS e IR). O valor oficial da folha é do contador.</p>
+        </div>
+      </section>
+
+      <!-- ======================= RH: SAÚDE E SEGURANÇA ======================= -->
+      <section id="aba-rh-saude" class="aba" hidden>
+        <div class="bloco">
+          <h2>Exames (ASO)</h2>
+          <p class="suave mini">São obrigatórios (CLT art. 168 e NR-7) e pagos pela loja, numa clínica de medicina do trabalho: admissional (antes de
+            começar), periódico (em geral a cada 2 anos), retorno ao trabalho (depois de 30 dias ou mais afastado), mudança de função e demissional.
+            A clínica entrega o ASO (atestado de saúde ocupacional), que fica guardado na loja.</p>
+          <div id="sa-exames-situacao"></div>
+          <details class="ficha-parte">
+            <summary>Registrar exame</summary>
+            <label class="campo"><span>Funcionário</span><select id="sa-ex-func" class="rh-sel-func"></select></label>
+            <div class="dupla">
+              <label class="campo"><span>Tipo</span><select id="sa-ex-tipo"><option value="admissional">Admissional</option><option value="periodico">Periódico</option>
+                <option value="retorno">Retorno ao trabalho</option><option value="mudanca">Mudança de função</option><option value="demissional">Demissional</option></select></label>
+              <label class="campo"><span>Data</span><input type="date" id="sa-ex-data" /></label>
+            </div>
+            <div class="dupla">
+              <label class="campo"><span>Próximo exame</span><input type="date" id="sa-ex-validade" /></label>
+              <label class="campo"><span>Resultado</span><select id="sa-ex-apto"><option value="1">Apto</option><option value="0">Inapto</option></select></label>
+            </div>
+            <label class="campo"><span>Observação</span><input type="text" id="sa-ex-obs" maxlength="300" autocomplete="off" /></label>
+            <div class="acoes"><button type="button" class="botao primario" id="sa-ex-salvar">Registrar exame</button></div>
+          </details>
+        </div>
+        <div class="bloco">
+          <h2>EPI e uniforme</h2>
+          <p class="suave mini">Registre cada entrega (o funcionário assina a ficha). Para EPI, anote o número do CA que vem na etiqueta.</p>
+          <div class="dupla">
+            <label class="campo"><span>Funcionário</span><select id="sa-ep-func" class="rh-sel-func"></select></label>
+            <label class="campo"><span>Data</span><input type="date" id="sa-ep-data" /></label>
+          </div>
+          <label class="campo"><span>Item</span><input type="text" id="sa-ep-item" maxlength="80" list="sa-itens" autocomplete="off" /></label>
+          <datalist id="sa-itens"><option value="Camisa do uniforme"></option><option value="Avental"></option><option value="Bota de borracha"></option>
+            <option value="Luva"></option><option value="Touca"></option><option value="Japona térmica"></option><option value="Calçado de segurança"></option></datalist>
+          <div class="dupla">
+            <label class="campo"><span>Quantidade</span><input type="number" id="sa-ep-qtd" min="1" max="99" value="1" /></label>
+            <label class="campo"><span>CA <small class="suave">(EPI)</small></span><input type="text" id="sa-ep-ca" maxlength="20" autocomplete="off" /></label>
+          </div>
+          <div class="acoes"><button type="button" class="botao primario" id="sa-ep-salvar">Registrar entrega</button></div>
+          <div id="sa-entregas"></div>
+        </div>
+        <div class="bloco">
+          <h2>Treinamentos</h2>
+          <div class="dupla">
+            <label class="campo"><span>Funcionário</span><select id="sa-tr-func" class="rh-sel-func"></select></label>
+            <label class="campo"><span>Data</span><input type="date" id="sa-tr-data" /></label>
+          </div>
+          <label class="campo"><span>Treinamento</span><input type="text" id="sa-tr-nome" maxlength="80" list="sa-treinos" autocomplete="off" /></label>
+          <datalist id="sa-treinos"><option value="Boas práticas na manipulação de alimentos"></option><option value="Atendimento ao cliente"></option>
+            <option value="Operação de caixa"></option><option value="Prevenção e combate a incêndio"></option><option value="Primeiros socorros"></option></datalist>
+          <div class="dupla">
+            <label class="campo"><span>Horas</span><input type="number" id="sa-tr-horas" min="1" max="999" /></label>
+            <label class="campo"><span>Vale até <small class="suave">(se vence)</small></span><input type="date" id="sa-tr-validade" /></label>
+          </div>
+          <div class="acoes"><button type="button" class="botao primario" id="sa-tr-salvar">Registrar treinamento</button></div>
+          <div id="sa-treinamentos"></div>
         </div>
       </section>
 
@@ -904,7 +1153,9 @@
   <script src="js/troco.js"></script>
   <script src="js/cartoes.js"></script>
   <script src="js/rh.js"></script>
+  <script src="js/rh-folha.js"></script>
   <script src="js/rh-admin.js"></script>
+  <script src="js/rh-gestao.js"></script>
   <script src="js/painel.js"></script>
   <script src="js/visao.js"></script>
   <script src="js/app.js"></script>

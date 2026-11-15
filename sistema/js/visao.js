@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var P = window.Painel, C = window.Calculos, RH = window.RH, IV = window.Investigar;
+  var P = window.Painel, C = window.Calculos, RH = window.RH, RF = window.RHFolha, IV = window.Investigar;
   var u = null;
   var pedido = 0;
   var itensAtencao = [];
@@ -32,6 +32,7 @@
     var el = $("visao-conteudo");
     if (!el.dataset.pronto) el.innerHTML = '<p class="vazio">Carregando…</p>';
     var rhNomes = ["funcionarios", "turmas", "horarios", "ocorrencias", "feriados", "holerites"];
+    var rhNovas = ["ferias", "banco_horas", "exames", "treinamentos"];   // podem faltar se o rh.sql não foi atualizado
     Promise.all([
       u.db.listarConferencias({ de: de14, ate: hoje }),
       seguro(u.db.listarCielo({ de: de7, ate: hoje }), null),
@@ -39,11 +40,17 @@
       seguro(u.db.listarMaquinas(), []),
       seguro(u.db.listarTrocas({ de: de7, ate: hoje }), []),
       seguro(u.escuta ? u.escuta.resumo() : Promise.reject(), null),
-      seguro(Promise.all(rhNomes.map(function (n) { return u.db.listarRH(n); }).concat([u.db.obterConfiguracao("rh_semana_ref")])), null)
+      seguro(Promise.all(rhNomes.map(function (n) { return u.db.listarRH(n); }).concat(rhNovas.map(function (n) { return seguro(u.db.listarRH(n), []); }),
+        [u.db.obterConfiguracao("rh_semana_ref"), seguro(u.db.obterConfiguracao("rh_encargos"), "")])), null)
     ]).then(function (r) {
       if (meu !== pedido) return;
       desenhar(hoje, { confs: r[0] || [], cielo: r[1], banco: r[2], maquinas: r[3] || [], trocas: r[4] || [],
-        escuta: r[5], rh: r[6] ? (function () { var o = {}; rhNomes.forEach(function (n, i) { o[n] = r[6][i] || []; }); o.ref = r[6][rhNomes.length]; return o; })() : null });
+        escuta: r[5], rh: r[6] ? (function () {
+          var o = {}, todas = rhNomes.concat(rhNovas);
+          todas.forEach(function (n, i) { o[n] = r[6][i] || []; });
+          o.ref = r[6][todas.length]; o.encargos = r[6][todas.length + 1];
+          return o;
+        })() : null });
     }, function (e) {
       if (meu !== pedido) return;
       el.innerHTML = '<p class="vazio">Não foi possível carregar a visão geral.</p>';
@@ -61,12 +68,15 @@
 
   function desenhar(hoje, d) {
     // RH: equipe de hoje e holerites do mês passado
-    var equipe = null, holerites = null;
+    var equipe = null, holerites = null, rhAvisos = [], aniversarios = [];
     if (d.rh && d.rh.funcionarios.length) {
       var ctx = { turmas: d.rh.turmas, horarios: d.rh.horarios, ref: d.rh.ref || RH.segundaDaSemana(hoje),
-        ocorrencias: d.rh.ocorrencias, feriados: d.rh.feriados };
+        ocorrencias: d.rh.ocorrencias, feriados: d.rh.feriados, ferias: d.rh.ferias, banco: d.rh.banco_horas, exames: d.rh.exames,
+        treinamentos: d.rh.treinamentos, funcionarios: d.rh.funcionarios, cfg: RF.lerEncargos(d.rh.encargos), hoje: hoje };
       var ativos = d.rh.funcionarios.filter(function (f) { return !f.desligamento || f.desligamento >= hoje; });
       equipe = RH.equipeDoDia(ctx, ativos, hoje);
+      rhAvisos = RF.avisos(ctx);
+      aniversarios = RF.aniversariantes(ativos, +hoje.slice(5, 7), hoje);
       var p = hoje.split("-"), ano = +p[0], mes = +p[1] - 1;
       if (mes === 0) { mes = 12; ano--; }
       if (+p[2] >= 5) {
@@ -89,7 +99,8 @@
     var escutaNovas = d.escuta ? +d.escuta.novo || 0 : null;
     var base = { hoje: hoje, caixas: u.caixas, conferencias: d.confs, escutaNovas: escutaNovas, equipe: equipe };
     var ind = P.indicadores(base);
-    itensAtencao = P.atencao(Object.assign({}, base, { cielo: contarPorDia(d.cielo), banco: contarPorDia(d.banco), quadros: quadros, holerites: holerites }));
+    itensAtencao = P.atencao(Object.assign({}, base, { cielo: contarPorDia(d.cielo), banco: contarPorDia(d.banco), quadros: quadros, holerites: holerites,
+      rhAvisos: rhAvisos }));
     var difs = P.diferencasPorDia(d.confs, P.somarDias(hoje, -13), hoje);
 
     var html = '<div class="kpis">' +
@@ -101,7 +112,9 @@
         : kpi("Dinheiro", "Sem dados", "Ainda não há fechamento com cupom", "#caixa")) +
       kpi("Mensagens novas", escutaNovas == null ? "—" : String(escutaNovas), "Veneza Escuta", "#escuta-mensagens") +
       (ind.equipe ? kpi("Equipe hoje", ind.equipe.naEscala + " na escala",
-        ind.equipe.ausentes ? ind.equipe.ausentes + (ind.equipe.ausentes === 1 ? " ausente" : " ausentes") : "Ninguém ausente", "#rh-escala")
+        [ind.equipe.ausentes ? ind.equipe.ausentes + (ind.equipe.ausentes === 1 ? " ausente" : " ausentes") : "",
+          ind.equipe.folgas ? ind.equipe.folgas + (ind.equipe.folgas === 1 ? " de folga" : " de folga") : "",
+          ind.equipe.ferias ? ind.equipe.ferias + " de férias" : ""].filter(Boolean).join(" · ") || "Ninguém ausente", "#rh-escala")
         : kpi("Equipe hoje", "—", "Cadastre a equipe em RH", "#rh")) +
       "</div>";
 
@@ -114,7 +127,7 @@
           '<span class="atencao-texto"><strong>' + esc(x.titulo) + "</strong><span>" + esc(x.detalhe) + "</span></span>" + icone("seta") + "</a></li>";
       }).join("") + "</ul>"
         : '<div class="tudo-certo">' + icone("ok") + "<div><strong>Tudo em dia</strong><p class=\"muted small\">Nenhum caixa aberto de dias anteriores, nenhum cupom faltando e nenhuma diferença recente.</p></div></div>") +
-      "</section></div>";
+      "</section>" + blocoEquipe(equipe, aniversarios, hoje) + "</div>";
     var el = $("visao-conteudo");
     el.innerHTML = html;
     el.dataset.pronto = "1";
@@ -124,7 +137,28 @@
     // números nas áreas do menu
     marcar("caixa", itensAtencao.filter(function (x) { return /#(caixa|historico|importar|conferir)/.test(x.link) && x.nivel !== "info"; }).length);
     marcar("escuta", escutaNovas || 0);
-    marcar("rh", equipe ? equipe.faltas.length : 0);
+    marcar("rh", (equipe ? equipe.faltas.length : 0) + rhAvisos.filter(function (x) { return x.nivel !== "info"; }).length);
+  }
+
+  // Equipe de hoje (quem não está na escala e por quê) e aniversariantes do mês
+  function blocoEquipe(e, aniv, hoje) {
+    if (!e) return "";
+    var fora = [];
+    function add(l, txt) { l.forEach(function (x) { fora.push({ nome: x.nome, txt: txt(x) }); }); }
+    add(e.faltas, function () { return "Faltou"; });
+    add(e.atestados, function () { return "Atestado"; });
+    add(e.suspensos || [], function () { return "Suspenso"; });
+    add(e.ferias || [], function () { return "Férias"; });
+    add(e.folgas, function (x) { return x.ocorrencia && x.ocorrencia.banco ? "Folga (banco de horas)" : "Folga"; });
+    var mes = RH.MESES[+hoje.slice(5, 7) - 1];
+    return '<section class="bloco visao-equipe"><h2>Equipe hoje</h2>' +
+      (fora.length ? "<ul>" + fora.map(function (x) { return "<li><span>" + esc(x.nome) + '</span><span class="suave">' + esc(x.txt) + "</span></li>"; }).join("") + "</ul>"
+        : '<p class="muted small">' + (e.trabalhando.length ? "Todo mundo na escala de hoje está trabalhando." : "Ninguém na escala hoje.") + "</p>") +
+      '<h2 style="margin-top:16px">Aniversariantes de ' + esc(mes) + "</h2>" +
+      (aniv.length ? "<ul>" + aniv.map(function (a) {
+        return "<li><span>" + esc(a.nome) + "</span>" + (a.hoje ? '<span class="etiqueta sit-resolvido">Hoje</span>' : '<span class="suave">dia ' + a.dia + "</span>") + "</li>";
+      }).join("") + "</ul>" : '<p class="muted small">Ninguém faz aniversário este mês. Preencha o nascimento na ficha para aparecer aqui.</p>') +
+      "</section>";
   }
 
   function marcar(modulo, n) {

@@ -31,7 +31,7 @@ test("indicadores do dia", () => {
   assert.equal(i.ultimoDia.data, "2027-01-14");
   assert.equal(i.ultimoDia.diferenca, -1240);
   assert.equal(i.escutaNovas, 2);
-  assert.deepEqual(i.equipe, { naEscala: 3, ausentes: 1, folgas: 0 });
+  assert.deepEqual(i.equipe, { naEscala: 3, ausentes: 1, folgas: 0, ferias: 0 });
   assert.equal(P.indicadores({ hoje: HOJE, caixas: CAIXAS, conferencias: [] }).ultimoDia, null, "sem dados: nada inventado");
 });
 
@@ -74,4 +74,12 @@ test("equipe do dia (RH)", () => {
   assert.deepEqual(e.trabalhando.map((x) => x.nome), ["Ana"]);
   assert.deepEqual(e.faltas.map((x) => x.nome), ["Beto"]);
   assert.deepEqual(e.semEscala.map((x) => x.nome), ["Caio"]);
+});
+
+test("atenção: avisos do RH entram na lista, por nível", () => {
+  const P2 = require("../sistema/js/painel.js");
+  const r = P2.atencao({ hoje: "2026-11-15", caixas: [], conferencias: [],
+    rhAvisos: [{ nivel: "info", icone: "pessoas", titulo: "Exame", detalhe: "x", link: "#rh-saude" },
+      { nivel: "erro", icone: "pessoas", titulo: "Férias vencidas", detalhe: "y", link: "#rh-ferias" }] });
+  assert.deepEqual(r.map((x) => x.titulo), ["Férias vencidas", "Exame"]);
 });

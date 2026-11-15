@@ -24,13 +24,24 @@
 
   // RH: tabela rh_<nome> e campos que a tela pode gravar
   var CAMPOS_RH = {
-    funcionarios: ["nome", "funcao", "admissao", "desligamento", "telefone", "salario_centavos", "turma", "observacao"],
+    funcionarios: ["nome", "funcao", "admissao", "desligamento", "telefone", "salario_centavos", "turma", "observacao",
+      "nascimento", "cpf", "rg", "pis", "ctps", "endereco", "email", "estado_civil", "escolaridade", "dependentes",
+      "contato_emergencia", "pix", "uniforme", "gratificacao_centavos", "jornada_semanal_min",
+      "desligamento_tipo", "desligamento_aviso", "desligamento_motivo", "desligamento_passos", "fgts_saldo_centavos"],
     turmas: ["nome", "ordem"],
     horarios: ["nome", "ordem", "dias"],
-    ocorrencias: ["funcionario", "tipo", "data", "dias", "justificada", "motivo"],
+    ocorrencias: ["funcionario", "tipo", "data", "dias", "justificada", "motivo", "banco"],
     feriados: ["data", "nome"],
-    holerites: ["funcionario", "referencia", "recebido_em", "observacao"]
+    holerites: ["funcionario", "referencia", "recebido_em", "observacao"],
+    banco_horas: ["funcionario", "data", "minutos", "motivo"],
+    ferias: ["funcionario", "aquisitivo_inicio", "inicio", "dias", "observacao"],
+    historico: ["funcionario", "data", "campo", "antes", "depois", "observacao"],
+    exames: ["funcionario", "tipo", "data", "validade", "apto", "observacao"],
+    treinamentos: ["funcionario", "data", "nome", "horas", "validade", "observacao"],
+    entregas: ["funcionario", "data", "item", "quantidade", "ca", "devolvido_em", "observacao"]
   };
+  // tabelas do RH ligadas a um funcionário (funcionário com registros não se apaga)
+  var RH_DO_FUNCIONARIO = ["ocorrencias", "holerites", "banco_horas", "ferias", "exames", "treinamentos", "entregas"];
   function camposRH(nome) {
     if (!CAMPOS_RH[nome]) throw new Error("tabela do RH desconhecida: " + nome);
     return CAMPOS_RH[nome];
@@ -471,13 +482,35 @@
         if (chaves && lista.some(function (x) { return chaves.every(function (k) { return String(x[k]) === String(novo[k]); }); })) {
           return Promise.reject(erroAmigavel({ code: "23505", message: "duplicate key" }, "salvar no RH"));
         }
+        // igual ao gatilho rh_ferias_validar
+        if (nome === "ferias" && lista.some(function (x) {
+          if (x.funcionario !== novo.funcionario) return false;
+          var fimX = window.Feriados.somarDias(x.inicio, (+x.dias || 1) - 1), fimN = window.Feriados.somarDias(novo.inicio, (+novo.dias || 1) - 1);
+          return x.inicio <= fimN && novo.inicio <= fimX;
+        })) return Promise.reject(erroAmigavel({ message: "Essas férias se cruzam com outro período do mesmo funcionário." }, "salvar as férias"));
+        // igual ao gatilho rh_funcionario_historico
+        if (nome === "funcionarios" && i) {
+          var nomeTurma = function (t) { var x = ler("rh_turmas").filter(function (y) { return y.id === t; })[0]; return x ? x.nome : ""; };
+          var hist = ler("rh_historico"), hojeH = new Date().toISOString().slice(0, 10);
+          [["funcao", "funcao"], ["salario", "salario_centavos"], ["gratificacao", "gratificacao_centavos"], ["turma", "turma"]].forEach(function (c) {
+            if (d[c[1]] === undefined) return;
+            var antes = atual[c[1]], depois = d[c[1]];
+            if (c[0] === "gratificacao") { antes = +antes || 0; depois = +depois || 0; }
+            if (String(antes == null ? "" : antes) === String(depois == null ? "" : depois)) return;
+            if (c[0] === "turma") { antes = nomeTurma(antes); depois = nomeTurma(depois); }
+            hist.push({ id: id(), funcionario: i, data: hojeH, campo: c[0], antes: antes == null ? "" : String(antes),
+              depois: depois == null ? "" : String(depois), observacao: "", criado_por: EMAIL, criado_em: new Date().toISOString() });
+          });
+          gravar("rh_historico", hist);
+        }
         return salvar("rh_" + nome, camposRH(nome), d, i);
       },
       apagarRH: function (nome, i) {
         camposRH(nome);
-        if (nome === "funcionarios" && (ler("rh_ocorrencias").concat(ler("rh_holerites"))).some(function (x) { return x.funcionario === i; })) {
+        if (nome === "funcionarios" && RH_DO_FUNCIONARIO.some(function (n) { return ler("rh_" + n).some(function (x) { return x.funcionario === i; }); })) {
           return Promise.reject(erroAmigavel({ code: "23503", message: "foreign key" }, "apagar"));
         }
+        if (nome === "funcionarios") gravar("rh_historico", ler("rh_historico").filter(function (x) { return x.funcionario !== i; }));
         if (nome === "turmas") {
           gravar("rh_funcionarios", ler("rh_funcionarios").map(function (f) { if (f.turma === i) f.turma = null; return f; }));
         }
