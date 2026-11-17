@@ -274,6 +274,98 @@
     return { caixa: cx, conferencia: livres[0] };
   }
 
+  /* ----------------------- Cupom fotografado (OCR) ----------------------- */
+
+  // Palavras do cupom que a leitura da foto pode errar (comparadas sem acento, em maiúsculas)
+  var ROTULOS = ["FECHAMENTO DE TURNO", "RESUMO DE FORMAS PAGTO", "RESUMO DO CAIXA", "FORMA PAGTO VENDAS RECBTOS",
+    "CARTAO CREDITO", "CARTAO DEBITO", "PIX DELIVERY", "DINHEIRO", "CARTEIRA", "PIX",
+    "VENDA BRUTA", "FUNDO DE CAIXA", "SANGRIA", "RECEBIMENTO", "TOTAL ENTRADAS", "TOTAL SAIDAS", "TOTAL CAIXA",
+    "TOTAL LIQUIDO", "CANCELAMENTOS ITEM", "DESCONTO", "ACRESCIMOS"];
+  var CAMPOS = ["TERMINAL", "DATA MOV", "HORA ABERTURA", "HORA ENC", "DATA ENC", "TURNO", "OPERADOR"];
+
+  function distancia(a, b) {
+    var m = a.length, n = b.length, d = [], i, j;
+    if (!m) return n;
+    if (!n) return m;
+    for (i = 0; i <= m; i++) d[i] = [i];
+    for (j = 0; j <= n; j++) d[0][j] = j;
+    for (i = 1; i <= m; i++) {
+      for (j = 1; j <= n; j++) {
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      }
+    }
+    return d[m][n];
+  }
+
+  // Valor em reais lido da foto: "1.000.50" / "1,000,50" / "1 000,5O" / "1000.50" -> "1.000,50"
+  function valorDaFoto(t) {
+    var s = String(t).replace(/[Oo]/g, "0").replace(/[Il|]/g, "1").replace(/\s+/g, "");
+    var neg = /^-/.test(s);
+    s = s.replace(/^-/, "");
+    var m = /^([\d.,']*\d)[.,'](\d{2})$/.exec(s);
+    if (!m) return null;
+    var inteiro = m[1].replace(/[.,']/g, "");
+    if (!/^\d{1,9}$/.test(inteiro)) return null;
+    inteiro = String(parseInt(inteiro, 10)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return (neg ? "-" : "") + inteiro + "," + m[2];
+  }
+
+  /*
+   * Arruma o texto que a leitura da foto devolve, para lerCupom entender: valores com ponto/vírgula trocados ou
+   * milhar separado por espaço, "O" no lugar de "0", palavras conhecidas com 1–2 letras erradas ("DEB1TO"),
+   * campos "TERMINAL ..... : 7" e os títulos "***** RECEBIMENTOS *****" / "***** S A N G R I A S *****".
+   */
+  function pareceValor(t) { return /\d/.test(t) && /[.,'][\dOo]{2}$/.test(t) && !/[A-NP-Z]/.test(t.replace(/^-/, "")); }
+  function textoDeFoto(texto) {
+    return linhasDoTexto(texto).map(function (l) {
+      // títulos das listas: os asteriscos costumam virar letras ("FE EAA RECEBIMENTOS REL RA")
+      if (!/\d[.,']\d\d/.test(l)) {
+        var palavras = l.split(" ").map(function (w) { return w.replace(/[^A-Z0-9]/g, "").replace(/0/g, "O").replace(/1/g, "I").replace(/5/g, "S"); });
+        var juntas = l.replace(/[^A-Z0-9]/g, "").replace(/0/g, "O").replace(/1/g, "I").replace(/5/g, "S");
+        if (palavras.some(function (w) { return distancia(w, "RECEBIMENTOS") <= 2; })) return "***** RECEBIMENTOS *****";
+        if (palavras.some(function (w) { return distancia(w, "SANGRIAS") <= 1; }) || /SANGRIAS/.test(juntas)) return "***** S A N G R I A S *****";
+        if (/\*/.test(l)) return l;
+      }
+      var toks = l.split(" "), out = [];
+      for (var i = 0; i < toks.length; i++) {
+        var t = toks[i], prox = toks[i + 1];
+        // "1 000,50" (milhar separado por espaço)
+        if (/^-?[\dOo]{1,3}$/.test(t) && prox && /^[\dOo]{3}[.,'][\dOo]{2}$/.test(prox)) { t = t + prox; i++; }
+        out.push(pareceValor(t) ? (valorDaFoto(t) || t) : t);
+      }
+      // rótulo = palavras do começo da linha (com letra), até o primeiro número
+      var rot = [], k = 0, doisPontos = false;
+      for (; k < out.length; k++) {
+        var tk = out[k], limpo = tk.replace(/[^A-Z0-9]/g, "");
+        if (/:/.test(tk)) doisPontos = true;
+        if (!limpo) continue;
+        if (!/[A-Z]/.test(limpo) || pareceValor(tk)) break;
+        rot.push(limpo.replace(/0/g, "O").replace(/1/g, "I").replace(/5/g, "S").replace(/8/g, "B"));
+        if (/:$/.test(tk)) { k++; break; }
+      }
+      var rotulo = rot.join(" "), resto = out.slice(k).join(" ").replace(/^[.,:;_\s]+/, "").trim();
+      if (!rotulo) return out.join(" ");
+      var tol = function (alvo) { return alvo.length <= 4 ? 0 : alvo.length <= 8 ? 1 : 2; };
+      var campo = CAMPOS.filter(function (c) { return distancia(rotulo, c) <= tol(c); })[0];
+      if (campo === "TURNO") {
+        var t = /(\d{1,4})\s*-\s*(\d{1,3})\s*$/.exec(resto);
+        return "TURNO : " + (t ? t[1] + " - " + t[2] : resto);
+      }
+      if (campo) return campo + " : " + resto;
+      var conhecido = ROTULOS.map(function (r) { return { r: r, d: distancia(rotulo, r) }; })
+        .filter(function (x) { return x.d <= tol(x.r); }).sort(function (a, b) { return a.d - b.d; })[0];
+      if (conhecido) return (conhecido.r + (doisPontos ? " : " : " ") + resto).trim();
+      return out.join(" ");
+    }).join("\n");
+  }
+
+  // Cupom a partir do texto lido de uma foto (mesmas regras do PDF, com a correção acima)
+  function lerCupomFoto(texto) {
+    var r = lerCupom(textoDeFoto(texto));
+    if (r.cupom) r.cupom.origem = "foto";
+    return r;
+  }
+
   return {
     FORMAS: FORMAS,
     centavos: centavos,
@@ -288,6 +380,9 @@
     textoDeItensPdf: textoDeItensPdf,
     problemaCaixaDoCupom: problemaCaixaDoCupom,
     cupomRepetido: cupomRepetido,
-    fechamentoDoCupom: fechamentoDoCupom
+    fechamentoDoCupom: fechamentoDoCupom,
+    valorDaFoto: valorDaFoto,
+    textoDeFoto: textoDeFoto,
+    lerCupomFoto: lerCupomFoto
   };
 });

@@ -216,3 +216,35 @@ test("cupom repetido no mesmo caixa, dia e turno", () => {
   assert.equal(D.cupomRepetido(salvos, c, "caixa2", "2027-01-15", null), null);
   assert.equal(D.cupomRepetido(salvos, null, "caixa1", "2027-01-15", null), null);
 });
+
+test("cupom fotografado: texto com erros de leitura dá o mesmo resultado do PDF", () => {
+  const bom = D.lerCupom(CUPOM).cupom;
+  // erros típicos da leitura de foto (OCR): letras no lugar de números, ponto/vírgula trocados, milhar com espaço
+  const ruim = CUPOM
+    .replace("TERMINAL..... : 7", "TERMlNAL.....: 7")
+    .replace("DATA MOV..... : 15/01/2027", "DATA M0V..... 15/01/2027")
+    .replace("DINHEIRO 1.000,50 200,00", "DlNHEIRO 1 000,5O 200.00")
+    .replace("CARTAO DEBITO 99,75 1.000,00", "CARTÁO DEB1TO 99.75 1,000,00")
+    .replace("PIX DELIVERY 20,00 300,00", "PIX DELIVERY 20,O0 300,00")
+    .replace("FUNDO DE CAIXA 400,00", "FUND0 DE CAlXA 400.00")
+    .replace("SANGRIA -1.250,00", "SANGR1A -1,250.00")
+    .replace("TOTAL LIQUIDO : 350,50", "TOTAL LIQUlDO : 350.50")
+    .replace("***** RECEBIMENTOS *****", "***** RECEB1MENTOS *****");
+  const r = D.lerCupomFoto(ruim);
+  assert.deepEqual(r.erros, []);
+  assert.equal(r.cupom.origem, "foto");
+  assert.deepEqual(r.cupom.formas, bom.formas);
+  for (const k of ["terminal", "data", "turno", "fundo", "sangria", "total_liquido", "venda_bruta", "recebimento"]) {
+    assert.deepEqual(r.cupom[k], bom[k], k);
+  }
+  assert.equal(r.cupom.recebimentos.length, bom.recebimentos.length);
+  assert.deepEqual(D.conferirCupom(r.cupom).filter((x) => x.nivel === "erro"), [], "somas batem");
+  // asteriscos dos títulos lidos como letras
+  const r2 = D.lerCupomFoto(CUPOM.replace("***** RECEBIMENTOS *****", "FE EAA RECEBIMENTOS REL RA")
+    .replace("***** S A N G R I A S *****", "EEE SANGRIAS tttt+x"));
+  assert.equal(r2.cupom.recebimentos.length, 5, "lista de recebimentos lida");
+  assert.deepEqual(r2.cupom.sangrias, [100000, 25000], "lista de sangrias lida");
+  assert.equal(D.valorDaFoto("1 000,5O"), "1.000,50");
+  assert.equal(D.valorDaFoto("12,4"), null);
+  assert.equal(D.lerCupomFoto("uma foto qualquer").cupom, null, "foto que não é cupom");
+});

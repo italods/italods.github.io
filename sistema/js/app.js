@@ -1067,6 +1067,8 @@
     $("cupom-digitar").hidden = !!c;
     $("conf-outros").hidden = !!c || !conf.legado;
     $("cupom-importar").textContent = c ? "Importar outro PDF" : "Importar PDF do cupom";
+    $("cupom-fotografar").textContent = c ? "Fotografar de novo" : "Fotografar o cupom";
+    $("cupom-foto-ver").hidden = !(c && c.origem === "foto" && $("cupom-foto-img").getAttribute("src"));
     ["conf-fundo", "conf-vendas", "conf-recebimentos"].forEach(function (id) { $(id).readOnly = !!c; });
     if (!c) {
       $("cupom-estado").innerHTML = conf.legado ? "Fechamento salvo sem cupom (valores digitados). Se quiser, importe o PDF do cupom."
@@ -1082,9 +1084,11 @@
     if (c.abertura || c.encerramento) partes.push((C.horaCurta(c.abertura) || "?") + " às " + (C.horaCurta(c.encerramento) || "?"));
     if (c.operador) partes.push("Operador: " + c.operador);
     $("cupom-cabecalho").textContent = partes.join(" · ");
-    $("cupom-estado").textContent = c.origem === "pdf" ? "Lido do PDF. Confira e, se precisar, corrija um valor." : "Digitado. Siga a ordem do cupom.";
+    $("cupom-estado").textContent = c.origem === "pdf" ? "Lido do PDF. Confira e, se precisar, corrija um valor."
+      : c.origem === "foto" ? "Lido da foto. Confira cada valor com o cupom: a leitura de foto pode errar um número. As somas abaixo ajudam a achar o erro."
+      : "Digitado. Siga a ordem do cupom.";
     var nr = (c.recebimentos || []).length, ns = (c.sangrias || []).length;
-    $("cupom-listas").textContent = c.origem === "pdf"
+    $("cupom-listas").textContent = c.origem === "pdf" || c.origem === "foto"
       ? nr + (nr === 1 ? " recebimento" : " recebimentos") + " (nome do cliente abreviado) e " + ns + (ns === 1 ? " sangria" : " sangrias") + " lidos do cupom."
       : "Cupom digitado: sem a lista de recebimentos um a um.";
     preencherCamposCupom(c);
@@ -1179,8 +1183,44 @@
     }).then(function () { rotulo.classList.remove("ocupado"); });
   }
 
+  // Foto do cupom: lida no aparelho (FotoCupom/Tesseract), a foto não é enviada
+  function importarFoto(arquivo) {
+    limparErro();
+    if (!arquivo) return;
+    var rotulo = $("cupom-fotografar");
+    rotulo.classList.add("ocupado");
+    var antes = $("cupom-estado").innerHTML;
+    window.FotoCupom.lerTexto(arquivo, function (msg) { $("cupom-estado").textContent = msg; }).then(function (texto) {
+      var r = Dm.lerCupomFoto(texto);
+      if (!r.cupom || r.erros.some(function (e) { return /resumo das formas|Fechamento de turno/.test(e); })) {
+        throw new Error("Não consegui ler o cupom nesta foto. Tire outra com o cupom inteiro, reto, bem iluminado e sem sombra " +
+          "(chegue perto até o cupom ocupar a tela), ou use o PDF / digite o cupom.");
+      }
+      var img = $("cupom-foto-img");
+      if (img.getAttribute("src")) URL.revokeObjectURL(img.getAttribute("src"));
+      img.setAttribute("src", URL.createObjectURL(arquivo));
+      var notas = usarCupom(r.cupom);
+      var alertas = r.erros.slice();
+      if (Dm.conferirCupom(r.cupom).some(function (x) { return x.nivel === "erro"; })) alertas.push("As somas não batem: algum número foi lido errado.");
+      if (alertas.length) mostrarErro({ message: "Cupom lido da foto, mas: " + alertas.join(" ") + " Confira os valores com o cupom." });
+      toast("Cupom lido da foto" + (notas.length ? ": " + notas.join("; ") : "") + ". Confira os valores.");
+    }).catch(function (e) {
+      $("cupom-estado").innerHTML = antes;
+      desenharCupom();
+      mostrarErro({ message: e.message || "Não consegui ler a foto." });
+    }).then(function () { rotulo.classList.remove("ocupado"); });
+  }
+
   function iniciarCupom() {
     montarCamposCupom();
+    $("cupom-foto").addEventListener("change", function (ev) {
+      var arq = ev.target.files && ev.target.files[0];
+      ev.target.value = "";
+      importarFoto(arq);
+    });
+    $("cupom-fotografar").addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); $("cupom-foto").click(); }
+    });
     $("cupom-arquivo").addEventListener("change", function (ev) {
       var arq = ev.target.files && ev.target.files[0];
       ev.target.value = "";

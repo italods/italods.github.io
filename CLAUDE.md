@@ -62,6 +62,8 @@ sistema/
                       Dia) + PIX Delivery do dia × BB + "Investigar" (conta em Investigar.quadroDoDia)
   js/troco.js       ← troco de amanhã: pergunta depois do fechamento, separação gaveta × cofre e oferta
                       na abertura seguinte (conta em Calculos.separarTroco)
+  js/foto-cupom.js  ← foto do cupom: prepara a imagem (cinza, contraste, limiar adaptativo) e lê o texto no
+                      aparelho com Tesseract.js; o texto passa por Diamante.lerCupomFoto (correção de OCR)
   js/cupons.js      ← aba "Importar" > "Cupons do Diamante": vários PDFs de uma vez, cada um no seu
                       fechamento (terminal + dia, de preferência o "falta o cupom")
   js/db.js          ← acesso ao Supabase + modo demonstração (?demo=1, guarda no localStorage)
@@ -124,6 +126,11 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
   (`cupom_normalizar`) aceita só os campos conhecidos e **abrevia o nome** dos clientes dos
   recebimentos ("MARIA A."). O terminal do cupom escolhe o caixa (`CAIXAS[].terminal` no config.js).
   Nunca colocar cupons, CSVs ou extratos reais no repositório: amostras ficam em `privado/`.
+  **Foto do cupom** (nov/2026): "Fotografar o cupom" no fechamento (câmera de trás) e fotos em Importar >
+  Cupons. Lida no aparelho (Tesseract.js, a foto nunca é enviada); `Diamante.textoDeFoto` corrige erros de
+  leitura (valores, letras no lugar de números, rótulos com 1–2 letras erradas, títulos das listas) e o cupom
+  fica com `origem = "foto"`. As somas do cupom e a foto ao lado ("Ver a foto para conferir") servem para
+  conferir; o que não foi lido vira aviso, nunca passa calado.
 - **Cielo**: aba Importar lê o CSV no aparelho e grava em `cielo_vendas` só data, hora, forma,
   bandeira, valor, status, máquina, NSU, autorização, ID/TxID do PIX e o pagador abreviado (o banco
   abrevia de novo). Sem número de cartão, CPF/CNPJ nem instituições. `chave` única: reimportar não
@@ -164,8 +171,9 @@ tests/*.test.js     ← testes em Node dos cálculos, formatos e extenso
 - Tudo em **português do Brasil**, visual limpo, sem gradientes.
 - Páginas do sistema com `<meta name="robots" content="noindex">`.
 - Fonte Manrope pelo Google Fonts (única exceção à regra abaixo). Bibliotecas só por CDN com versão exata (jsDelivr/cdnjs): supabase-js 2.109.0, jsPDF 2.5.2,
-  Chart.js 4.5.1, pdf.js (pdfjs-dist) 4.10.38 (build "legacy", módulo carregado com `import()`).
-  jsPDF, Chart.js e pdf.js são carregados só quando usados.
+  Chart.js 4.5.1, pdf.js (pdfjs-dist) 4.10.38 (build "legacy", módulo carregado com `import()`),
+  Tesseract.js 5.1.1 (+ tesseract.js-core 5.1.1 e @tesseract.js-data/por 1.0.0, ~5,5 MB na primeira foto).
+  jsPDF, Chart.js, pdf.js e Tesseract.js são carregados só quando usados.
 - Não apagar nem renomear as páginas antigas. Para incluir um caixa, editar `CAIXAS` em
   `sistema/config.js` (não mudar o `id` de um caixa já usado).
 - Erros devem ser claros (sem internet, sessão expirada, sem permissão) e nunca apagar o que foi

@@ -279,11 +279,14 @@
             <p class="suave mini" id="cupom-estado">Sem o cupom, a contagem fica salva como <strong>"Falta o cupom"</strong> e a diferença
               aparece quando você importar o PDF em <strong>Importar &gt; Cupons do Diamante</strong>. O PDF é lido neste aparelho e não é enviado.</p>
             <div class="acoes" id="cupom-acoes">
-              <label class="botao primario" for="cupom-arquivo" id="cupom-importar" tabindex="0" role="button">Importar PDF do cupom</label>
+              <label class="botao primario" for="cupom-foto" id="cupom-fotografar" tabindex="0" role="button">Fotografar o cupom</label>
+              <input type="file" id="cupom-foto" accept="image/*" capture="environment" hidden />
+              <label class="botao" for="cupom-arquivo" id="cupom-importar" tabindex="0" role="button">Importar PDF do cupom</label>
               <input type="file" id="cupom-arquivo" accept="application/pdf,.pdf" hidden />
               <button type="button" class="botao" id="cupom-digitar">Digitar o cupom</button>
             </div>
             <div id="cupom-detalhe" hidden>
+              <details id="cupom-foto-ver" hidden><summary>Ver a foto para conferir</summary><img id="cupom-foto-img" alt="Foto do cupom" /></details>
               <p class="mini" id="cupom-cabecalho"></p>
               <div class="cupom-grade" role="group" aria-label="Resumo de formas de pagamento">
                 <span class="cupom-cab">Forma</span><span class="cupom-cab">Vendas</span><span class="cupom-cab">Receb.</span>
@@ -490,8 +493,8 @@
             (pelo terminal) e dia, de preferência o que está <strong>"Falta o cupom"</strong>. Salve a contagem antes.
             O PDF é lido neste aparelho e não é enviado.</p>
           <div class="acoes">
-            <label class="botao primario" for="cupons-arquivo" id="cupons-importar" role="button" tabindex="0">Escolher PDFs dos cupons</label>
-            <input type="file" id="cupons-arquivo" accept="application/pdf,.pdf" multiple hidden />
+            <label class="botao primario" for="cupons-arquivo" id="cupons-importar" role="button" tabindex="0">Escolher PDFs ou fotos dos cupons</label>
+            <input type="file" id="cupons-arquivo" accept="application/pdf,.pdf,image/*" multiple hidden />
           </div>
           <div id="cupons-previa" hidden></div>
         </div>
@@ -1158,6 +1161,7 @@
   <script src="js/rh-gestao.js"></script>
   <script src="js/painel.js"></script>
   <script src="js/visao.js"></script>
+  <script src="js/foto-cupom.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

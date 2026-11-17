@@ -211,7 +211,7 @@ begin
     'operador', left(coalesce(p ->> 'operador', ''), 80),
     'abertura', left(coalesce(p ->> 'abertura', ''), 8),
     'encerramento', left(coalesce(p ->> 'encerramento', ''), 8),
-    'origem', case when p ->> 'origem' in ('pdf', 'texto') then p ->> 'origem' else 'digitado' end,
+    'origem', case when p ->> 'origem' in ('pdf', 'texto', 'foto') then p ->> 'origem' else 'digitado' end,
     'formas', formas,
     'venda_bruta', public.cupom_centavos(p -> 'venda_bruta', 'venda bruta'),
     'fundo', public.cupom_centavos(p -> 'fundo', 'fundo'),

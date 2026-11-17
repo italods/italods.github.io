@@ -17,26 +17,32 @@
     u.limparErro();
     var arquivos = Array.prototype.slice.call(lista || []);
     if (!arquivos.length) return;
-    var ruins = arquivos.filter(function (a) { return !/\.pdf$/i.test(a.name || "") && a.type !== "application/pdf"; });
-    if (ruins.length) { u.mostrarErro({ message: "Escolha só os PDFs de \"Fechamento de turno\" (" + ruins[0].name + " não é PDF)." }); return; }
+    var ehPdf = function (a) { return /\.pdf$/i.test(a.name || "") || a.type === "application/pdf"; };
+    var ehFoto = function (a) { return /^image\//.test(a.type || "") || /\.(jpe?g|png|webp|heic|heif)$/i.test(a.name || ""); };
+    var ruins = arquivos.filter(function (a) { return !ehPdf(a) && !ehFoto(a); });
+    if (ruins.length) { u.mostrarErro({ message: "Escolha PDFs ou fotos dos cupons de \"Fechamento de turno\" (" + ruins[0].name + " não é PDF nem foto)." }); return; }
     if (arquivos.length > 20) { u.mostrarErro({ message: "Escolha no máximo 20 cupons de uma vez." }); return; }
     var rotulo = $("cupons-importar");
     rotulo.classList.add("ocupado");
     $("cupons-previa").hidden = false;
-    $("cupons-previa").innerHTML = '<p class="vazio">Lendo ' + arquivos.length + (arquivos.length === 1 ? " PDF" : " PDFs") + "…</p>";
+    $("cupons-previa").innerHTML = '<p class="vazio" id="cupons-progresso">Lendo ' + arquivos.length + (arquivos.length === 1 ? " cupom" : " cupons") + "…</p>";
     // um de cada vez (o leitor de PDF é pesado no celular)
     var lidos = [];
     arquivos.reduce(function (p, arq) {
       return p.then(function () {
-        if (arq.size > 10 * 1024 * 1024) { lidos.push({ nome: arq.name, erro: "Arquivo grande demais para um cupom." }); return; }
-        return u.lerTextoPdf(arq).then(function (texto) {
-          var r = Dm.lerCupom(texto);
+        var foto = !ehPdf(arq);
+        if (!foto && arq.size > 10 * 1024 * 1024) { lidos.push({ nome: arq.name, erro: "Arquivo grande demais para um cupom." }); return; }
+        var ler = foto ? window.FotoCupom.lerTexto(arq, function (msg) {
+          var el = $("cupons-progresso"); if (el) el.textContent = arq.name + ": " + msg;
+        }) : u.lerTextoPdf(arq);
+        return ler.then(function (texto) {
+          var r = foto ? Dm.lerCupomFoto(texto) : Dm.lerCupom(texto);
           if (!r.cupom || r.erros.some(function (e) { return /resumo das formas|Fechamento de turno/.test(e); })) {
             lidos.push({ nome: arq.name, erro: r.erros[0] || "Não consegui ler o cupom." });
           } else {
             lidos.push({ nome: arq.name, cupom: r.cupom, avisosLeitura: r.erros });
           }
-        }, function (e) { lidos.push({ nome: arq.name, erro: e.message || "Não consegui ler o PDF." }); });
+        }, function (e) { lidos.push({ nome: arq.name, erro: e.message || "Não consegui ler o arquivo." }); });
       });
     }, Promise.resolve()).then(function () {
       var datas = lidos.filter(function (x) { return x.cupom && x.cupom.data; }).map(function (x) { return x.cupom.data; }).sort();

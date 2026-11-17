@@ -71,6 +71,10 @@ select pg_temp.ok((select sangrias_centavos = 125000 and esperado_centavos = 400
 update conferencias set cupom = null where id = :'com_cupom';
 select pg_temp.ok((select sangrias_centavos = 125000 and cupom is null from conferencias where id = :'com_cupom'), 'sem cupom de novo');
 
+-- cupom lido de foto guarda a origem
+select pg_temp.ok((public.cupom_normalizar('{"origem": "foto", "formas": {}}') ->> 'origem') = 'foto', 'origem foto');
+select pg_temp.ok((public.cupom_normalizar('{"origem": "outra", "formas": {}}') ->> 'origem') = 'digitado', 'origem desconhecida vira digitado');
+
 -- ===== validações
 select pg_temp.espera_erro($q$insert into conferencias (tipo, caixa, data, hora, cupom) values ('fechamento', 'caixa9', '2027-01-16', '19:00',
   '{"data": "2027-01-15", "formas": {}}')$q$, 'data do cupom');
