@@ -34,6 +34,7 @@
     feriados: ["data", "nome"],
     holerites: ["funcionario", "referencia", "recebido_em", "observacao"],
     banco_horas: ["funcionario", "data", "minutos", "motivo"],
+    sabado: ["semana", "funcionario", "funcao"],
     ferias: ["funcionario", "aquisitivo_inicio", "inicio", "dias", "observacao"],
     historico: ["funcionario", "data", "campo", "antes", "depois", "observacao"],
     exames: ["funcionario", "tipo", "data", "validade", "apto", "observacao"],
@@ -476,7 +477,7 @@
       salvarRH: function (nome, dados, i) {
         var d = filtrarCampos(dados, camposRH(nome));
         var lista = ler("rh_" + nome).filter(function (x) { return x.id !== i; });
-        var chaves = { ocorrencias: ["funcionario", "data", "tipo"], feriados: ["data"], holerites: ["funcionario", "referencia"] }[nome];
+        var chaves = { ocorrencias: ["funcionario", "data", "tipo"], feriados: ["data"], holerites: ["funcionario", "referencia"], sabado: ["semana", "funcionario"] }[nome];
         var atual = i ? ler("rh_" + nome).filter(function (x) { return x.id === i; })[0] : {};
         var novo = Object.assign({}, atual, d);
         if (chaves && lista.some(function (x) { return chaves.every(function (k) { return String(x[k]) === String(novo[k]); }); })) {

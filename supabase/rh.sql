@@ -113,8 +113,13 @@ begin
     if coalesce(x ->> 'intervalo', '0') !~ '^[0-9]{1,3}$' or (x ->> 'intervalo')::int > 240 then
       raise exception 'Intervalo inválido no horário (0 a 240 minutos).';
     end if;
+    -- hora em que o almoço começa (opcional, nov/2026): "12:00"
+    if coalesce(x ->> 'almoco', '') <> '' and (x ->> 'almoco') !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' then
+      raise exception 'Hora do almoço inválida no horário (use HH:MM).';
+    end if;
     r := r || jsonb_build_object(d, jsonb_build_object('entrada', x ->> 'entrada', 'saida', x ->> 'saida')
-      || case when coalesce((x ->> 'intervalo')::int, 0) > 0 then jsonb_build_object('intervalo', (x ->> 'intervalo')::int) else '{}'::jsonb end);
+      || case when coalesce((x ->> 'intervalo')::int, 0) > 0 then jsonb_build_object('intervalo', (x ->> 'intervalo')::int) else '{}'::jsonb end
+      || case when coalesce(x ->> 'almoco', '') <> '' then jsonb_build_object('almoco', x ->> 'almoco') else '{}'::jsonb end);
   end loop;
   new.dias := r;
   return new;
@@ -337,10 +342,25 @@ create table if not exists public.rh_entregas (
   constraint rh_entrega_devolucao check (devolvido_em is null or devolvido_em >= data)
 );
 
+-- Sábado por pessoa (nov/2026): rodízio de N semanas que se repete. Em cada semana do rodízio, cada pessoa
+-- faz "abertura", "fechamento" ou "folga". Semana 0 = a semana de configuracoes.rh_sabado (JSON com ref e os
+-- horários de abertura e fechamento). Quem não está no rodízio segue o sábado do horário da turma.
+create table if not exists public.rh_sabado (
+  id          uuid primary key default gen_random_uuid(),
+  semana      smallint not null check (semana between 0 and 11),
+  funcionario uuid not null references public.rh_funcionarios (id) on delete cascade,
+  funcao      text not null check (funcao in ('abertura', 'fechamento', 'folga')),
+  criado_por  text not null default public.email_atual(),
+  criado_em   timestamptz not null default now(),
+  editado_por text,
+  editado_em  timestamptz,
+  constraint rh_sabado_unico unique (semana, funcionario)
+);
+
 do $$
 declare t text;
 begin
-  foreach t in array array['rh_banco_horas', 'rh_ferias', 'rh_historico', 'rh_exames', 'rh_treinamentos', 'rh_entregas'] loop
+  foreach t in array array['rh_sabado', 'rh_banco_horas', 'rh_ferias', 'rh_historico', 'rh_exames', 'rh_treinamentos', 'rh_entregas'] loop
     execute format('drop trigger if exists %I on public.%I', t || '_autoria', t);
     execute format('create trigger %I before insert or update on public.%I for each row execute function public.marcar_autoria()',
       t || '_autoria', t);

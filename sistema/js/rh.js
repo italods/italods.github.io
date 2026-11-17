@@ -94,6 +94,40 @@
    * tipo: fora (antes da admissão / depois do desligamento), domingo, ferias, atestado, suspensao, falta, folga,
    * feriado, trabalho, folga_escala (dia sem horário na escala), sem_escala (sem turma).
    */
+  /*
+   * Sábado por pessoa (rodízio de N semanas que se repete). ctx.sabado = { ref (segunda da semana 0),
+   * horarios: { abertura: {entrada, saida, intervalo, almoco}, fechamento: {...} }, escala: [{ semana, funcionario, funcao }] }.
+   * -> { funcao: "abertura" | "fechamento" | "folga", dia } ou null (pessoa fora do rodízio: vale o horário da turma)
+   */
+  function sabadoDoFuncionario(ctx, f, t) {
+    var sb = ctx && ctx.sabado;
+    if (!sb || !sb.ref || !(sb.escala || []).length || diaDaSemana(t) !== 6) return null;
+    var n = sb.escala.reduce(function (m, e) { return Math.max(m, +e.semana + 1); }, 0);
+    var k = ((semanasEntre(sb.ref, t) % n) + n) % n;
+    var e = sb.escala.filter(function (x) { return +x.semana === k && x.funcionario === f.id; })[0];
+    if (!e) return null;
+    return { funcao: e.funcao, semana: k, dia: e.funcao === "folga" ? null : ((sb.horarios || {})[e.funcao] || null) };
+  }
+
+  // Monta ctx.sabado a partir das linhas de rh_sabado e do JSON de configuracoes.rh_sabado ({ ref, horarios })
+  function lerSabado(linhas, texto) {
+    var cfg = null;
+    try { cfg = JSON.parse(texto || "null"); } catch (e) { cfg = null; }
+    if (!cfg || !cfg.ref || !(linhas || []).length) return null;
+    return { ref: cfg.ref, horarios: cfg.horarios || {}, escala: linhas };
+  }
+
+  // Horário que a escala manda a pessoa cumprir no dia (sem olhar ocorrências): { entrada, saida, intervalo, almoco } ou null
+  function escalaDoDia(ctx, f, t) {
+    var w = diaDaSemana(t);
+    if (w === 0) return null;
+    var sab = sabadoDoFuncionario(ctx, f, t);
+    if (sab) return sab.dia && sab.dia.entrada && sab.dia.saida ? sab.dia : null;
+    var h = horarioDaTurma(ctx.turmas, ctx.horarios, ctx.ref, f.turma, t);
+    var d = h && h.dias && h.dias[String(w)];
+    return d && d.entrada && d.saida ? d : null;
+  }
+
   function diaDoFuncionario(ctx, f, t) {
     var r = { data: t, semana: diaDaSemana(t), tipo: "", feriado: feriadoDoDia(t, ctx.feriados), ocorrencia: null };
     if ((f.admissao && t < f.admissao) || (f.desligamento && t > f.desligamento)) { r.tipo = "fora"; return r; }
@@ -116,14 +150,17 @@
     if (r.feriado && !r.feriado.facultativo && !trabalhou) { r.tipo = "feriado"; return r; }
     if (trabalhou) r.ocorrencia = trabalhou;
     var h = horarioDaTurma(ctx.turmas, ctx.horarios, ctx.ref, f.turma, t);
-    if (!h) { r.tipo = "sem_escala"; return r; }
+    var sab = sabadoDoFuncionario(ctx, f, t);
+    if (!h && !sab) { r.tipo = "sem_escala"; return r; }
     r.horario = h;
-    var d = h.dias && h.dias[String(r.semana)];
+    if (sab) r.funcaoSabado = sab.funcao;
+    var d = sab ? sab.dia : h.dias && h.dias[String(r.semana)];
     if (!d || !d.entrada || !d.saida) { r.tipo = "folga_escala"; return r; }
     r.tipo = "trabalho";
     r.entrada = d.entrada;
     r.saida = d.saida;
     r.intervalo = +d.intervalo || 0;
+    r.almoco = d.almoco || "";
     r.minutos = minutosDoDia(d);
     return r;
   }
@@ -240,13 +277,24 @@
     return r;
   }
 
+  // " (almoço 12:00–13:00)" ou " (almoço 1h)" quando não há hora marcada
+  function textoAlmoco(x) {
+    if (!x.intervalo) return "";
+    if (x.almoco) return " (almoço " + x.almoco + "–" + horaMais(x.almoco, x.intervalo) + ")";
+    return " (almoço " + horas(x.intervalo) + ")";
+  }
+  function horaMais(h, min) {
+    var m = (minutos(h) + min) % 1440;
+    return (m < 600 ? "0" : "") + Math.floor(m / 60) + ":" + (m % 60 < 10 ? "0" : "") + (m % 60);
+  }
+
   // Texto curto do dia na escala
   function textoDia(x) {
     switch (x.tipo) {
-      case "trabalho": return x.entrada + "–" + x.saida + (x.intervalo ? " (almoço " + horas(x.intervalo) + ")" : "") +
-        (x.ocorrencia && x.ocorrencia.tipo === "feriado_trabalhado" ? " (feriado)" : "");
+      case "trabalho": return (x.funcaoSabado ? (x.funcaoSabado === "abertura" ? "Abertura " : "Fechamento ") : "") +
+        x.entrada + "–" + x.saida + textoAlmoco(x) + (x.ocorrencia && x.ocorrencia.tipo === "feriado_trabalhado" ? " (feriado)" : "");
       case "folga": return "Folga";
-      case "folga_escala": return "Não trabalha";
+      case "folga_escala": return x.funcaoSabado === "folga" ? "Folga do sábado" : "Não trabalha";
       case "falta": return x.ocorrencia.justificada ? "Falta justificada" : "Falta";
       case "atestado": return "Atestado";
       case "suspensao": return "Suspenso";
@@ -256,6 +304,28 @@
       case "sem_escala": return "Sem turma";
       default: return "—";
     }
+  }
+
+  /*
+   * Banco de horas pela escala: em cada semana (segunda a sábado) entram as horas da escala menos a jornada
+   * (ex.: 48h − 44h = +4h; 40h − 44h = −4h). Semanas com férias da pessoa não contam; antes da admissão também não.
+   * -> [{ segunda, sabado, minutos, jornada, saldo, acumulado }]
+   */
+  function bancoDaEscala(ctx, f, de, ate) {
+    var jornada = +f.jornada_semanal_min || 2640, r = [], acc = 0;
+    for (var seg = segundaDaSemana(de); seg <= ate; seg = FE.somarDias(seg, 7)) {
+      var sab = FE.somarDias(seg, 5);
+      if ((f.admissao && sab < f.admissao) || (f.desligamento && seg > f.desligamento)) continue;
+      var ferias = (ctx.ferias || []).some(function (p) {
+        return p.funcionario === f.id && p.inicio <= sab && seg <= FE.somarDias(p.inicio, (+p.dias || 1) - 1);
+      });
+      if (ferias) continue;
+      var min = 0;
+      for (var i = 0; i < 6; i++) min += minutosDoDia(escalaDoDia(ctx, f, FE.somarDias(seg, i)));
+      acc += min - jornada;
+      r.push({ segunda: seg, sabado: sab, minutos: min, jornada: jornada, saldo: min - jornada, acumulado: acc });
+    }
+    return r;
   }
 
   // Escala da semana (segunda a sábado) para o WhatsApp da equipe
@@ -282,6 +352,7 @@
     diaDaSemana: diaDaSemana, segundaDaSemana: segundaDaSemana, semanasEntre: semanasEntre, diasDoMes: diasDoMes,
     lerHora: lerHora, duracao: duracao, minutosDoDia: minutosDoDia, minutosDaSemana: minutosDaSemana,
     horarioDaTurma: horarioDaTurma, feriadoDoDia: feriadoDoDia, textoDia: textoDia, textoEscalaSemana: textoEscalaSemana,
+    sabadoDoFuncionario: sabadoDoFuncionario, escalaDoDia: escalaDoDia, bancoDaEscala: bancoDaEscala, lerSabado: lerSabado,
     diaDoFuncionario: diaDoFuncionario, mesDoFuncionario: mesDoFuncionario, resumoFuncionario: resumoFuncionario,
     ativosNoMes: ativosNoMes, equipeDoDia: equipeDoDia, textoResumo: textoResumo, rotuloMes: rotuloMes, horas: horas, dataBR: dataBR
   };

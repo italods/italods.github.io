@@ -106,6 +106,19 @@ select pg_temp.ok((select desligamento_passos ->> 'contador' = 'true' from rh_fu
 insert into configuracoes (chave, valor) values ('rh_semana_ref', '2026-11-02') on conflict (chave) do update set valor = excluded.valor;
 reset role;
 
+-- ===== horário com hora do almoço e sábado por pessoa
+insert into rh_horarios (nome, ordem, dias) values ('Tarde teste', 5, '{"1": {"entrada": "09:30", "saida": "18:30", "intervalo": 60, "almoco": "13:00"}}')
+returning id as tarde \gset
+select pg_temp.ok((select dias -> '1' ->> 'almoco' = '13:00' from rh_horarios where id = :'tarde'), 'horário guarda a hora do almoço');
+select pg_temp.espera_erro($q$insert into rh_horarios (nome, dias) values ('Ruim', '{"1": {"entrada": "07:00", "saida": "16:00", "almoco": "25:00"}}')$q$, 'Hora do almoço');
+set role authenticated; set request.jwt.claims = '{"email":"dono@x.com"}';
+insert into rh_funcionarios (nome) values ('Pessoa Teste') returning id as pt \gset
+insert into rh_sabado (semana, funcionario, funcao) values (0, :'pt', 'folga'), (1, :'pt', 'abertura');
+select pg_temp.espera_erro(format($q$insert into rh_sabado (semana, funcionario, funcao) values (0, %L, 'abertura')$q$, :'pt'), 'rh_sabado_unico');
+select pg_temp.espera_erro(format($q$insert into rh_sabado (semana, funcionario, funcao) values (2, %L, 'plantao')$q$, :'pt'), 'funcao');
+select pg_temp.ok((select count(*) = 2 and min(criado_por) = 'dono@x.com' from rh_sabado where funcionario = :'pt'), 'rodízio de sábado por pessoa');
+reset role;
+
 -- ===== segurança
 set role anon; set request.jwt.claims = '{}';
 select pg_temp.espera_erro('select * from rh_funcionarios', 'permission denied');
@@ -114,6 +127,7 @@ select pg_temp.espera_erro('select * from rh_horarios', 'permission denied');
 select pg_temp.espera_erro('select * from rh_turmas', 'permission denied');
 select pg_temp.espera_erro('select * from rh_feriados', 'permission denied');
 select pg_temp.espera_erro('select * from rh_holerites', 'permission denied');
+select pg_temp.espera_erro('select * from rh_sabado', 'permission denied');
 select pg_temp.espera_erro('select * from rh_banco_horas', 'permission denied');
 select pg_temp.espera_erro('select * from rh_ferias', 'permission denied');
 select pg_temp.espera_erro('select * from rh_historico', 'permission denied');

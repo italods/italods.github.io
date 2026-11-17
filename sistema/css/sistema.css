@@ -1034,3 +1034,18 @@ thead th { font-size: .8125rem; text-transform: uppercase; letter-spacing: .04em
 #cupom-foto-ver img { display: block; max-width: 100%; max-height: 70vh; margin: 8px auto 0; border-radius: var(--raio-md); border: 1px solid var(--borda); }
 #cupom-acoes { flex-wrap: wrap; }
 #cupom-acoes > .botao { flex: 1 1 calc(50% - 10px); }
+
+/* RH: sábado por pessoa e banco de horas pela escala */
+.sab-horarios { display: grid; gap: 12px; margin: 8px 0 12px; }
+@media (min-width: 720px) { .sab-horarios { grid-template-columns: 1fr 1fr; } }
+.sab-horario { border: 1px solid var(--borda); border-radius: var(--raio-md); padding: 8px 12px 4px; margin: 0; min-width: 0; }
+.sab-horario legend { font-weight: 800; padding: 0 4px; }
+.tabela-sabado, .tabela-banco-escala { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tabela-sabado th, .tabela-sabado td, .tabela-banco-escala th, .tabela-banco-escala td { padding: 6px 4px; border-bottom: 1px solid var(--borda); text-align: left; vertical-align: top; }
+.tabela-sabado select { min-height: 40px; max-width: 8.5rem; font: inherit; font-size: .85rem; }
+.tabela-sabado tr.hoje th, .tabela-banco-escala tr.hoje th { color: var(--primaria); }
+.tabela-sabado tr.hoje { background: var(--primaria-fraca); }
+.tabela-banco-escala tr.futura { opacity: .75; }
+.tabela-banco-escala td small, .tabela-sabado th small { white-space: nowrap; }
+.esc-dia li > span:last-child, .esc-mes li > span:last-child { white-space: normal; overflow-wrap: anywhere; min-width: 0; }
+.esc-dia li > span:first-child, .esc-mes li > span:first-child { flex: none; }

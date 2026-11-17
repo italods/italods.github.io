@@ -238,10 +238,9 @@
 
   // minutos que a pessoa trabalharia no dia pela escala (sem contar a ocorrência); sem escala: jornada / 6
   function minutosPrevistos(ctx, f, t) {
-    var h = RH.horarioDaTurma(ctx.turmas, ctx.horarios, ctx.ref, f.turma, t);
-    var d = h && h.dias && h.dias[String(RH.diaDaSemana(t))];
-    if (d && d.entrada && d.saida) return RH.minutosDoDia(d);
-    if (h) return 0;
+    var d = RH.escalaDoDia(ctx, f, t);
+    if (d) return RH.minutosDoDia(d);
+    if (RH.horarioDaTurma(ctx.turmas, ctx.horarios, ctx.ref, f.turma, t) || RH.sabadoDoFuncionario(ctx, f, t)) return 0;
     return Math.round((+f.jornada_semanal_min || 2640) / 6);
   }
 
@@ -255,6 +254,15 @@
     (ctx.banco || []).forEach(function (b) {
       if (b.funcionario === f.id) l.push({ data: b.data, minutos: +b.minutos, motivo: b.motivo || "", origem: "manual", id: b.id });
     });
+    // semanas da escala (horas da escala − jornada), lançadas no sábado de cada semana já passada
+    if (ctx.bancoEscalaInicio) {
+      RH.bancoDaEscala(ctx, f, ctx.bancoEscalaInicio, ctx.hoje || ctx.bancoEscalaInicio).forEach(function (w) {
+        if (w.saldo && w.sabado <= (ctx.hoje || w.sabado)) {
+          l.push({ data: w.sabado, minutos: w.saldo, origem: "escala", id: "escala-" + w.segunda,
+            motivo: "Escala da semana " + dataBR(w.segunda).slice(0, 5) + " a " + dataBR(w.sabado).slice(0, 5) + " (" + RH.horas(w.minutos) + ")" });
+        }
+      });
+    }
     (ctx.ocorrencias || []).forEach(function (o) {
       if (o.funcionario !== f.id || !o.banco) return;
       var m = minutosPrevistos(ctx, f, o.data);

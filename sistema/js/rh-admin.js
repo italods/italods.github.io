@@ -11,7 +11,7 @@
   var u = null;
   // tabelas do RH (rh_<nome>); as de NOVAS podem faltar se o rh.sql ainda não foi colado no Supabase
   var TABELAS = ["funcionarios", "turmas", "horarios", "ocorrencias", "feriados", "holerites"];
-  var NOVAS = ["banco_horas", "ferias", "historico", "exames", "treinamentos", "entregas"];
+  var NOVAS = ["banco_horas", "ferias", "historico", "exames", "treinamentos", "entregas", "sabado"];
   var d = { funcionarios: [], turmas: [], horarios: [], ocorrencias: [], feriados: [], holerites: [], banco_horas: [], ferias: [],
     historico: [], exames: [], treinamentos: [], entregas: [], ref: "", cfg: RF.lerEncargos(""), cnpj: "", faltaSQL: false };
   var carregado = null;
@@ -31,7 +31,8 @@
   function ordenar(l) { return l.slice().sort(function (a, b) { return (+a.ordem || 0) - (+b.ordem || 0) || porNome(a, b); }); }
   function ctx() {
     return { turmas: d.turmas, horarios: d.horarios, ref: d.ref, ocorrencias: d.ocorrencias, feriados: d.feriados, ferias: d.ferias,
-      banco: d.banco_horas, exames: d.exames, treinamentos: d.treinamentos, funcionarios: d.funcionarios, cfg: d.cfg, hoje: hoje() };
+      banco: d.banco_horas, exames: d.exames, treinamentos: d.treinamentos, funcionarios: d.funcionarios, cfg: d.cfg, hoje: hoje(),
+      sabado: RH.lerSabado(d.sabado, d.sabadoCfg), bancoEscalaInicio: d.bancoEscalaInicio || "" };
   }
   function ativos() { return d.funcionarios.filter(function (f) { return !f.desligamento || f.desligamento >= hoje(); }).sort(porNome); }
   function funcionario(id) { return d.funcionarios.filter(function (f) { return f.id === id; })[0] || null; }
@@ -64,13 +65,17 @@
     });
     carregado = Promise.all(TABELAS.map(function (n) { return u.db.listarRH(n); }).concat(novas, [
       u.db.obterConfiguracao("rh_semana_ref"), u.db.obterConfiguracao("rh_encargos").then(null, function () { return ""; }),
-      u.db.obterConfiguracao("cnpj_loja").then(null, function () { return ""; })]))
+      u.db.obterConfiguracao("cnpj_loja").then(null, function () { return ""; }),
+      u.db.obterConfiguracao("rh_sabado").then(null, function () { return ""; }),
+      u.db.obterConfiguracao("rh_banco_escala_inicio").then(null, function () { return ""; })]))
       .then(function (r) {
         TABELAS.concat(NOVAS).forEach(function (n, i) { d[n] = r[i] || []; });
         var k = TABELAS.length + NOVAS.length;
         d.ref = r[k] || RH.segundaDaSemana(hoje());
         d.cfg = RF.lerEncargos(r[k + 1]);
         d.cnpj = r[k + 2] || "";
+        d.sabadoCfg = r[k + 3] || "";
+        d.bancoEscalaInicio = r[k + 4] || "";
         d.faltaSQL = faltou;
         return d;
       }, function (e) { carregado = null; throw e; });
@@ -314,6 +319,8 @@
     desenharMesFuncionario();
     desenharHorarios();
     desenharTurmas();
+    desenharSabado();
+    desenharBancoEscala();
   }
 
   function desenharMesFuncionario() {
@@ -340,17 +347,160 @@
       return '<div class="horario" data-horario="' + esc(h.id) + '">' +
         '<div class="dupla"><label class="campo"><span>Nome</span><input type="text" class="h-nome" maxlength="40" value="' + esc(h.nome) + '" /></label>' +
         '<label class="campo"><span>Ordem</span><input type="number" class="h-ordem" min="0" max="9" value="' + esc(h.ordem) + '" /></label></div>' +
-        '<div class="tabela-rolagem"><table class="tabela-horario"><thead><tr><th>Dia</th><th>Entrada</th><th>Saída</th><th>Almoço <small>(min)</small></th></tr></thead><tbody>' +
+        '<div class="tabela-rolagem"><table class="tabela-horario"><thead><tr><th>Dia</th><th>Entrada</th><th>Saída</th><th>Almoço às</th><th>Almoço <small>(min)</small></th></tr></thead><tbody>' +
         [1, 2, 3, 4, 5, 6].map(function (i) {
           var x = (h.dias || {})[String(i)] || {};
           return "<tr><td>" + RH.DIAS_CURTOS[i] + '</td><td><input type="time" data-dia="' + i + '" data-campo="entrada" value="' + esc(x.entrada || "") + '" aria-label="Entrada ' + RH.DIAS[i] + '" /></td>' +
             '<td><input type="time" data-dia="' + i + '" data-campo="saida" value="' + esc(x.saida || "") + '" aria-label="Saída ' + RH.DIAS[i] + '" /></td>' +
+            '<td><input type="time" data-dia="' + i + '" data-campo="almoco" value="' + esc(x.almoco || "") + '" aria-label="Hora do almoço ' + RH.DIAS[i] + '" /></td>' +
             '<td><input type="number" class="h-intervalo" min="0" max="240" step="5" data-dia="' + i + '" data-campo="intervalo" value="' + esc(x.intervalo || "") + '" aria-label="Almoço ' + RH.DIAS[i] + ' em minutos" /></td></tr>';
         }).join("") + "</tbody></table></div>" +
         '<p class="mini">Total: <strong>' + RH.horas(sem) + "</strong> por semana</p>" + (aviso ? '<p class="msg-aviso mini">' + esc(aviso) + "</p>" : "") +
         '<div class="acoes"><button type="button" class="botao perigo pequeno" data-apagar-horario="' + esc(h.id) + '">Apagar</button>' +
         '<button type="button" class="botao primario pequeno" data-salvar-horario="' + esc(h.id) + '">Salvar horário</button></div></div>';
     }).join("") : '<p class="vazio">Nenhum horário. Inclua, por exemplo, "Manhã" e "Tarde".</p>';
+  }
+
+  /* ---------------- Sábado por pessoa (rodízio) ---------------- */
+
+  var FUNCOES = [["", "—"], ["abertura", "Abertura"], ["fechamento", "Fechamento"], ["folga", "Folga"]];
+  var sabadoSemanas = null;   // edição na tela: [{ funcionario: funcao }]
+
+  function cfgSabado() {
+    try { return JSON.parse(d.sabadoCfg || "null") || null; } catch (e) { return null; }
+  }
+  function semanasSabado() {
+    if (sabadoSemanas) return sabadoSemanas;
+    var n = (d.sabado || []).reduce(function (m, e) { return Math.max(m, +e.semana + 1); }, 0), l = [];
+    for (var i = 0; i < n; i++) l.push({});
+    (d.sabado || []).forEach(function (e) { l[+e.semana][e.funcionario] = e.funcao; });
+    return (sabadoSemanas = l);
+  }
+  function campoHorarioSabado(qual, h) {
+    h = h || {};
+    var rot = qual === "abertura" ? "Abertura" : "Fechamento";
+    return '<fieldset class="sab-horario" data-sab="' + qual + '"><legend>' + rot + "</legend>" +
+      '<div class="dupla"><label class="campo"><span>Entrada</span><input type="time" data-c="entrada" value="' + esc(h.entrada || "") + '" /></label>' +
+      '<label class="campo"><span>Saída</span><input type="time" data-c="saida" value="' + esc(h.saida || "") + '" /></label></div>' +
+      '<div class="dupla"><label class="campo"><span>Almoço às</span><input type="time" data-c="almoco" value="' + esc(h.almoco || "") + '" /></label>' +
+      '<label class="campo"><span>Almoço (min)</span><input type="number" min="0" max="240" step="5" data-c="intervalo" value="' + esc(h.intervalo || "") + '" /></label></div></fieldset>';
+  }
+  function desenharSabado() {
+    var cfg = cfgSabado() || {}, sem = semanasSabado(), fs = ativos();
+    var ref = cfg.ref || RH.segundaDaSemana(hoje()), hs = cfg.horarios || {};
+    var semanaAtual = sem.length ? ((RH.semanasEntre(ref, hoje()) % sem.length) + sem.length) % sem.length : -1;
+    var proximo = function (k) {   // próximo sábado em que vale a semana k do rodízio
+      var seg = RH.segundaDaSemana(hoje());
+      for (var i = 0; i < 12; i++) {
+        var s = window.Feriados.somarDias(seg, 7 * i);
+        if ((((RH.semanasEntre(ref, s) % sem.length) + sem.length) % sem.length) === k) return window.Feriados.somarDias(s, 5);
+      }
+      return "";
+    };
+    var html = '<label class="campo"><span>A semana 1 do rodízio começa na segunda-feira</span><input type="date" id="sab-ref" value="' + esc(ref) + '" /></label>' +
+      '<div class="sab-horarios">' + campoHorarioSabado("abertura", hs.abertura) + campoHorarioSabado("fechamento", hs.fechamento) + "</div>";
+    if (!fs.length) html += '<p class="vazio">Cadastre os funcionários primeiro.</p>';
+    else if (!sem.length) html += '<p class="vazio">Nenhuma semana no rodízio. Toque em "+ Semana".</p>';
+    else {
+      html += '<div class="tabela-rolagem"><table class="tabela-sabado"><thead><tr><th>Semana</th>' +
+        fs.map(function (f) { return "<th>" + esc(primeiroNome(f.nome)) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+        sem.map(function (linha, k) {
+          var conta = { abertura: 0, fechamento: 0, folga: 0 };
+          fs.forEach(function (f) { if (linha[f.id]) conta[linha[f.id]]++; });
+          return '<tr class="' + (k === semanaAtual ? "hoje" : "") + '"><th>' + (k + 1) + '<br><small class="suave">' + esc(u.dataBR(proximo(k)).slice(0, 5)) +
+            "</small><br><small class=\"suave\">" + conta.abertura + "A · " + conta.fechamento + "F · " + conta.folga + " folga</small></th>" +
+            fs.map(function (f) {
+              return '<td><select data-sab-semana="' + k + '" data-sab-func="' + esc(f.id) + '" aria-label="Semana ' + (k + 1) + ", " + esc(f.nome) + '">' +
+                FUNCOES.map(function (o) { return '<option value="' + o[0] + '"' + ((linha[f.id] || "") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") +
+                "</select></td>";
+            }).join("") + "</tr>";
+        }).join("") + "</tbody></table></div>" +
+        '<p class="suave mini">A data em cada semana é o próximo sábado em que ela vale. A linha destacada é a desta semana.</p>';
+    }
+    html += '<div class="acoes"><button type="button" class="botao pequeno" id="sab-menos"' + (sem.length ? "" : " disabled") + '>− Semana</button>' +
+      '<button type="button" class="botao pequeno" id="sab-mais"' + (sem.length >= 12 ? " disabled" : "") + '>+ Semana</button></div>' +
+      '<div class="acoes"><button type="button" class="botao primario" id="sab-salvar">Salvar rodízio de sábado</button></div>';
+    $("esc-sabado").innerHTML = html;
+  }
+  function lerHorarioSabado(qual) {
+    var el = document.querySelector('[data-sab="' + qual + '"]'), v = function (c) { return el.querySelector('[data-c="' + c + '"]').value; };
+    var h = { entrada: RH.lerHora(v("entrada")), saida: RH.lerHora(v("saida")) };
+    if (!h.entrada || !h.saida) return null;
+    var n = parseInt(v("intervalo"), 10);
+    if (n > 0) h.intervalo = n;
+    if (n > 0 && RH.lerHora(v("almoco"))) h.almoco = RH.lerHora(v("almoco"));
+    return h;
+  }
+  function salvarSabado() {
+    u.limparErro();
+    var ref = $("sab-ref").value;
+    if (!ref) { u.mostrarErro({ message: "Escolha a segunda-feira em que começa a semana 1." }); return; }
+    ref = RH.segundaDaSemana(ref);
+    var horarios = { abertura: lerHorarioSabado("abertura"), fechamento: lerHorarioSabado("fechamento") };
+    var sem = semanasSabado(), linhas = [];
+    sem.forEach(function (l, k) { Object.keys(l).forEach(function (f) { if (l[f]) linhas.push({ semana: k, funcionario: f, funcao: l[f] }); }); });
+    var usa = {};
+    linhas.forEach(function (x) { usa[x.funcao] = true; });
+    if (usa.abertura && !horarios.abertura) { u.mostrarErro({ message: "Preencha entrada e saída da abertura do sábado." }); return; }
+    if (usa.fechamento && !horarios.fechamento) { u.mostrarErro({ message: "Preencha entrada e saída do fechamento do sábado." }); return; }
+    var cfg = JSON.stringify({ ref: ref, horarios: horarios });
+    var b = $("sab-salvar");
+    u.ocupado(b, true, "Salvando…");
+    // troca as linhas antigas pelas novas
+    (d.sabado || []).reduce(function (p, x) { return p.then(function () { return u.db.apagarRH("sabado", x.id); }); }, Promise.resolve())
+      .then(function () {
+        return linhas.reduce(function (p, x) { return p.then(function () { return u.db.salvarRH("sabado", x); }); }, Promise.resolve());
+      })
+      .then(function () { return u.db.salvarConfiguracao("rh_sabado", cfg); })
+      .then(function () {
+        sabadoSemanas = null;
+        u.toast("Rodízio de sábado salvo (" + sem.length + (sem.length === 1 ? " semana" : " semanas") + ").");
+        return carregar(true).then(desenharEscala);
+      }, u.mostrarErro)
+      .then(function () { u.ocupado(b, false); });
+  }
+
+  /* ---------------- Banco de horas pela escala ---------------- */
+
+  function desenharBancoEscala() {
+    var inicio = d.bancoEscalaInicio, fs = ativos(), c = ctx();
+    var html = '<div class="dupla"><label class="campo"><span>Contar a partir da semana de</span><input type="date" id="bh-inicio" value="' + esc(inicio || "") + '" /></label>' +
+      '<div class="campo"><span>&nbsp;</span><button type="button" class="botao" id="bh-salvar">' + (inicio ? "Mudar o início" : "Começar a contar") + "</button></div></div>";
+    if (!inicio) {
+      html += '<p class="vazio">Ainda não está contando. Escolha a semana de início.</p>';
+    } else if (fs.length) {
+      var ate = window.Feriados.somarDias(RH.segundaDaSemana(hoje()), 7 * 4 + 5);
+      var porF = fs.map(function (f) { return RH.bancoDaEscala(c, f, inicio, ate); });
+      var semanas = [];
+      porF.forEach(function (l) { l.forEach(function (w) { if (semanas.indexOf(w.segunda) < 0) semanas.push(w.segunda); }); });
+      semanas.sort();
+      var sinal = function (m) { return (m > 0 ? "+" : m < 0 ? "−" : "") + RH.horas(Math.abs(m)); };
+      html += '<div class="tabela-rolagem"><table class="tabela-banco-escala"><thead><tr><th>Semana</th>' +
+        fs.map(function (f) { return "<th>" + esc(primeiroNome(f.nome)) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+        semanas.map(function (seg) {
+          var futura = window.Feriados.somarDias(seg, 5) > hoje();
+          return '<tr class="' + (futura ? "futura" : "") + '"><th>' + esc(u.dataBR(seg).slice(0, 5)) + "–" + esc(u.dataBR(window.Feriados.somarDias(seg, 5)).slice(0, 5)) +
+            (futura ? '<br><small class="suave">prevista</small>' : "") + "</th>" +
+            porF.map(function (l) {
+              var w = l.filter(function (x) { return x.segunda === seg; })[0];
+              if (!w) return '<td class="suave">—</td>';
+              return '<td><strong class="' + (w.saldo > 0 ? "cor-sobra" : w.saldo < 0 ? "cor-falta" : "") + '">' + sinal(w.saldo) + "</strong>" +
+                '<br><small class="suave">' + RH.horas(w.minutos) + " · total " + sinal(w.acumulado) + "</small></td>";
+            }).join("") + "</tr>";
+        }).join("") + "</tbody></table></div>" +
+        '<p class="suave mini">Semanas "previstas" ainda não entraram no banco: entram no sábado de cada uma. O saldo completo (com lançamentos à mão e folgas do banco) fica em RH &gt; Banco de horas.</p>';
+    }
+    $("esc-banco").innerHTML = html;
+  }
+  function salvarInicioBanco() {
+    var v = $("bh-inicio").value;
+    if (!v) { u.mostrarErro({ message: "Escolha a semana em que o banco de horas pela escala começa." }); return; }
+    v = RH.segundaDaSemana(v);
+    if (d.bancoEscalaInicio && !confirm("Mudar o início do banco de horas pela escala para a semana de " + u.dataBR(v) + "? O saldo de todos é recalculado.")) return;
+    u.db.salvarConfiguracao("rh_banco_escala_inicio", v).then(function () {
+      u.toast("Banco de horas pela escala a partir de " + u.dataBR(v) + ".");
+      return carregar(true).then(desenharEscala);
+    }, u.mostrarErro);
   }
 
   function salvarHorario(id) {
@@ -362,12 +512,14 @@
       var e = el.querySelector('[data-dia="' + i + '"][data-campo="entrada"]').value;
       var s = el.querySelector('[data-dia="' + i + '"][data-campo="saida"]').value;
       var iv = el.querySelector('[data-dia="' + i + '"][data-campo="intervalo"]').value;
+      var alm = el.querySelector('[data-dia="' + i + '"][data-campo="almoco"]').value;
       if (!e && !s) return;
       if (!RH.lerHora(e) || !RH.lerHora(s)) { erro = "Preencha entrada e saída de " + RH.DIAS[i] + " (ou deixe as duas vazias)."; return; }
       var n = iv === "" ? 0 : parseInt(iv, 10);
       if (!(n >= 0 && n <= 240)) { erro = "Almoço de " + RH.DIAS[i] + ": de 0 a 240 minutos."; return; }
       dias[String(i)] = { entrada: RH.lerHora(e), saida: RH.lerHora(s) };
       if (n) dias[String(i)].intervalo = n;
+      if (alm && n) dias[String(i)].almoco = RH.lerHora(alm);
       if (RH.minutosDoDia(dias[String(i)]) <= 0) erro = "Em " + RH.DIAS[i] + " o almoço é maior que o dia de trabalho.";
     });
     if (erro) { u.mostrarErro({ message: erro }); return; }
@@ -708,6 +860,22 @@
       if (a && confirm("Apagar este horário?")) {
         u.db.apagarRH("horarios", a.dataset.apagarHorario).then(function () { return carregar(true).then(desenharEscala); }, u.mostrarErro);
       }
+    });
+    $("esc-sabado").addEventListener("change", function (ev) {
+      var s = ev.target.closest("[data-sab-semana]");
+      if (!s) return;
+      semanasSabado()[+s.dataset.sabSemana][s.dataset.sabFunc] = s.value;
+      desenharSabado();
+    });
+    $("esc-sabado").addEventListener("click", function (ev) {
+      var b = ev.target.closest("button");
+      if (!b) return;
+      if (b.id === "sab-mais") { semanasSabado().push({}); desenharSabado(); }
+      if (b.id === "sab-menos") { semanasSabado().pop(); desenharSabado(); }
+      if (b.id === "sab-salvar") salvarSabado();
+    });
+    $("esc-banco").addEventListener("click", function (ev) {
+      if (ev.target.id === "bh-salvar") salvarInicioBanco();
     });
     $("esc-turmas").addEventListener("click", function (ev) {
       var s = ev.target.closest("[data-salvar-turma]"), a = ev.target.closest("[data-apagar-turma]");

@@ -108,7 +108,8 @@
         return RH.horas(a.minutos) + " até " + u.dataBR(a.vence);
       }).map(esc).join("; ") + ".</p>" : "") +
       (ex.length ? '<ul class="lista-versoes">' + ex.map(function (x) {
-        var apagar = x.origem === "manual" ? '<button type="button" class="botao pequeno" data-apagar-bh="' + esc(x.id) + '" aria-label="Apagar">×</button>' :
+        var apagar = x.origem === "escala" ? '<span class="etiqueta">pela escala</span>' :
+          x.origem === "manual" ? '<button type="button" class="botao pequeno" data-apagar-bh="' + esc(x.id) + '" aria-label="Apagar">×</button>' :
           '<button type="button" class="botao pequeno" data-apagar-bh-oc="' + esc(x.id) + '" aria-label="Apagar">×</button>';
         return "<li><div><strong>" + esc(u.dataBR(x.data)) + ' · <span class="' + (x.minutos > 0 ? "cor-sobra" : "cor-falta") + '">' + esc(b.sinalHoras(x.minutos)) + "</span></strong>" +
           (x.data > hoje() ? ' <small class="suave">(futuro)</small>' : "") + "<br>" +

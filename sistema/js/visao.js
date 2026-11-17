@@ -32,7 +32,7 @@
     var el = $("visao-conteudo");
     if (!el.dataset.pronto) el.innerHTML = '<p class="vazio">Carregando…</p>';
     var rhNomes = ["funcionarios", "turmas", "horarios", "ocorrencias", "feriados", "holerites"];
-    var rhNovas = ["ferias", "banco_horas", "exames", "treinamentos"];   // podem faltar se o rh.sql não foi atualizado
+    var rhNovas = ["ferias", "banco_horas", "exames", "treinamentos", "sabado"];   // podem faltar se o rh.sql não foi atualizado
     Promise.all([
       u.db.listarConferencias({ de: de14, ate: hoje }),
       seguro(u.db.listarCielo({ de: de7, ate: hoje }), null),
@@ -41,7 +41,8 @@
       seguro(u.db.listarTrocas({ de: de7, ate: hoje }), []),
       seguro(u.escuta ? u.escuta.resumo() : Promise.reject(), null),
       seguro(Promise.all(rhNomes.map(function (n) { return u.db.listarRH(n); }).concat(rhNovas.map(function (n) { return seguro(u.db.listarRH(n), []); }),
-        [u.db.obterConfiguracao("rh_semana_ref"), seguro(u.db.obterConfiguracao("rh_encargos"), "")])), null)
+        [u.db.obterConfiguracao("rh_semana_ref"), seguro(u.db.obterConfiguracao("rh_encargos"), ""),
+          seguro(u.db.obterConfiguracao("rh_sabado"), ""), seguro(u.db.obterConfiguracao("rh_banco_escala_inicio"), "")])), null)
     ]).then(function (r) {
       if (meu !== pedido) return;
       desenhar(hoje, { confs: r[0] || [], cielo: r[1], banco: r[2], maquinas: r[3] || [], trocas: r[4] || [],
@@ -49,6 +50,7 @@
           var o = {}, todas = rhNomes.concat(rhNovas);
           todas.forEach(function (n, i) { o[n] = r[6][i] || []; });
           o.ref = r[6][todas.length]; o.encargos = r[6][todas.length + 1];
+          o.sabadoCfg = r[6][todas.length + 2]; o.bancoEscalaInicio = r[6][todas.length + 3];
           return o;
         })() : null });
     }, function (e) {
@@ -72,7 +74,8 @@
     if (d.rh && d.rh.funcionarios.length) {
       var ctx = { turmas: d.rh.turmas, horarios: d.rh.horarios, ref: d.rh.ref || RH.segundaDaSemana(hoje),
         ocorrencias: d.rh.ocorrencias, feriados: d.rh.feriados, ferias: d.rh.ferias, banco: d.rh.banco_horas, exames: d.rh.exames,
-        treinamentos: d.rh.treinamentos, funcionarios: d.rh.funcionarios, cfg: RF.lerEncargos(d.rh.encargos), hoje: hoje };
+        treinamentos: d.rh.treinamentos, funcionarios: d.rh.funcionarios, cfg: RF.lerEncargos(d.rh.encargos), hoje: hoje,
+        sabado: RH.lerSabado(d.rh.sabado, d.rh.sabadoCfg), bancoEscalaInicio: d.rh.bancoEscalaInicio || "" };
       var ativos = d.rh.funcionarios.filter(function (f) { return !f.desligamento || f.desligamento >= hoje; });
       equipe = RH.equipeDoDia(ctx, ativos, hoje);
       rhAvisos = RF.avisos(ctx);
